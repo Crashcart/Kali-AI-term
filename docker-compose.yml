@@ -5,7 +5,7 @@ services:
     build: .
     container_name: kali-hacker-bot
     ports:
-      - "3000:3000"
+      - "31337:3000"
     environment:
       - NODE_ENV=production
       - OLLAMA_URL=http://ollama:11434

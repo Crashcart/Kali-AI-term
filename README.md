@@ -57,7 +57,7 @@ Elite browser-based penetration testing terminal that bridges a local Ollama ins
 
 ### Prerequisites
 - Docker & Docker Compose installed
-- Port 3000 available (Web UI)
+- Port 31337 available (Web UI)
 - Port 11434 available (Ollama)
 
 ### Installation & Deployment
@@ -80,7 +80,7 @@ Elite browser-based penetration testing terminal that bridges a local Ollama ins
 
 4. **Access the terminal**
    ```
-   Open browser: http://localhost:3000
+   Open browser: http://localhost:31337
    Default password: kalibot
    ```
 
@@ -92,7 +92,7 @@ docker-compose down
 ## Usage Guide
 
 ### Authentication
-1. Navigate to `http://localhost:3000`
+1. Navigate to `http://localhost:31337`
 2. Enter the admin password (default: `kalibot`)
 3. You're logged in for 24 hours
 
@@ -142,7 +142,7 @@ docker-compose down
 
 ```bash
 NODE_ENV=production          # Environment
-PORT=3000                    # Web server port
+PORT=31337                   # Web server port
 OLLAMA_URL=http://ollama:11434  # Ollama API endpoint
 KALI_CONTAINER=kali-linux    # Container name
 ADMIN_PASSWORD=kalibot       # Login password

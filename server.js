@@ -9,7 +9,7 @@ const axios = require('axios');
 const expressStaticGzip = require('express-static-gzip');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 31337;
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const KALI_CONTAINER = process.env.KALI_CONTAINER || 'kali-linux';
 
