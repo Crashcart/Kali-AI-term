@@ -8,7 +8,7 @@ services:
       - "31337:3000"
     environment:
       - NODE_ENV=production
-      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_URL=http://host.docker.internal:11434
       - KALI_CONTAINER=kali-linux
       - LOG_LEVEL=info
     volumes:
@@ -16,7 +16,6 @@ services:
       - ./data:/app/data
     depends_on:
       - kali
-      - ollama
     networks:
       - pentest-net
     restart: unless-stopped
@@ -30,23 +29,6 @@ services:
       - pentest-net
     command: /bin/bash
     restart: unless-stopped
-    # Kali will be controlled via Docker API, not directly
-
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama-service
-    ports:
-      - "11434:11434"
-    environment:
-      - OLLAMA_MODELS=/root/.ollama/models
-    volumes:
-      - ollama-data:/root/.ollama
-    networks:
-      - pentest-net
-    restart: unless-stopped
-
-volumes:
-  ollama-data:
 
 networks:
   pentest-net:

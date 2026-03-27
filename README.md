@@ -48,8 +48,10 @@ Elite browser-based penetration testing terminal that bridges a local Ollama ins
 ┌─────────────────────────────────────────────────────────┐
 │  Docker Containers                                      │
 │  ├─ Kali Linux (Execution Environment)                  │
-│  ├─ Ollama (LLM Service)                                │
 │  └─ Bridge Network (Inter-container communication)      │
+│                                                         │
+│  Host Services                                          │
+│  └─ Ollama (LLM Service, port 11434)                    │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -58,7 +60,7 @@ Elite browser-based penetration testing terminal that bridges a local Ollama ins
 ### Prerequisites
 - Docker & Docker Compose installed
 - Port 31337 available (Web UI)
-- Port 11434 available (Ollama)
+- Ollama already installed and running on host (port 11434)
 
 ### Installation & Deployment
 
