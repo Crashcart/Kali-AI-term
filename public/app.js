@@ -52,8 +52,24 @@ class KaliHackerBot {
         this.clearIntelBtn = document.getElementById('clear-intel');
         this.clearWireBtn = document.getElementById('clear-wire');
 
-        // User info
+        // User info & settings
         this.userInfo = document.getElementById('user-info');
+        this.settingsBtn = document.getElementById('settings-btn');
+        this.settingsModal = document.getElementById('settings-modal');
+
+        // Settings form
+        this.ollamaUrlInput = document.getElementById('ollama-url');
+        this.ollamaModelInput = document.getElementById('ollama-model');
+        this.ollmaTempInput = document.getElementById('ollama-temp');
+        this.tempValueDisplay = document.getElementById('temp-value');
+        this.ollamaStatusBox = document.getElementById('ollama-status');
+        this.targetIPInput = document.getElementById('target-ip-input');
+        this.localIPInput = document.getElementById('local-ip-input');
+        this.listeningPortInput = document.getElementById('listening-port-input');
+        this.saveSettingsBtn = document.getElementById('save-settings');
+        this.resetSettingsBtn = document.getElementById('reset-settings');
+        this.refreshModelsBtn = document.getElementById('refresh-models');
+        this.closeSettingsBtn = document.getElementById('close-settings');
     }
 
     attachEventListeners() {
@@ -88,6 +104,30 @@ class KaliHackerBot {
         document.getElementById('cancel-btn').addEventListener('click', () => {
             this.closeConfirmModal();
         });
+
+        // Settings
+        this.settingsBtn.addEventListener('click', () => this.openSettings());
+        this.closeSettingsBtn.addEventListener('click', () => this.closeSettings());
+        this.saveSettingsBtn.addEventListener('click', () => this.saveSettings());
+        this.resetSettingsBtn.addEventListener('click', () => this.resetSettingsToDefaults());
+        this.refreshModelsBtn.addEventListener('click', () => this.refreshOllamaModels());
+
+        // Settings tabs
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this.switchTab(e.target.dataset.tab));
+        });
+
+        // Temperature slider
+        this.ollmaTempInput.addEventListener('input', (e) => {
+            this.tempValueDisplay.textContent = (e.target.value / 100).toFixed(2);
+        });
+
+        // Close modal on background click
+        this.settingsModal.addEventListener('click', (e) => {
+            if (e.target === this.settingsModal) {
+                this.closeSettings();
+            }
+        });
     }
 
     // ============================================
@@ -98,6 +138,7 @@ class KaliHackerBot {
         if (this.token && this.sessionId) {
             this.showMainApp();
             this.updateUserInfo();
+            this.loadSettings();
         } else {
             this.showLoginModal();
         }
@@ -421,6 +462,135 @@ Provide a concise technical analysis and suggest the next command.`;
         this.wireStream.appendChild(line);
 
         this.wireStream.scrollTop = this.wireStream.scrollHeight;
+    }
+
+    // ============================================
+    // SETTINGS
+    // ============================================
+
+    openSettings() {
+        this.loadSettings();
+        this.settingsModal.classList.add('active');
+    }
+
+    closeSettings() {
+        this.settingsModal.classList.remove('active');
+    }
+
+    loadSettings() {
+        const settings = JSON.parse(localStorage.getItem('settings')) || {};
+
+        this.ollamaUrlInput.value = settings.ollamaUrl || 'http://host.docker.internal:11434';
+        this.ollamaModelInput.value = settings.ollamaModel || 'dolphin-mixtral';
+        this.ollmaTempInput.value = settings.ollamaTemp || 70;
+        this.tempValueDisplay.textContent = (this.ollmaTempInput.value / 100).toFixed(2);
+
+        this.targetIPInput.value = settings.targetIP || this.targetIP;
+        this.localIPInput.value = settings.localIP || this.localIP;
+        this.listeningPortInput.value = settings.listeningPort || this.listeningPort;
+
+        this.checkOllamaStatus();
+    }
+
+    saveSettings() {
+        const settings = {
+            ollamaUrl: this.ollamaUrlInput.value,
+            ollamaModel: this.ollamaModelInput.value,
+            ollamaTemp: this.ollmaTempInput.value,
+            targetIP: this.targetIPInput.value,
+            localIP: this.localIPInput.value,
+            listeningPort: this.listeningPortInput.value
+        };
+
+        localStorage.setItem('settings', JSON.stringify(settings));
+
+        // Update in-memory values
+        this.targetIP = settings.targetIP;
+        this.localIP = settings.localIP;
+        this.listeningPort = settings.listeningPort;
+
+        // Update HUD
+        this.targetIPDisplay.textContent = this.targetIP;
+        this.localIPDisplay.textContent = this.localIP;
+        this.listeningPortDisplay.textContent = this.listeningPort;
+
+        this.addIntelligenceMessage('✓ Settings saved', 'green');
+        this.closeSettings();
+    }
+
+    resetSettingsToDefaults() {
+        if (!confirm('Reset all settings to defaults?')) return;
+
+        localStorage.removeItem('settings');
+        this.loadSettings();
+        this.addIntelligenceMessage('✓ Settings reset to defaults', 'green');
+    }
+
+    switchTab(tabName) {
+        // Hide all tabs
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            tab.classList.remove('active');
+        });
+
+        // Remove active from all buttons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+
+        // Show selected tab
+        document.getElementById(`tab-${tabName}`).classList.add('active');
+
+        // Mark button as active
+        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+    }
+
+    async checkOllamaStatus() {
+        const ollamaUrl = this.ollamaUrlInput.value;
+
+        try {
+            const response = await fetch(`${ollamaUrl}/api/tags`, {
+                headers: { 'Authorization': `Bearer ${this.token}` }
+            });
+
+            if (response.ok) {
+                this.ollamaStatusBox.textContent = '✓ Connected - Ollama is healthy';
+                this.ollamaStatusBox.classList.add('connected');
+                this.ollamaStatusBox.classList.remove('disconnected');
+            } else {
+                throw new Error('Connection failed');
+            }
+        } catch (err) {
+            this.ollamaStatusBox.textContent = `✗ Disconnected - ${err.message}`;
+            this.ollamaStatusBox.classList.remove('connected');
+            this.ollamaStatusBox.classList.add('disconnected');
+        }
+    }
+
+    async refreshOllamaModels() {
+        const ollamaUrl = this.ollamaUrlInput.value;
+        this.refreshModelsBtn.textContent = '⏳ LOADING...';
+        this.refreshModelsBtn.disabled = true;
+
+        try {
+            const response = await fetch(`${ollamaUrl}/api/tags`);
+            const data = await response.json();
+
+            if (data.models && data.models.length > 0) {
+                this.ollamaModelInput.innerHTML = '';
+                data.models.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.name;
+                    option.textContent = model.name;
+                    this.ollamaModelInput.appendChild(option);
+                });
+                this.addIntelligenceMessage('✓ Models refreshed from Ollama', 'green');
+            }
+        } catch (err) {
+            this.addIntelligenceMessage(`❌ Failed to fetch models: ${err.message}`, 'red');
+        } finally {
+            this.refreshModelsBtn.textContent = '🔄 REFRESH';
+            this.refreshModelsBtn.disabled = false;
+        }
     }
 
     // ============================================

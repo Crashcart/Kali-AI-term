@@ -25,7 +25,9 @@
                     <span>TARGET</span>
                 </div>
             </div>
-            <div class="user-info" id="user-info"></div>
+            <div class="user-info" id="user-info">
+                <button class="btn-settings" id="settings-btn" title="Settings">⚙️</button>
+            </div>
         </div>
 
         <!-- Main Content Area -->
@@ -139,6 +141,107 @@
                 <div class="modal-actions">
                     <button class="btn btn-primary" id="confirm-btn">EXECUTE</button>
                     <button class="btn btn-secondary" id="cancel-btn">CANCEL</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal for Settings -->
+        <div class="modal" id="settings-modal">
+            <div class="modal-content settings-content">
+                <div class="settings-header">
+                    <h2>⚙️ SETTINGS</h2>
+                    <button class="btn-small" id="close-settings">×</button>
+                </div>
+
+                <div class="settings-tabs">
+                    <button class="tab-btn active" data-tab="ollama">OLLAMA</button>
+                    <button class="tab-btn" data-tab="target">TARGET</button>
+                    <button class="tab-btn" data-tab="general">GENERAL</button>
+                </div>
+
+                <!-- Ollama Tab -->
+                <div class="tab-content active" id="tab-ollama">
+                    <div class="setting-group">
+                        <label>Ollama URL</label>
+                        <input type="text" id="ollama-url" placeholder="http://host.docker.internal:11434" class="setting-input" />
+                        <small>Base URL for Ollama API</small>
+                    </div>
+
+                    <div class="setting-group">
+                        <label>Model</label>
+                        <div class="model-selector">
+                            <select id="ollama-model" class="setting-input">
+                                <option value="dolphin-mixtral">Dolphin Mixtral</option>
+                                <option value="neural-chat">Neural Chat</option>
+                                <option value="mistral">Mistral</option>
+                                <option value="llama2">Llama 2</option>
+                            </select>
+                            <button class="btn btn-small" id="refresh-models">🔄 REFRESH</button>
+                        </div>
+                        <small>Select LLM model for AI reasoning</small>
+                    </div>
+
+                    <div class="setting-group">
+                        <label>Temperature</label>
+                        <div class="slider-container">
+                            <input type="range" id="ollama-temp" min="0" max="100" value="70" class="slider" />
+                            <span id="temp-value">0.70</span>
+                        </div>
+                        <small>Higher = more creative, Lower = more deterministic</small>
+                    </div>
+
+                    <div class="setting-group">
+                        <label>Status</label>
+                        <div id="ollama-status" class="status-box">
+                            Checking...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Target Tab -->
+                <div class="tab-content" id="tab-target">
+                    <div class="setting-group">
+                        <label>Target IP</label>
+                        <input type="text" id="target-ip-input" placeholder="192.168.1.100" class="setting-input" />
+                        <small>IP address of target system</small>
+                    </div>
+
+                    <div class="setting-group">
+                        <label>Local IP</label>
+                        <input type="text" id="local-ip-input" placeholder="192.168.1.50" class="setting-input" />
+                        <small>Your local IP address</small>
+                    </div>
+
+                    <div class="setting-group">
+                        <label>Listening Port</label>
+                        <input type="number" id="listening-port-input" placeholder="4444" class="setting-input" min="1" max="65535" />
+                        <small>Port for reverse shell listeners</small>
+                    </div>
+                </div>
+
+                <!-- General Tab -->
+                <div class="tab-content" id="tab-general">
+                    <div class="setting-group">
+                        <label>Default Password</label>
+                        <input type="password" id="admin-password" class="setting-input" />
+                        <small>Admin password (if you change it)</small>
+                    </div>
+
+                    <div class="setting-group">
+                        <label>Auto-Clear Streams After (minutes)</label>
+                        <input type="number" id="auto-clear-time" placeholder="0" class="setting-input" min="0" max="1440" />
+                        <small>0 = disabled</small>
+                    </div>
+
+                    <div class="setting-group">
+                        <label>Session Timeout (hours)</label>
+                        <input type="number" id="session-timeout" placeholder="24" class="setting-input" min="1" max="168" />
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn btn-primary" id="save-settings">SAVE SETTINGS</button>
+                    <button class="btn btn-secondary" id="reset-settings">RESET</button>
                 </div>
             </div>
         </div>
