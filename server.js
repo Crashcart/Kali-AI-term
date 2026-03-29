@@ -7,6 +7,8 @@ const { v4: uuidv4 } = require('uuid');
 const Docker = require('dockerode');
 const axios = require('axios');
 const expressStaticGzip = require('express-static-gzip');
+const reportPlugin = require('./plugins/report-plugin');
+const db = require('./db/init');
 
 const app = express();
 const PORT = process.env.PORT || 31337;
@@ -63,11 +65,8 @@ app.use(expressStaticGzip(path.join(__dirname, 'public'), {
 // Docker client
 const docker = new Docker({ socketPath: '/var/run/docker.sock' });
 
-// Session storage
-const sessions = new Map();
-
-// Command history per session
-const commandHistory = new Map();
+// Initialize database
+db.initializeDatabase();
 
 // Active exec processes (for kill switch)
 const activeProcesses = new Map();
@@ -195,15 +194,10 @@ app.post('/api/auth/login', (req, res) => {
 
   const sessionId = uuidv4();
   const token = Buffer.from(`${sessionId}:${AUTH_SECRET}`).toString('base64');
+  const expiresAt = new Date(Date.now() + (24 * 60 * 60 * 1000));
 
-  sessions.set(sessionId, {
-    createdAt: Date.now(),
-    expiresAt: Date.now() + (24 * 60 * 60 * 1000),
-    userId: 'admin',
-    notes: '',
-  });
-
-  commandHistory.set(sessionId, []);
+  // Save session to database
+  db.createSession(sessionId, token, AUTH_SECRET, expiresAt.toISOString());
 
   res.json({ token, sessionId });
 });
@@ -220,11 +214,16 @@ function authenticate(req, res, next) {
     const colonIdx = decoded.indexOf(':');
     const sessionId = decoded.substring(0, colonIdx);
     const secret = decoded.substring(colonIdx + 1);
-    const session = sessions.get(sessionId);
 
-    if (!session || session.expiresAt < Date.now() || secret !== AUTH_SECRET) {
+    // Get session from database
+    const session = db.getSession(sessionId);
+
+    if (!session || secret !== AUTH_SECRET) {
       return res.status(401).json({ error: 'Invalid token' });
     }
+
+    // Update last activity
+    db.updateSessionActivity(sessionId);
 
     req.sessionId = sessionId;
     next();
@@ -244,14 +243,9 @@ app.post('/api/docker/exec', authenticate, async (req, res) => {
     return res.status(400).json({ error: 'Command required' });
   }
 
-  // Store in history
-  const history = commandHistory.get(req.sessionId) || [];
-  history.push({ command, timestamp: new Date().toISOString() });
-  if (history.length > 500) history.shift();
-  commandHistory.set(req.sessionId, history);
-
   try {
     const container = docker.getContainer(KALI_CONTAINER);
+    const startTime = Date.now();
 
     const exec = await container.exec({
       Cmd: ['bash', '-c', command],
@@ -262,6 +256,7 @@ app.post('/api/docker/exec', authenticate, async (req, res) => {
     const execId = exec.id;
     const stream = await exec.start({ Detach: false });
     let output = '';
+    let errorOutput = '';
     let timedOut = false;
 
     activeProcesses.set(execId, exec);
@@ -280,6 +275,12 @@ app.post('/api/docker/exec', authenticate, async (req, res) => {
     stream.on('end', () => {
       clearTimeout(timer);
       activeProcesses.delete(execId);
+
+      const durationSeconds = Math.round((Date.now() - startTime) / 1000);
+
+      // Store command in database
+      db.addCommand(req.sessionId, command, durationSeconds, output, errorOutput, !timedOut);
+
       res.json({
         success: true,
         output: output,
@@ -614,46 +615,297 @@ app.get('/api/cve/:cveId', authenticate, async (req, res) => {
 
 // Get command history
 app.get('/api/session/history', authenticate, (req, res) => {
-  const history = commandHistory.get(req.sessionId) || [];
+  const history = db.getCommandHistory(req.sessionId, 100);
   res.json({ history });
 });
 
 // Session notes (scratchpad)
 app.get('/api/session/notes', authenticate, (req, res) => {
-  const session = sessions.get(req.sessionId);
-  res.json({ notes: session ? session.notes : '' });
+  const notes = db.getSessionNotes(req.sessionId);
+  res.json({ notes });
 });
 
 app.post('/api/session/notes', authenticate, (req, res) => {
   const { notes } = req.body;
-  const session = sessions.get(req.sessionId);
-  if (session) {
-    session.notes = notes || '';
+  try {
+    db.updateSessionNotes(req.sessionId, notes || '');
     res.json({ success: true });
-  } else {
-    res.status(404).json({ error: 'Session not found' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save notes' });
   }
 });
 
 // Export session data
 app.get('/api/session/export', authenticate, (req, res) => {
-  const session = sessions.get(req.sessionId);
-  const history = commandHistory.get(req.sessionId) || [];
-
-  const exportData = {
-    sessionId: req.sessionId,
-    exportedAt: new Date().toISOString(),
-    session: {
-      createdAt: session ? new Date(session.createdAt).toISOString() : null,
-      notes: session ? session.notes : '',
-    },
-    commandHistory: history,
-  };
+  const exportData = db.exportSessionData(req.sessionId);
 
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Content-Disposition', `attachment; filename="pentest-session-${req.sessionId.slice(0, 8)}-${Date.now()}.json"`);
   res.json(exportData);
 });
+
+// Generate pentesting report
+app.post('/api/reports/generate', authenticate, (req, res) => {
+  try {
+    const { format = 'html', includeCommandHistory = true, includeCVEs = true } = req.body;
+    const session = db.getSession(req.sessionId);
+    const history = db.getCommandHistory(req.sessionId, 100);
+
+    // Collect findings from database
+    const findings = db.getFindingsWithCVEs(req.sessionId);
+    const sessionNotes = db.getSessionNotes(req.sessionId);
+
+    // Calculate session duration
+    let sessionDuration = 0;
+    if (session && session.created_at) {
+      const createdAt = new Date(session.created_at).getTime();
+      sessionDuration = Math.round((Date.now() - createdAt) / 1000);
+    }
+
+    // Generate base report data
+    const reportData = {
+      title: 'Penetration Testing Report',
+      generated: new Date().toISOString(),
+      sessionId: req.sessionId.slice(0, 8),
+      sessionDuration: sessionDuration,
+      totalFindings: findings.length,
+      criticalCount: findings.filter(f => f.severity === 'CRITICAL').length,
+      highCount: findings.filter(f => f.severity === 'HIGH').length,
+      mediumCount: findings.filter(f => f.severity === 'MEDIUM').length,
+      lowCount: findings.filter(f => f.severity === 'LOW').length,
+      infoCount: findings.filter(f => f.severity === 'INFO').length,
+      findings: findings,
+      commandHistory: includeCommandHistory ? history : [],
+      sessionNotes: sessionNotes,
+    };
+
+    if (format === 'json') {
+      // Return JSON format
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="pentest-report-${req.sessionId.slice(0, 8)}-${Date.now()}.json"`);
+      res.json(reportData);
+    } else if (format === 'html') {
+      // Generate HTML report
+      const htmlReport = generateHTMLReport(reportData);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="pentest-report-${req.sessionId.slice(0, 8)}-${Date.now()}.html"`);
+      res.send(htmlReport);
+    } else if (format === 'markdown') {
+      // Generate Markdown report
+      const mdReport = reportPlugin.exportReport('markdown');
+      res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="pentest-report-${req.sessionId.slice(0, 8)}-${Date.now()}.md"`);
+      res.send(mdReport);
+    } else {
+      res.status(400).json({ error: 'Invalid format. Use: json, html, or markdown' });
+    }
+  } catch (err) {
+    console.error('Report generation error:', err);
+    res.status(500).json({ error: 'Failed to generate report', details: err.message });
+  }
+});
+
+// Helper function to generate HTML report
+function generateHTMLReport(reportData) {
+  const bySeverity = {};
+  reportData.findings.forEach(f => {
+    if (!bySeverity[f.severity]) bySeverity[f.severity] = [];
+    bySeverity[f.severity].push(f);
+  });
+
+  const severityColors = {
+    CRITICAL: '#ff0000',
+    HIGH: '#ff6600',
+    MEDIUM: '#ffaa00',
+    LOW: '#ffff00',
+    INFO: '#00ff00'
+  };
+
+  const severityOrder = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
+
+  let findingsHTML = '';
+  severityOrder.forEach(severity => {
+    if (bySeverity[severity]) {
+      findingsHTML += `
+        <h3 style="color: ${severityColors[severity]}; border-bottom: 2px solid ${severityColors[severity]}; padding: 10px 0;">
+          ${severity} Severity (${bySeverity[severity].length} findings)
+        </h3>
+      `;
+      bySeverity[severity].forEach((finding, idx) => {
+        findingsHTML += `
+          <div style="border-left: 4px solid ${severityColors[severity]}; padding: 10px; margin: 10px 0; background: rgba(0, 0, 0, 0.1);">
+            <h4 style="margin: 0 0 5px 0;">Finding ${idx + 1}</h4>
+            <p><strong>Timestamp:</strong> ${finding.timestamp}</p>
+            <p><strong>Query:</strong> ${finding.query}</p>
+            <p><strong>Description:</strong> ${finding.description}</p>
+            ${finding.cves && finding.cves.length > 0 ? `<p><strong>Related CVEs:</strong> ${finding.cves.join(', ')}</p>` : ''}
+          </div>
+        `;
+      });
+    }
+  });
+
+  const commandHistoryHTML = reportData.commandHistory.length > 0 ? `
+    <section>
+      <h2>Command Execution History</h2>
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead style="background: #222; border: 1px solid #0f0;">
+          <tr>
+            <th style="border: 1px solid #0f0; padding: 8px; text-align: left;">Timestamp</th>
+            <th style="border: 1px solid #0f0; padding: 8px; text-align: left;">Command</th>
+            <th style="border: 1px solid #0f0; padding: 8px; text-align: left;">Duration (s)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${reportData.commandHistory.map(cmd => `
+            <tr style="border: 1px solid #0f0;">
+              <td style="border: 1px solid #0f0; padding: 8px;">${new Date(cmd.timestamp).toLocaleString()}</td>
+              <td style="border: 1px solid #0f0; padding: 8px; font-family: monospace;">${cmd.command}</td>
+              <td style="border: 1px solid #0f0; padding: 8px;">${cmd.duration || 'N/A'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </section>
+  ` : '';
+
+  const notesSection = reportData.sessionNotes ? `
+    <section>
+      <h2>Session Notes</h2>
+      <div style="background: rgba(0, 255, 0, 0.05); border: 1px dashed #0f0; padding: 10px; border-radius: 4px;">
+        ${reportData.sessionNotes.split('\n').map(line => `<p>${line || '<br>'}</p>`).join('')}
+      </div>
+    </section>
+  ` : '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Penetration Testing Report</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Courier New', monospace;
+      background: #0a0a0a;
+      color: #0f0;
+      line-height: 1.6;
+      padding: 20px;
+    }
+    .container { max-width: 1000px; margin: 0 auto; }
+    header {
+      text-align: center;
+      border-bottom: 2px solid #0f0;
+      padding: 20px 0;
+      margin-bottom: 30px;
+    }
+    h1 {
+      font-size: 2em;
+      text-shadow: 0 0 10px #0f0;
+      margin-bottom: 10px;
+    }
+    h2 {
+      color: #0f0;
+      border-bottom: 1px solid #0f0;
+      padding: 10px 0;
+      margin: 20px 0 10px 0;
+      text-shadow: 0 0 5px #0f0;
+    }
+    h3 { margin: 15px 0 10px 0; font-weight: bold; }
+    h4 { color: #0f0; }
+    p { margin: 8px 0; }
+    section { margin: 20px 0; padding: 10px; border: 1px solid #0f0; border-radius: 4px; }
+    table { background: #111; }
+    th, td { text-align: left; padding: 12px; border: 1px solid #0f0; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin: 20px 0;
+    }
+    .stat-box {
+      background: #111;
+      border: 1px solid #0f0;
+      padding: 15px;
+      text-align: center;
+      border-radius: 4px;
+    }
+    .stat-number {
+      font-size: 2em;
+      font-weight: bold;
+      color: #0f0;
+      text-shadow: 0 0 10px #0f0;
+    }
+    .stat-label { font-size: 0.9em; color: #0a0; margin-top: 5px; }
+    .metadata { font-size: 0.9em; color: #0a0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>⚔️ Penetration Testing Report</h1>
+      <p class="metadata">Generated: ${new Date(reportData.generated).toLocaleString()}</p>
+      <p class="metadata">Session ID: ${reportData.sessionId}</p>
+      <p class="metadata">Duration: ${reportData.sessionDuration} seconds</p>
+    </header>
+
+    <section>
+      <h2>Executive Summary</h2>
+      <div class="stats">
+        <div class="stat-box">
+          <div class="stat-number">${reportData.totalFindings}</div>
+          <div class="stat-label">Total Findings</div>
+        </div>
+        <div class="stat-box" style="border-color: #ff0000;">
+          <div class="stat-number" style="color: #ff0000; text-shadow: 0 0 10px #ff0000;">${reportData.criticalCount}</div>
+          <div class="stat-label">Critical</div>
+        </div>
+        <div class="stat-box" style="border-color: #ff6600;">
+          <div class="stat-number" style="color: #ff6600; text-shadow: 0 0 10px #ff6600;">${reportData.highCount}</div>
+          <div class="stat-label">High</div>
+        </div>
+        <div class="stat-box" style="border-color: #ffaa00;">
+          <div class="stat-number" style="color: #ffaa00; text-shadow: 0 0 10px #ffaa00;">${reportData.mediumCount}</div>
+          <div class="stat-label">Medium</div>
+        </div>
+        <div class="stat-box" style="border-color: #ffff00;">
+          <div class="stat-number" style="color: #ffff00; text-shadow: 0 0 10px #ffff00;">${reportData.lowCount}</div>
+          <div class="stat-label">Low</div>
+        </div>
+      </div>
+    </section>
+
+    ${reportData.totalFindings > 0 ? `
+      <section>
+        <h2>Detailed Findings</h2>
+        ${findingsHTML}
+      </section>
+    ` : '<section><h2>No Findings</h2><p>No vulnerabilities or findings were recorded during this session.</p></section>'}
+
+    ${commandHistoryHTML}
+    ${notesSection}
+
+    <section style="margin-top: 30px; border-top: 2px solid #0f0; padding-top: 20px;">
+      <h2>Recommendations</h2>
+      <ol>
+        <li>Prioritize remediation of CRITICAL and HIGH severity findings</li>
+        <li>Cross-reference all identified CVEs with available patches</li>
+        <li>Implement controls to prevent identified vulnerabilities</li>
+        <li>Re-test systems after remediation efforts</li>
+        <li>Document all changes and maintain audit logs for compliance</li>
+        <li>Conduct regular security assessments to identify new risks</li>
+      </ol>
+    </section>
+
+    <footer style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #0f0; text-align: center; font-size: 0.9em; color: #0a0;">
+      <p>Report generated by Kali Hacker Bot v1.0 - ${new Date().toLocaleString()}</p>
+      <p style="margin-top: 10px;">Classified as: PENETRATION TEST FINDINGS</p>
+    </footer>
+  </div>
+</body>
+</html>`;
+}
 
 // ============================================
 // PLUGIN MANAGEMENT

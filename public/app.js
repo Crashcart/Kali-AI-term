@@ -79,6 +79,7 @@ class KaliHackerBot {
         // Top actions
         this.fullscreenBtn = document.getElementById('fullscreen-btn');
         this.notepadBtn = document.getElementById('notepad-btn');
+        this.reportBtn = document.getElementById('report-btn');
         this.exportBtn = document.getElementById('export-btn');
         this.settingsBtn = document.getElementById('settings-btn');
 
@@ -183,6 +184,7 @@ class KaliHackerBot {
         // Top actions
         this.fullscreenBtn.addEventListener('click', () => this.toggleFullscreen());
         this.notepadBtn.addEventListener('click', () => this.openNotepad());
+        this.reportBtn.addEventListener('click', () => this.generateReport());
         this.exportBtn.addEventListener('click', () => this.exportSession());
         this.settingsBtn.addEventListener('click', () => this.openSettings());
 
@@ -1193,6 +1195,75 @@ Format: <one-liner command suggestion>`;
         } catch (err) {
             this.addIntelligenceMessage(`❌ Export failed: ${err.message}`, 'red');
         }
+    }
+
+    async generateReport() {
+        try {
+            this.addIntelligenceMessage('📋 Generating report...', 'cyan');
+
+            // Show format selection dialog
+            const format = await this.promptReportFormat();
+            if (!format) return;
+
+            // Generate report
+            const response = await fetch('/api/reports/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+                },
+                body: JSON.stringify({
+                    format: format,
+                    includeCommandHistory: true,
+                    includeCVEs: true
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Report generation failed: ${response.statusText}`);
+            }
+
+            // Download the report
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+
+            const ext = format === 'json' ? 'json' : format === 'html' ? 'html' : 'md';
+            a.download = `pentest-report-${Date.now()}.${ext}`;
+            a.click();
+
+            this.addIntelligenceMessage(`✓ Report generated (${format})`, 'green');
+        } catch (err) {
+            this.addIntelligenceMessage(`❌ Report generation failed: ${err.message}`, 'red');
+        }
+    }
+
+    promptReportFormat() {
+        return new Promise((resolve) => {
+            const formats = ['HTML', 'JSON', 'Markdown'];
+            let html = '<div style="padding: 10px;">';
+            html += '<p style="margin-bottom: 15px;">Select report format:</p>';
+            html += '<div style="display: flex; gap: 10px;">';
+            formats.forEach(fmt => {
+                html += `<button class="report-fmt-btn" data-fmt="${fmt.toLowerCase()}" style="flex: 1; padding: 10px; border: 1px solid #0f0; background: #000; color: #0f0; cursor: pointer; border-radius: 4px;">${fmt}</button>`;
+            });
+            html += '</div></div>';
+
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #000; border: 2px solid #0f0; padding: 20px; z-index: 10000; min-width: 300px; box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);';
+            modal.innerHTML = html;
+            document.body.appendChild(modal);
+
+            const buttons = modal.querySelectorAll('.report-fmt-btn');
+            buttons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const format = btn.getAttribute('data-fmt');
+                    modal.remove();
+                    resolve(format);
+                });
+            });
+        });
     }
 
     // ============================================
