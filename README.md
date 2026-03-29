@@ -70,7 +70,28 @@ Key topics covered:
 
 ## Quick Start
 
-### Prerequisites
+### Easy Install (Recommended)
+
+**One-command installation with automatic setup:**
+
+```bash
+git clone https://github.com/Crashcart/Kali-AI-term.git
+cd Kali-AI-term
+./install.sh
+```
+
+The script will:
+- ✓ Check all prerequisites (Docker, Node.js, Ollama)
+- ✓ Generate secure `.env` configuration
+- ✓ Install dependencies
+- ✓ Start Docker containers
+- ✓ Display access credentials
+
+Then open `http://localhost:31337` and start pentesting!
+
+### Manual Installation
+
+**Prerequisites**
 - Docker & Docker Compose installed
 - Port 31337 available (Web UI)
 - Ollama already installed and running on host (port 11434)
