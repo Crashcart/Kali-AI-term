@@ -21,6 +21,14 @@ class KaliHackerBot {
         this.panelSplitRatio = 0.5;
         this.quickCmdsCollapsed = false;
 
+        // Plugin system
+        this.plugins = new Map();
+        this.enabledPlugins = [];
+        this.defaultModels = [
+            { id: 'dolphin-mixtral', name: 'Dolphin Mixtral', recommended: true },
+            { id: 'neural-chat:7b', name: 'Neural Chat 7B', recommended: true }
+        ];
+
         this.initializeElements();
         this.attachEventListeners();
         this.loadUserSettings();
@@ -141,6 +149,10 @@ class KaliHackerBot {
         this.closeNotepadBtn = document.getElementById('close-notepad');
         this.saveNotepadBtn = document.getElementById('save-notepad');
         this.clearNotepadBtn = document.getElementById('clear-notepad');
+
+        // Plugin management (optional elements)
+        this.llmModelSelector = document.getElementById('llm-model-selector');
+        this.pluginsList = document.getElementById('plugins-list');
     }
 
     attachEventListeners() {
@@ -434,6 +446,7 @@ class KaliHackerBot {
         this.soundEnabled = saved.soundEnabled !== false;
         this.panelSplitRatio = saved.panelSplitRatio || 0.5;
         this.quickCmdsCollapsed = saved.quickCmdsCollapsed || false;
+        this.enabledPlugins = saved.enabledPlugins || ['cve-plugin', 'threat-intel-plugin'];
 
         // Apply theme
         const theme = saved.theme || 'default';
@@ -453,6 +466,7 @@ class KaliHackerBot {
 
         this.loadSessionNotes();
         this.loadCommandHistory();
+        this.loadPlugins();
     }
 
     saveUserSettings() {
@@ -468,6 +482,7 @@ class KaliHackerBot {
             theme: this.themeSelect.value,
             panelSplitRatio: this.panelSplitRatio,
             quickCmdsCollapsed: this.quickCmdsCollapsed,
+            enabledPlugins: this.enabledPlugins,
         };
 
         localStorage.setItem('userSettings', JSON.stringify(settings));
@@ -851,6 +866,118 @@ Format: <one-liner command suggestion>`;
 
         document.getElementById(`tab-${tabName}`).classList.add('active');
         document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+
+        // Load plugins UI when switching to plugins tab
+        if (tabName === 'plugins') {
+            this.loadPluginsUI();
+        }
+    }
+
+    // ============================================
+    // PLUGIN MANAGEMENT
+    // ============================================
+
+    async loadPlugins() {
+        try {
+            const response = await this.apiCall('/api/plugins', 'GET');
+            if (response.data.success) {
+                this.enabledPlugins = response.data.plugins.filter(p => p.enabled).map(p => p.name);
+                this.plugins.clear();
+                response.data.plugins.forEach(p => {
+                    this.plugins.set(p.name, p);
+                });
+                return response.data.plugins;
+            }
+        } catch (err) {
+            console.error('Failed to load plugins:', err);
+        }
+        return [];
+    }
+
+    async loadPluginsUI() {
+        const plugins = await this.loadPlugins();
+        if (!this.pluginsList) return;
+
+        this.pluginsList.innerHTML = '';
+        plugins.forEach(plugin => {
+            const div = document.createElement('div');
+            div.className = 'plugin-item';
+            div.innerHTML = `
+                <label class="plugin-toggle">
+                    <input type="checkbox" data-plugin="${plugin.name}" ${plugin.enabled ? 'checked' : ''}>
+                    <span class="plugin-name">${plugin.name}</span>
+                </label>
+                <span class="plugin-desc">${plugin.description}</span>
+            `;
+
+            const checkbox = div.querySelector('input[type="checkbox"]');
+            checkbox.addEventListener('change', (e) => this.togglePlugin(plugin.name, e.target.checked));
+
+            this.pluginsList.appendChild(div);
+        });
+
+        // Load LLM selector
+        this.loadLLMSelector();
+    }
+
+    async togglePlugin(name, enabled) {
+        try {
+            const endpoint = enabled ? `/api/plugins/enable/${name}` : `/api/plugins/disable/${name}`;
+            const response = await this.apiCall(endpoint, 'POST');
+            if (response.data.success) {
+                this.addIntelligenceMessage(`✓ Plugin ${name} ${enabled ? 'enabled' : 'disabled'}`, 'green');
+                if (enabled) {
+                    this.enabledPlugins.push(name);
+                } else {
+                    this.enabledPlugins = this.enabledPlugins.filter(p => p !== name);
+                }
+                this.saveUserSettings();
+            }
+        } catch (err) {
+            this.addIntelligenceMessage(`❌ Failed to toggle plugin: ${err.message}`, 'red');
+        }
+    }
+
+    async loadLLMSelector() {
+        if (!this.llmModelSelector) return;
+
+        try {
+            const response = await this.apiCall('/api/ollama/models', 'GET');
+            const models = response.data.models || [];
+
+            this.llmModelSelector.innerHTML = '';
+
+            // Add default models first
+            this.defaultModels.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.id;
+                option.textContent = `${model.name}${model.recommended ? ' ⭐' : ''}`;
+                this.llmModelSelector.appendChild(option);
+            });
+
+            // Add available models from Ollama
+            const uniqueModels = new Set(models.map(m => m.name));
+            uniqueModels.forEach(modelName => {
+                if (!this.defaultModels.find(m => m.id === modelName)) {
+                    const option = document.createElement('option');
+                    option.value = modelName;
+                    option.textContent = modelName;
+                    this.llmModelSelector.appendChild(option);
+                }
+            });
+
+            this.llmModelSelector.value = this.ollamaModel;
+            this.llmModelSelector.addEventListener('change', (e) => this.selectModel(e.target.value));
+        } catch (err) {
+            console.error('Failed to load LLM models:', err);
+        }
+    }
+
+    selectModel(modelId) {
+        this.ollamaModel = modelId;
+        this.activeModelDisplay.textContent = modelId;
+        this.saveUserSettings();
+        this.addIntelligenceMessage(`✓ Switched to ${modelId}`, 'green');
     }
 
     async checkOllamaStatus() {

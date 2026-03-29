@@ -73,6 +73,113 @@ const commandHistory = new Map();
 const activeProcesses = new Map();
 
 // ============================================
+// PLUGIN SYSTEM
+// ============================================
+
+class PluginManager {
+  constructor() {
+    this.plugins = new Map();
+    this.hooks = new Map();
+    this.initializeDefaultPlugins();
+  }
+
+  initializeDefaultPlugins() {
+    const defaultPlugins = [
+      {
+        name: 'cve-plugin',
+        enabled: true,
+        version: '1.0',
+        description: 'CVE lookup and vulnerability enrichment'
+      },
+      {
+        name: 'threat-intel-plugin',
+        enabled: true,
+        version: '1.0',
+        description: 'Threat intelligence and IOC detection'
+      },
+      {
+        name: 'report-plugin',
+        enabled: false,
+        version: '1.0',
+        description: 'Generate pentesting reports'
+      },
+      {
+        name: 'export-plugin',
+        enabled: false,
+        version: '1.0',
+        description: 'Export session data in multiple formats'
+      }
+    ];
+
+    defaultPlugins.forEach(plugin => {
+      this.register(plugin.name, plugin);
+    });
+  }
+
+  register(name, plugin) {
+    if (this.plugins.has(name)) {
+      console.warn(`Plugin ${name} already registered`);
+      return false;
+    }
+    this.plugins.set(name, plugin);
+    return true;
+  }
+
+  enable(name) {
+    const plugin = this.plugins.get(name);
+    if (plugin) {
+      plugin.enabled = true;
+      return true;
+    }
+    return false;
+  }
+
+  disable(name) {
+    const plugin = this.plugins.get(name);
+    if (plugin) {
+      plugin.enabled = false;
+      return true;
+    }
+    return false;
+  }
+
+  async execute(hookName, data) {
+    const hooks = this.hooks.get(hookName) || [];
+    let result = data;
+
+    for (const hook of hooks) {
+      try {
+        if (hook.enabled) {
+          result = await hook.execute(result);
+        }
+      } catch (err) {
+        console.error(`Hook error in ${hookName}:`, err.message);
+        // Continue execution even if hook fails
+      }
+    }
+
+    return result;
+  }
+
+  registerHook(hookName, plugin, execute) {
+    if (!this.hooks.has(hookName)) {
+      this.hooks.set(hookName, []);
+    }
+    this.hooks.get(hookName).push({
+      plugin,
+      execute,
+      enabled: true
+    });
+  }
+
+  getPlugins() {
+    return Array.from(this.plugins.values());
+  }
+}
+
+const pluginManager = new PluginManager();
+
+// ============================================
 // AUTHENTICATION
 // ============================================
 
@@ -546,6 +653,63 @@ app.get('/api/session/export', authenticate, (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Content-Disposition', `attachment; filename="pentest-session-${req.sessionId.slice(0, 8)}-${Date.now()}.json"`);
   res.json(exportData);
+});
+
+// ============================================
+// PLUGIN MANAGEMENT
+// ============================================
+
+app.get('/api/plugins', authenticate, (req, res) => {
+  const plugins = pluginManager.getPlugins();
+  res.json({
+    success: true,
+    plugins: plugins.map(p => ({
+      name: p.name,
+      version: p.version,
+      description: p.description,
+      enabled: p.enabled
+    }))
+  });
+});
+
+app.post('/api/plugins/enable/:name', authenticate, (req, res) => {
+  const { name } = req.params;
+
+  if (pluginManager.enable(name)) {
+    const plugin = pluginManager.plugins.get(name);
+    res.json({
+      success: true,
+      name: name,
+      enabled: true,
+      plugin: {
+        name: plugin.name,
+        version: plugin.version,
+        description: plugin.description
+      }
+    });
+  } else {
+    res.status(404).json({ error: `Plugin ${name} not found` });
+  }
+});
+
+app.post('/api/plugins/disable/:name', authenticate, (req, res) => {
+  const { name } = req.params;
+
+  if (pluginManager.disable(name)) {
+    const plugin = pluginManager.plugins.get(name);
+    res.json({
+      success: true,
+      name: name,
+      enabled: false,
+      plugin: {
+        name: plugin.name,
+        version: plugin.version,
+        description: plugin.description
+      }
+    });
+  } else {
+    res.status(404).json({ error: `Plugin ${name} not found` });
+  }
 });
 
 // ============================================

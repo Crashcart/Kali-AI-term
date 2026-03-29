@@ -1025,6 +1025,127 @@ body {
 .cve-card .cve-meta { color: var(--grey); font-size: 10px; }
 
 /* ============================================
+   PLUGIN MANAGEMENT
+   ============================================ */
+
+.plugins-list {
+    background: var(--bg-darker);
+    border: 1px solid var(--border-color);
+    padding: 12px;
+    border-radius: 4px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.plugins-list .loading {
+    color: var(--grey);
+    text-align: center;
+    padding: 20px;
+}
+
+.plugin-item {
+    display: flex;
+    flex-direction: column;
+    margin: 8px 0;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    background: rgba(0, 255, 0, 0.02);
+    transition: all 0.3s ease;
+}
+
+.plugin-item:hover {
+    border-color: var(--cyan);
+    background: rgba(0, 255, 150, 0.05);
+}
+
+.plugin-toggle {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.plugin-toggle input[type="checkbox"] {
+    margin-right: 8px;
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+    accent-color: var(--success);
+}
+
+.plugin-name {
+    color: var(--cyan);
+    font-weight: bold;
+}
+
+.plugin-desc {
+    color: var(--grey);
+    font-size: 11px;
+    margin-left: 24px;
+    line-height: 1.4;
+}
+
+.plugin-config {
+    background: rgba(0, 255, 0, 0.02);
+    border: 1px solid var(--green);
+    padding: 10px;
+    margin: 12px 0;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.plugin-info-box {
+    background: var(--bg-darker);
+    border: 1px solid var(--border-color);
+    padding: 12px;
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.plugin-info-box p {
+    margin: 8px 0;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(0, 255, 0, 0.1);
+}
+
+.plugin-info-box p:last-child {
+    border-bottom: none;
+}
+
+#llm-model-selector {
+    background: var(--bg-darker);
+    color: var(--cyan);
+    border: 1px solid var(--border-color);
+    padding: 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+#llm-model-selector:hover {
+    border-color: var(--cyan);
+    box-shadow: 0 0 10px rgba(0, 255, 150, 0.3);
+}
+
+#llm-model-selector:focus {
+    outline: none;
+    border-color: var(--cyan);
+    box-shadow: 0 0 15px rgba(0, 255, 150, 0.5);
+}
+
+#llm-model-selector option {
+    background: var(--bg-dark);
+    color: var(--cyan);
+}
+
+/* ============================================
    ANIMATIONS
    ============================================ */
 

@@ -244,6 +244,7 @@
                     <button class="tab-btn" data-tab="target">TARGET</button>
                     <button class="tab-btn" data-tab="tools">TOOLS</button>
                     <button class="tab-btn" data-tab="general">GENERAL</button>
+                    <button class="tab-btn" data-tab="plugins">PLUGINS</button>
                 </div>
 
                 <!-- Ollama Tab -->
@@ -396,6 +397,36 @@
                             <div class="shortcut-row"><kbd>F11</kbd> <span>Toggle fullscreen</span></div>
                             <div class="shortcut-row"><kbd>!</kbd> <span>Force shell mode (prefix)</span></div>
                             <div class="shortcut-row"><kbd>?</kbd> <span>Force AI mode (prefix)</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Plugins Tab -->
+                <div class="tab-content" id="tab-plugins">
+                    <div class="setting-group">
+                        <label>LLM Model Selection</label>
+                        <select id="llm-model-selector" class="setting-input">
+                            <option value="dolphin-mixtral">Dolphin Mixtral ⭐</option>
+                            <option value="neural-chat:7b">Neural Chat 7B ⭐</option>
+                        </select>
+                        <small>Choose the AI model for processing queries</small>
+                    </div>
+
+                    <div class="setting-group">
+                        <label>Security Plugins</label>
+                        <div id="plugins-list" class="plugins-list">
+                            <p class="loading">Loading plugins...</p>
+                        </div>
+                        <small>Enable/disable plugins to enhance your pentesting analysis</small>
+                    </div>
+
+                    <div class="setting-group">
+                        <label>Plugin Info</label>
+                        <div class="plugin-info-box">
+                            <p><strong>CVE Plugin:</strong> Scans responses for CVE IDs and enriches with CVSS scores</p>
+                            <p><strong>Threat Intel Plugin:</strong> Extracts and analyzes IOCs (IPs, domains, hashes)</p>
+                            <p><strong>Report Plugin:</strong> Generates professional pentesting reports with findings</p>
+                            <p><strong>Export Plugin:</strong> Exports session data in JSON, CSV, or HTML format</p>
                         </div>
                     </div>
                 </div>
