@@ -26,7 +26,8 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "helmet": "^7.1.0",
-    "express-rate-limit": "^7.1.5"
+    "express-rate-limit": "^7.1.5",
+    "html2pdf.js": "^0.10.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.2",
