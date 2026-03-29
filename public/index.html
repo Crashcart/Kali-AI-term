@@ -5,55 +5,82 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kali Hacker Bot - Penetration Testing Terminal</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
 </head>
 <body>
-    <div class="container">
+    <div class="container" id="main-container">
+        <!-- Boot Sequence Overlay -->
+        <div class="boot-overlay" id="boot-overlay">
+            <div class="boot-content">
+                <pre class="boot-logo" id="boot-logo"></pre>
+                <div class="boot-log" id="boot-log"></div>
+                <div class="boot-progress">
+                    <div class="boot-progress-bar" id="boot-progress-bar"></div>
+                </div>
+            </div>
+        </div>
+
         <!-- Top Bar with Status -->
         <div class="top-bar">
             <div class="logo">⚔️ KALI HACKER BOT v1.0</div>
             <div class="status-leds">
-                <div class="led-group">
+                <div class="led-group" id="docker-led-group">
                     <div class="led" id="docker-led" title="Docker Status"></div>
                     <span>DOCKER</span>
                 </div>
-                <div class="led-group">
+                <div class="led-group" id="ollama-led-group">
                     <div class="led" id="ollama-led" title="Ollama Status"></div>
                     <span>OLLAMA</span>
                 </div>
-                <div class="led-group">
+                <div class="led-group" id="target-led-group">
                     <div class="led" id="target-led" title="Target Status"></div>
                     <span>TARGET</span>
                 </div>
+                <div class="uptime-display">
+                    <span class="label">UP:</span>
+                    <span id="uptime-value">00:00:00</span>
+                </div>
             </div>
-            <div class="user-info" id="user-info">
-                <button class="btn-settings" id="settings-btn" title="Settings">⚙️</button>
+            <div class="top-actions">
+                <button class="btn-icon" id="fullscreen-btn" title="Toggle Fullscreen (F11)">⛶</button>
+                <button class="btn-icon" id="notepad-btn" title="Session Notepad (Ctrl+N)">📝</button>
+                <button class="btn-icon" id="export-btn" title="Export Session">📥</button>
+                <button class="btn-icon" id="settings-btn" title="Settings (Ctrl+,)">⚙️</button>
             </div>
         </div>
 
         <!-- Main Content Area -->
-        <div class="content-area">
+        <div class="content-area" id="content-area">
             <!-- Left Panel: Intelligence Stream -->
-            <div class="panel intelligence-panel">
+            <div class="panel intelligence-panel" id="intel-panel">
                 <div class="panel-header">
                     <span class="panel-title">⚡ INTELLIGENCE STREAM</span>
                     <div class="panel-controls">
-                        <button class="btn-small" id="clear-intel" title="Clear">×</button>
+                        <input type="text" class="search-input" id="intel-search" placeholder="Search..." title="Search (Ctrl+F)" />
+                        <button class="btn-small" id="copy-intel" title="Copy All">⎘</button>
+                        <button class="btn-small" id="clear-intel" title="Clear (Ctrl+L)">×</button>
                     </div>
                 </div>
                 <div class="stream intelligence-stream" id="intelligence-stream">
                     <div class="welcome-msg">
                         <span class="cyan">>> Welcome to Kali Hacker Bot</span><br/>
                         <span class="green">>> AI-powered penetration testing terminal</span><br/>
-                        <span class="cyan">>> Awaiting commands...</span>
+                        <span class="cyan">>> Type a question or command to begin</span><br/>
+                        <span class="grey">>> Shortcuts: Ctrl+L clear | ↑↓ history | Ctrl+K kill</span>
                     </div>
                 </div>
             </div>
 
+            <!-- Resizer -->
+            <div class="panel-resizer" id="panel-resizer" title="Drag to resize"></div>
+
             <!-- Right Panel: Live Wire Stream -->
-            <div class="panel wire-panel">
+            <div class="panel wire-panel" id="wire-panel">
                 <div class="panel-header">
                     <span class="panel-title">📡 LIVE WIRE STREAM</span>
                     <div class="panel-controls">
+                        <input type="text" class="search-input" id="wire-search" placeholder="Search..." />
+                        <button class="btn-small" id="copy-wire" title="Copy All">⎘</button>
                         <button class="btn-small" id="clear-wire" title="Clear">×</button>
                     </div>
                 </div>
@@ -66,19 +93,68 @@
             </div>
         </div>
 
+        <!-- Quick Commands Palette -->
+        <div class="quick-commands" id="quick-commands">
+            <div class="qc-header">
+                <span>⚡ QUICK COMMANDS</span>
+                <button class="btn-small" id="toggle-qc" title="Toggle Quick Commands">▼</button>
+            </div>
+            <div class="qc-body" id="qc-body">
+                <div class="qc-group">
+                    <span class="qc-label">RECON</span>
+                    <button class="qc-btn" data-cmd="nmap -sV -sC $TARGET_IP" title="Service/Version scan with scripts">nmap -sVC</button>
+                    <button class="qc-btn" data-cmd="nmap -sU --top-ports 20 $TARGET_IP" title="UDP top 20 ports">nmap UDP</button>
+                    <button class="qc-btn" data-cmd="nmap -p- --min-rate=1000 $TARGET_IP" title="All ports fast scan">nmap ALL</button>
+                    <button class="qc-btn" data-cmd="whois $TARGET_IP" title="WHOIS lookup">whois</button>
+                    <button class="qc-btn" data-cmd="dig $TARGET_IP" title="DNS lookup">dig</button>
+                </div>
+                <div class="qc-group">
+                    <span class="qc-label">WEB</span>
+                    <button class="qc-btn" data-cmd="nikto -h http://$TARGET_IP" title="Nikto web scan">nikto</button>
+                    <button class="qc-btn" data-cmd="gobuster dir -u http://$TARGET_IP -w /usr/share/wordlists/dirb/common.txt" title="Directory bruteforce">gobuster</button>
+                    <button class="qc-btn" data-cmd="curl -I http://$TARGET_IP" title="HTTP headers">curl -I</button>
+                    <button class="qc-btn" data-cmd="whatweb http://$TARGET_IP" title="Web technology fingerprint">whatweb</button>
+                </div>
+                <div class="qc-group">
+                    <span class="qc-label">EXPLOIT</span>
+                    <button class="qc-btn" data-cmd="searchsploit " title="Search exploits">searchsploit</button>
+                    <button class="qc-btn" data-cmd="msfconsole -q -x 'search '" title="Metasploit search">msf search</button>
+                    <button class="qc-btn" data-cmd="hydra -l admin -P /usr/share/wordlists/rockyou.txt $TARGET_IP ssh" title="SSH bruteforce">hydra SSH</button>
+                </div>
+                <div class="qc-group">
+                    <span class="qc-label">POST</span>
+                    <button class="qc-btn" data-cmd="cat /etc/passwd" title="Read passwd">passwd</button>
+                    <button class="qc-btn" data-cmd="uname -a" title="Kernel info">uname</button>
+                    <button class="qc-btn" data-cmd="id && whoami" title="Current user">whoami</button>
+                    <button class="qc-btn" data-cmd="find / -perm -4000 -type f 2>/dev/null" title="Find SUID binaries">SUID</button>
+                    <button class="qc-btn" data-cmd="ss -tulnp" title="Listening ports">ports</button>
+                </div>
+                <div class="qc-group">
+                    <span class="qc-label">UTIL</span>
+                    <button class="qc-btn" data-cmd="python3 -c 'import pty;pty.spawn(\"/bin/bash\")'" title="Upgrade shell">pty shell</button>
+                    <button class="qc-btn" data-cmd="nc -lvnp $LPORT" title="Netcat listener">nc listen</button>
+                    <button class="qc-btn" data-cmd="ip a" title="Network interfaces">ip addr</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Variables HUD -->
         <div class="hud-bar">
             <div class="hud-variable">
                 <span class="label">$TARGET_IP:</span>
-                <span class="value" id="target-ip">---.---.---.---</span>
+                <input type="text" class="hud-input" id="target-ip" value="---.---.---.---" title="Click to edit" />
             </div>
             <div class="hud-variable">
                 <span class="label">$LOCAL_IP:</span>
-                <span class="value" id="local-ip">127.0.0.1</span>
+                <input type="text" class="hud-input" id="local-ip" value="127.0.0.1" title="Click to edit" />
             </div>
             <div class="hud-variable">
-                <span class="label">$LISTENING_PORT:</span>
-                <span class="value" id="listening-port">4444</span>
+                <span class="label">$LPORT:</span>
+                <input type="text" class="hud-input" id="listening-port" value="4444" title="Click to edit" />
+            </div>
+            <div class="hud-variable">
+                <span class="label">MODEL:</span>
+                <span class="value" id="active-model">dolphin-mixtral</span>
             </div>
             <div class="hud-variable">
                 <span class="label">SESSION:</span>
@@ -88,47 +164,56 @@
 
         <!-- Command Bar -->
         <div class="command-bar">
-            <div class="command-input-wrapper">
-                <span class="prompt">›</span>
+            <div class="command-input-wrapper" id="command-wrapper">
+                <span class="prompt" id="mode-indicator" title="Mode: AI + Shell">›</span>
                 <input
                     type="text"
                     id="command-input"
                     class="command-input"
-                    placeholder="Enter command or natural language query..."
+                    placeholder="Enter command or natural language query... (prefix ! to force shell, ? to force AI)"
                     autocomplete="off"
+                    spellcheck="false"
                 />
             </div>
 
             <div class="command-controls">
                 <div class="toggle-group">
-                    <button class="toggle" id="autopilot-btn" title="Auto-Pilot Mode">
+                    <button class="toggle" id="autopilot-btn" title="Auto-Pilot: AI analyzes output automatically">
                         <span class="toggle-icon">◎</span> AUTO-PILOT
                     </button>
-                    <button class="toggle" id="livepipe-btn" title="Live-Pipe Mode">
+                    <button class="toggle" id="livepipe-btn" title="Live-Pipe: Skip confirmation dialogs">
                         <span class="toggle-icon">◎</span> LIVE-PIPE
                     </button>
                 </div>
 
                 <div class="action-buttons">
                     <button class="btn btn-primary" id="send-btn">SEND</button>
-                    <button class="btn btn-danger" id="kill-btn" title="Kill all processes">⏹ KILL</button>
-                    <button class="btn btn-warning" id="burn-btn" title="Burn session">🔥 BURN</button>
+                    <button class="btn btn-danger" id="kill-btn" title="Kill all processes (Ctrl+K)">⏹ KILL</button>
+                    <button class="btn btn-warning" id="burn-btn" title="Burn session - full reset">🔥 BURN</button>
                 </div>
             </div>
         </div>
 
         <!-- Modal for Login -->
         <div class="modal" id="login-modal">
-            <div class="modal-content">
+            <div class="modal-content login-content">
+                <pre class="login-ascii">
+ ╔═╗╔═╗╔╗  ╔╗
+ ║ ╚╝ ║║║  ║║
+ ║ ╔╗ ║║╚╗╔╝║
+ ║ ║║ ║║╔╗╔╗║
+ ╚═╝╚═╝╚╝╚╝╚╝
+ HACKER BOT v1.0
+                </pre>
                 <h2>🔐 AUTHENTICATION REQUIRED</h2>
                 <form id="login-form">
                     <input
                         type="password"
                         id="password-input"
-                        placeholder="Enter admin password"
+                        placeholder="Enter access code..."
                         required
                     />
-                    <button type="submit" class="btn btn-primary">LOGIN</button>
+                    <button type="submit" class="btn btn-primary">AUTHENTICATE</button>
                 </form>
             </div>
         </div>
@@ -136,7 +221,8 @@
         <!-- Modal for Pending Command -->
         <div class="modal" id="confirm-modal">
             <div class="modal-content">
-                <h2>⚠️ CONFIRM COMMAND</h2>
+                <h2>⚠️ CONFIRM EXECUTION</h2>
+                <p class="confirm-warn">The following command will be executed in the Kali container:</p>
                 <div class="command-preview" id="command-preview"></div>
                 <div class="modal-actions">
                     <button class="btn btn-primary" id="confirm-btn">EXECUTE</button>
@@ -156,6 +242,7 @@
                 <div class="settings-tabs">
                     <button class="tab-btn active" data-tab="ollama">OLLAMA</button>
                     <button class="tab-btn" data-tab="target">TARGET</button>
+                    <button class="tab-btn" data-tab="tools">TOOLS</button>
                     <button class="tab-btn" data-tab="general">GENERAL</button>
                 </div>
 
@@ -163,22 +250,32 @@
                 <div class="tab-content active" id="tab-ollama">
                     <div class="setting-group">
                         <label>Ollama URL</label>
-                        <input type="text" id="ollama-url" placeholder="http://host.docker.internal:11434" class="setting-input" />
+                        <div class="input-with-action">
+                            <input type="text" id="ollama-url" placeholder="http://localhost:11434" class="setting-input" />
+                            <button class="btn btn-small" id="test-ollama">TEST</button>
+                        </div>
                         <small>Base URL for Ollama API</small>
                     </div>
 
                     <div class="setting-group">
-                        <label>Model</label>
+                        <label>Active Model</label>
                         <div class="model-selector">
                             <select id="ollama-model" class="setting-input">
-                                <option value="dolphin-mixtral">Dolphin Mixtral</option>
-                                <option value="neural-chat">Neural Chat</option>
-                                <option value="mistral">Mistral</option>
-                                <option value="llama2">Llama 2</option>
+                                <option value="dolphin-mixtral">dolphin-mixtral</option>
                             </select>
-                            <button class="btn btn-small" id="refresh-models">🔄 REFRESH</button>
+                            <button class="btn btn-small" id="refresh-models">🔄</button>
                         </div>
                         <small>Select LLM model for AI reasoning</small>
+                    </div>
+
+                    <div class="setting-group">
+                        <label>Pull New Model</label>
+                        <div class="input-with-action">
+                            <input type="text" id="pull-model-name" placeholder="e.g. dolphin-mixtral, llama3, mistral" class="setting-input" />
+                            <button class="btn btn-small" id="pull-model-btn">PULL</button>
+                        </div>
+                        <div id="pull-progress" class="pull-progress"></div>
+                        <small>Download a model from Ollama registry</small>
                     </div>
 
                     <div class="setting-group">
@@ -191,25 +288,29 @@
                     </div>
 
                     <div class="setting-group">
+                        <label>Custom System Prompt</label>
+                        <textarea id="system-prompt" class="setting-input setting-textarea" placeholder="Leave empty to use default pentesting prompt..."></textarea>
+                        <small>Override the AI's system instructions</small>
+                    </div>
+
+                    <div class="setting-group">
                         <label>Status</label>
-                        <div id="ollama-status" class="status-box">
-                            Checking...
-                        </div>
+                        <div id="ollama-status" class="status-box">Checking...</div>
                     </div>
                 </div>
 
                 <!-- Target Tab -->
                 <div class="tab-content" id="tab-target">
                     <div class="setting-group">
-                        <label>Target IP</label>
+                        <label>Target IP / Hostname</label>
                         <input type="text" id="target-ip-input" placeholder="192.168.1.100" class="setting-input" />
-                        <small>IP address of target system</small>
+                        <small>IP address or hostname of target system</small>
                     </div>
 
                     <div class="setting-group">
                         <label>Local IP</label>
                         <input type="text" id="local-ip-input" placeholder="192.168.1.50" class="setting-input" />
-                        <small>Your local IP address</small>
+                        <small>Your local/attacker IP address</small>
                     </div>
 
                     <div class="setting-group">
@@ -217,25 +318,85 @@
                         <input type="number" id="listening-port-input" placeholder="4444" class="setting-input" min="1" max="65535" />
                         <small>Port for reverse shell listeners</small>
                     </div>
+
+                    <div class="setting-group">
+                        <label>Target Ping Check</label>
+                        <div class="input-with-action">
+                            <div id="target-status" class="status-box">Not checked</div>
+                            <button class="btn btn-small" id="ping-target">PING</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tools Tab -->
+                <div class="tab-content" id="tab-tools">
+                    <div class="setting-group">
+                        <label>Install Kali Packages</label>
+                        <div class="input-with-action">
+                            <input type="text" id="install-packages" placeholder="e.g. sqlmap gobuster john" class="setting-input" />
+                            <button class="btn btn-small" id="install-btn">INSTALL</button>
+                        </div>
+                        <div id="install-output" class="status-box" style="display:none;"></div>
+                        <small>Install packages via apt-get in the Kali container</small>
+                    </div>
+
+                    <div class="setting-group">
+                        <label>Container Actions</label>
+                        <div class="btn-row">
+                            <button class="btn btn-secondary" id="restart-container">🔄 RESTART CONTAINER</button>
+                            <button class="btn btn-danger" id="reset-container">💀 FACTORY RESET</button>
+                        </div>
+                        <small>Restart or reset the Kali container to clean state</small>
+                    </div>
+
+                    <div class="setting-group">
+                        <label>Container Info</label>
+                        <div id="container-info" class="status-box">Loading...</div>
+                    </div>
                 </div>
 
                 <!-- General Tab -->
                 <div class="tab-content" id="tab-general">
                     <div class="setting-group">
-                        <label>Default Password</label>
-                        <input type="password" id="admin-password" class="setting-input" />
-                        <small>Admin password (if you change it)</small>
+                        <label>Theme</label>
+                        <select id="theme-select" class="setting-input">
+                            <option value="default">Cyberpunk (Default)</option>
+                            <option value="matrix">Matrix Green</option>
+                            <option value="blood">Blood Red</option>
+                            <option value="frost">Frost Blue</option>
+                        </select>
                     </div>
 
                     <div class="setting-group">
-                        <label>Auto-Clear Streams After (minutes)</label>
-                        <input type="number" id="auto-clear-time" placeholder="0" class="setting-input" min="0" max="1440" />
-                        <small>0 = disabled</small>
+                        <label>Timestamps</label>
+                        <select id="timestamp-toggle" class="setting-input">
+                            <option value="true">Show timestamps</option>
+                            <option value="false">Hide timestamps</option>
+                        </select>
                     </div>
 
                     <div class="setting-group">
-                        <label>Session Timeout (hours)</label>
-                        <input type="number" id="session-timeout" placeholder="24" class="setting-input" min="1" max="168" />
+                        <label>Sound Notifications</label>
+                        <select id="sound-toggle" class="setting-input">
+                            <option value="true">Enabled</option>
+                            <option value="false">Disabled</option>
+                        </select>
+                        <small>Audio alert on critical findings</small>
+                    </div>
+
+                    <div class="setting-group">
+                        <label>Keyboard Shortcuts</label>
+                        <div class="shortcuts-list">
+                            <div class="shortcut-row"><kbd>Ctrl+L</kbd> <span>Clear active stream</span></div>
+                            <div class="shortcut-row"><kbd>Ctrl+K</kbd> <span>Kill all processes</span></div>
+                            <div class="shortcut-row"><kbd>Ctrl+N</kbd> <span>Toggle notepad</span></div>
+                            <div class="shortcut-row"><kbd>Ctrl+,</kbd> <span>Open settings</span></div>
+                            <div class="shortcut-row"><kbd>↑ / ↓</kbd> <span>Command history</span></div>
+                            <div class="shortcut-row"><kbd>Escape</kbd> <span>Close modal / cancel</span></div>
+                            <div class="shortcut-row"><kbd>F11</kbd> <span>Toggle fullscreen</span></div>
+                            <div class="shortcut-row"><kbd>!</kbd> <span>Force shell mode (prefix)</span></div>
+                            <div class="shortcut-row"><kbd>?</kbd> <span>Force AI mode (prefix)</span></div>
+                        </div>
                     </div>
                 </div>
 
@@ -243,6 +404,36 @@
                     <button class="btn btn-primary" id="save-settings">SAVE SETTINGS</button>
                     <button class="btn btn-secondary" id="reset-settings">RESET</button>
                 </div>
+            </div>
+        </div>
+
+        <!-- Notepad Modal -->
+        <div class="modal" id="notepad-modal">
+            <div class="modal-content notepad-content">
+                <div class="settings-header">
+                    <h2>📝 SESSION NOTEPAD</h2>
+                    <button class="btn-small" id="close-notepad">×</button>
+                </div>
+                <textarea id="notepad-text" class="notepad-textarea" placeholder="Take notes during your engagement...&#10;&#10;Findings:&#10;- &#10;&#10;Credentials:&#10;- &#10;&#10;TODO:&#10;- "></textarea>
+                <div class="modal-actions">
+                    <button class="btn btn-primary" id="save-notepad">SAVE</button>
+                    <button class="btn btn-secondary" id="clear-notepad">CLEAR</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CVE Lookup Modal -->
+        <div class="modal" id="cve-modal">
+            <div class="modal-content">
+                <div class="settings-header">
+                    <h2>🔍 CVE LOOKUP</h2>
+                    <button class="btn-small" id="close-cve">×</button>
+                </div>
+                <div class="input-with-action">
+                    <input type="text" id="cve-input" placeholder="CVE-2024-XXXXX" class="setting-input" />
+                    <button class="btn btn-primary" id="cve-search-btn">SEARCH</button>
+                </div>
+                <div id="cve-results" class="cve-results"></div>
             </div>
         </div>
     </div>

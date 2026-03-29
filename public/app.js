@@ -1,5 +1,5 @@
 // ============================================
-// KALI HACKER BOT - Frontend Application
+// KALI HACKER BOT - Frontend Application v2.0
 // ============================================
 
 class KaliHackerBot {
@@ -11,123 +11,364 @@ class KaliHackerBot {
         this.targetIP = '192.168.1.100';
         this.localIP = '192.168.1.50';
         this.listeningPort = 4444;
+        this.commandHistory = [];
+        this.historyIndex = -1;
+        this.showTimestamps = true;
+        this.soundEnabled = true;
+        this.ollamaUrl = 'http://localhost:11434';
+        this.ollamaModel = 'dolphin-mixtral';
+        this.ollamaTemp = 0.7;
+        this.panelSplitRatio = 0.5;
+        this.quickCmdsCollapsed = false;
 
         this.initializeElements();
         this.attachEventListeners();
-        this.checkAuthStatus();
-        this.initializeSystemStatus();
+        this.loadUserSettings();
+        this.bootSequence();
     }
 
     initializeElements() {
+        // Boot
+        this.bootOverlay = document.getElementById('boot-overlay');
+        this.bootLogo = document.getElementById('boot-logo');
+        this.bootLog = document.getElementById('boot-log');
+        this.bootProgressBar = document.getElementById('boot-progress-bar');
+
         // Streams
         this.intelligenceStream = document.getElementById('intelligence-stream');
         this.wireStream = document.getElementById('wire-stream');
+        this.intelPanel = document.getElementById('intel-panel');
+        this.wirePanel = document.getElementById('wire-panel');
+        this.panelResizer = document.getElementById('panel-resizer');
+
+        // Search
+        this.intelSearch = document.getElementById('intel-search');
+        this.wireSearch = document.getElementById('wire-search');
 
         // LEDs
         this.dockerLED = document.getElementById('docker-led');
         this.ollamaLED = document.getElementById('ollama-led');
         this.targetLED = document.getElementById('target-led');
+        this.uptimeValue = document.getElementById('uptime-value');
 
         // HUD
         this.targetIPDisplay = document.getElementById('target-ip');
         this.localIPDisplay = document.getElementById('local-ip');
         this.listeningPortDisplay = document.getElementById('listening-port');
         this.sessionIDDisplay = document.getElementById('session-id');
+        this.activeModelDisplay = document.getElementById('active-model');
 
         // Command
         this.commandInput = document.getElementById('command-input');
+        this.commandWrapper = document.getElementById('command-wrapper');
+        this.modeIndicator = document.getElementById('mode-indicator');
         this.sendBtn = document.getElementById('send-btn');
         this.killBtn = document.getElementById('kill-btn');
         this.burnBtn = document.getElementById('burn-btn');
         this.autoPilotBtn = document.getElementById('autopilot-btn');
         this.livePipeBtn = document.getElementById('livepipe-btn');
 
-        // Modals
-        this.loginModal = document.getElementById('login-modal');
-        this.confirmModal = document.getElementById('confirm-modal');
-        this.loginForm = document.getElementById('login-form');
-        this.passwordInput = document.getElementById('password-input');
+        // Top actions
+        this.fullscreenBtn = document.getElementById('fullscreen-btn');
+        this.notepadBtn = document.getElementById('notepad-btn');
+        this.exportBtn = document.getElementById('export-btn');
+        this.settingsBtn = document.getElementById('settings-btn');
+
+        // Copy buttons
+        this.copyIntelBtn = document.getElementById('copy-intel');
+        this.copyWireBtn = document.getElementById('copy-wire');
 
         // Clear buttons
         this.clearIntelBtn = document.getElementById('clear-intel');
         this.clearWireBtn = document.getElementById('clear-wire');
 
-        // User info & settings
-        this.userInfo = document.getElementById('user-info');
-        this.settingsBtn = document.getElementById('settings-btn');
-        this.settingsModal = document.getElementById('settings-modal');
+        // Quick commands
+        this.quickCommands = document.getElementById('quick-commands');
+        this.toggleQcBtn = document.getElementById('toggle-qc');
+        this.qcBody = document.getElementById('qc-body');
 
-        // Settings form
+        // Modals
+        this.loginModal = document.getElementById('login-modal');
+        this.confirmModal = document.getElementById('confirm-modal');
+        this.settingsModal = document.getElementById('settings-modal');
+        this.notepadModal = document.getElementById('notepad-modal');
+
+        // Login
+        this.loginForm = document.getElementById('login-form');
+        this.passwordInput = document.getElementById('password-input');
+
+        // Confirm
+        this.commandPreview = document.getElementById('command-preview');
+        this.confirmBtn = document.getElementById('confirm-btn');
+        this.cancelBtn = document.getElementById('cancel-btn');
+
+        // Settings
         this.ollamaUrlInput = document.getElementById('ollama-url');
         this.ollamaModelInput = document.getElementById('ollama-model');
         this.ollmaTempInput = document.getElementById('ollama-temp');
         this.tempValueDisplay = document.getElementById('temp-value');
         this.ollamaStatusBox = document.getElementById('ollama-status');
+        this.refreshModelsBtn = document.getElementById('refresh-models');
+        this.testOllamaBtn = document.getElementById('test-ollama');
+        this.pullModelName = document.getElementById('pull-model-name');
+        this.pullModelBtn = document.getElementById('pull-model-btn');
+        this.pullProgress = document.getElementById('pull-progress');
+        this.systemPromptInput = document.getElementById('system-prompt');
+
         this.targetIPInput = document.getElementById('target-ip-input');
         this.localIPInput = document.getElementById('local-ip-input');
         this.listeningPortInput = document.getElementById('listening-port-input');
+        this.targetStatusBox = document.getElementById('target-status');
+        this.pingTargetBtn = document.getElementById('ping-target');
+
+        this.installPackages = document.getElementById('install-packages');
+        this.installBtn = document.getElementById('install-btn');
+        this.installOutput = document.getElementById('install-output');
+        this.restartContainerBtn = document.getElementById('restart-container');
+        this.resetContainerBtn = document.getElementById('reset-container');
+        this.containerInfo = document.getElementById('container-info');
+
+        this.themeSelect = document.getElementById('theme-select');
+        this.timestampToggle = document.getElementById('timestamp-toggle');
+        this.soundToggle = document.getElementById('sound-toggle');
+
+        this.closeSettingsBtn = document.getElementById('close-settings');
         this.saveSettingsBtn = document.getElementById('save-settings');
         this.resetSettingsBtn = document.getElementById('reset-settings');
-        this.refreshModelsBtn = document.getElementById('refresh-models');
-        this.closeSettingsBtn = document.getElementById('close-settings');
+
+        // Notepad
+        this.notepadText = document.getElementById('notepad-text');
+        this.closeNotepadBtn = document.getElementById('close-notepad');
+        this.saveNotepadBtn = document.getElementById('save-notepad');
+        this.clearNotepadBtn = document.getElementById('clear-notepad');
     }
 
     attachEventListeners() {
-        this.commandInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.executeCommand();
-        });
+        // Command input
+        this.commandInput.addEventListener('keydown', (e) => this.handleCommandInput(e));
 
+        // Buttons
         this.sendBtn.addEventListener('click', () => this.executeCommand());
         this.killBtn.addEventListener('click', () => this.killAllProcesses());
         this.burnBtn.addEventListener('click', () => this.burnSession());
 
+        // Toggles
         this.autoPilotBtn.addEventListener('click', () => this.toggleAutoPilot());
         this.livePipeBtn.addEventListener('click', () => this.toggleLivePipe());
 
-        this.clearIntelBtn.addEventListener('click', () => {
-            this.intelligenceStream.innerHTML = '';
+        // Clear
+        this.clearIntelBtn.addEventListener('click', () => { this.intelligenceStream.innerHTML = ''; });
+        this.clearWireBtn.addEventListener('click', () => { this.wireStream.innerHTML = ''; });
+
+        // Copy
+        this.copyIntelBtn.addEventListener('click', () => this.copyToClipboard(this.intelligenceStream));
+        this.copyWireBtn.addEventListener('click', () => this.copyToClipboard(this.wireStream));
+
+        // Search
+        this.intelSearch.addEventListener('input', (e) => this.searchStream(this.intelligenceStream, e.target.value));
+        this.wireSearch.addEventListener('input', (e) => this.searchStream(this.wireStream, e.target.value));
+
+        // Top actions
+        this.fullscreenBtn.addEventListener('click', () => this.toggleFullscreen());
+        this.notepadBtn.addEventListener('click', () => this.openNotepad());
+        this.exportBtn.addEventListener('click', () => this.exportSession());
+        this.settingsBtn.addEventListener('click', () => this.openSettings());
+
+        // Quick commands
+        this.toggleQcBtn.addEventListener('click', () => this.toggleQuickCommands());
+        document.querySelectorAll('.qc-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const cmd = btn.getAttribute('data-cmd');
+                this.commandInput.value = cmd;
+                this.commandInput.focus();
+            });
         });
 
-        this.clearWireBtn.addEventListener('click', () => {
-            this.wireStream.innerHTML = '';
-        });
-
+        // Login
         this.loginForm.addEventListener('submit', (e) => {
             e.preventDefault();
             this.login();
         });
 
-        document.getElementById('confirm-btn').addEventListener('click', () => {
-            this.executeConfirmedCommand();
-        });
-
-        document.getElementById('cancel-btn').addEventListener('click', () => {
-            this.closeConfirmModal();
-        });
+        // Confirm modal
+        this.confirmBtn.addEventListener('click', () => this.executeConfirmedCommand());
+        this.cancelBtn.addEventListener('click', () => this.closeConfirmModal());
 
         // Settings
-        this.settingsBtn.addEventListener('click', () => this.openSettings());
-        this.closeSettingsBtn.addEventListener('click', () => this.closeSettings());
-        this.saveSettingsBtn.addEventListener('click', () => this.saveSettings());
-        this.resetSettingsBtn.addEventListener('click', () => this.resetSettingsToDefaults());
         this.refreshModelsBtn.addEventListener('click', () => this.refreshOllamaModels());
-
-        // Settings tabs
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => this.switchTab(e.target.dataset.tab));
-        });
-
-        // Temperature slider
+        this.testOllamaBtn.addEventListener('click', () => this.checkOllamaStatus());
+        this.pullModelBtn.addEventListener('click', () => this.pullModel());
         this.ollmaTempInput.addEventListener('input', (e) => {
             this.tempValueDisplay.textContent = (e.target.value / 100).toFixed(2);
         });
 
-        // Close modal on background click
-        this.settingsModal.addEventListener('click', (e) => {
-            if (e.target === this.settingsModal) {
-                this.closeSettings();
+        this.pingTargetBtn.addEventListener('click', () => this.pingTarget());
+        this.installBtn.addEventListener('click', () => this.installPackages());
+        this.restartContainerBtn.addEventListener('click', () => this.restartContainer());
+        this.resetContainerBtn.addEventListener('click', () => this.resetContainer());
+
+        this.closeSettingsBtn.addEventListener('click', () => this.closeSettings());
+        this.saveSettingsBtn.addEventListener('click', () => this.saveSettings());
+        this.resetSettingsBtn.addEventListener('click', () => this.resetSettingsToDefaults());
+
+        // Notepad
+        this.closeNotepadBtn.addEventListener('click', () => this.closeNotepad());
+        this.saveNotepadBtn.addEventListener('click', () => this.saveNotepad());
+        this.clearNotepadBtn.addEventListener('click', () => {
+            if (confirm('Clear notepad?')) this.notepadText.value = '';
+        });
+
+        // Settings tabs
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this.switchSettingsTab(e.target.dataset.tab));
+        });
+
+        // Panel resizer
+        this.setupPanelResizer();
+
+        // Global keyboard shortcuts
+        document.addEventListener('keydown', (e) => this.handleGlobalShortcuts(e));
+
+        // Close modals on escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.loginModal.classList.remove('active');
+                this.confirmModal.classList.remove('active');
+                this.settingsModal.classList.remove('active');
+                this.notepadModal.classList.remove('active');
             }
         });
+
+        // Close modal on background click
+        this.settingsModal.addEventListener('click', (e) => {
+            if (e.target === this.settingsModal) this.closeSettings();
+        });
+        this.notepadModal.addEventListener('click', (e) => {
+            if (e.target === this.notepadModal) this.closeNotepad();
+        });
+
+        // HUD inputs
+        this.targetIPDisplay.addEventListener('blur', () => this.saveHudVariable('targetIP', this.targetIPDisplay));
+        this.localIPDisplay.addEventListener('blur', () => this.saveHudVariable('localIP', this.localIPDisplay));
+        this.listeningPortDisplay.addEventListener('blur', () => this.saveHudVariable('listeningPort', this.listeningPortDisplay));
+    }
+
+    setupPanelResizer() {
+        let isResizing = false;
+
+        this.panelResizer.addEventListener('mousedown', () => {
+            isResizing = true;
+            this.panelResizer.classList.add('active');
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+
+            const container = document.getElementById('content-area');
+            const rect = container.getBoundingClientRect();
+            const ratio = (e.clientX - rect.left) / rect.width;
+            this.panelSplitRatio = Math.max(0.2, Math.min(0.8, ratio));
+
+            this.intelPanel.style.flex = this.panelSplitRatio;
+            this.wirePanel.style.flex = 1 - this.panelSplitRatio;
+        });
+
+        document.addEventListener('mouseup', () => {
+            isResizing = false;
+            this.panelResizer.classList.remove('active');
+            localStorage.setItem('panelSplitRatio', this.panelSplitRatio);
+        });
+    }
+
+    handleGlobalShortcuts(e) {
+        if (e.ctrlKey || e.metaKey) {
+            switch (e.key) {
+                case 'l': e.preventDefault(); this.intelligenceStream.innerHTML = ''; break;
+                case 'k': e.preventDefault(); this.killAllProcesses(); break;
+                case 'n': e.preventDefault(); this.openNotepad(); break;
+                case ',': e.preventDefault(); this.openSettings(); break;
+            }
+        }
+
+        if (e.key === 'F11') {
+            e.preventDefault();
+            this.toggleFullscreen();
+        }
+    }
+
+    handleCommandInput(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            this.executeCommand();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            this.historyIndex = Math.min(this.historyIndex + 1, this.commandHistory.length - 1);
+            if (this.historyIndex >= 0) {
+                this.commandInput.value = this.commandHistory[this.historyIndex];
+            }
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            this.historyIndex = Math.max(this.historyIndex - 1, -1);
+            if (this.historyIndex >= 0) {
+                this.commandInput.value = this.commandHistory[this.historyIndex];
+            } else {
+                this.commandInput.value = '';
+            }
+        }
+    }
+
+    // ============================================
+    // BOOT SEQUENCE
+    // ============================================
+
+    async bootSequence() {
+        this.drawBootLogo();
+        const bootSteps = [
+            { msg: '> Initializing Kali Hacker Bot v1.0...', type: 'info' },
+            { msg: '> Loading terminal interface', type: 'info' },
+            { msg: '✓ UI components loaded', type: 'ok' },
+            { msg: '> Checking authentication', type: 'info' },
+            { msg: '✓ Session manager ready', type: 'ok' },
+            { msg: '> Connecting to services', type: 'info' },
+            { msg: '✓ API endpoints initialized', type: 'ok' },
+            { msg: '> Verifying credentials', type: 'info' },
+        ];
+
+        for (let i = 0; i < bootSteps.length; i++) {
+            const step = bootSteps[i];
+            const line = document.createElement('div');
+            line.className = `boot-line ${step.type}`;
+            line.textContent = step.msg;
+            line.style.animationDelay = `${i * 0.2}s`;
+            this.bootLog.appendChild(line);
+
+            this.bootProgressBar.style.width = `${((i + 1) / bootSteps.length) * 100}%`;
+            await new Promise(r => setTimeout(r, 150));
+        }
+
+        await new Promise(r => setTimeout(r, 800));
+        this.bootOverlay.classList.add('hidden');
+    }
+
+    drawBootLogo() {
+        this.bootLogo.textContent = `
+ ╔═╗╔═╗╔╗  ╔╗
+ ║ ╚╝ ║║║  ║║
+ ║ ╔╗ ║║╚╗╔╝║
+ ║ ║║ ║║╔╗╔╗║
+ ╚═╝╚═╝╚╝╚╝╚╝
+ HACKER BOT v1.0
+        `;
+    }
+
+    startUptimeCounter() {
+        setInterval(() => {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            this.uptimeValue.textContent = `${hours}:${minutes}:${seconds}`;
+        }, 1000);
     }
 
     // ============================================
@@ -138,7 +379,9 @@ class KaliHackerBot {
         if (this.token && this.sessionId) {
             this.showMainApp();
             this.updateUserInfo();
-            this.loadSettings();
+            this.loadUserSettings();
+            this.initializeSystemStatus();
+            this.startUptimeCounter();
         } else {
             this.showLoginModal();
         }
@@ -148,9 +391,7 @@ class KaliHackerBot {
         const password = this.passwordInput.value;
 
         try {
-            const response = await this.apiCall('POST', '/api/auth/login', {
-                password: password
-            });
+            const response = await this.apiCall('POST', '/api/auth/login', { password });
 
             this.token = response.token;
             this.sessionId = response.sessionId;
@@ -162,7 +403,10 @@ class KaliHackerBot {
             this.closeLoginModal();
             this.showMainApp();
             this.updateUserInfo();
-            this.addIntelligenceMessage('🔓 Authentication successful!');
+            this.loadUserSettings();
+            this.initializeSystemStatus();
+            this.startUptimeCounter();
+            this.addIntelligenceMessage('🔓 Authentication successful! Welcome to Kali Hacker Bot.', 'green');
         } catch (err) {
             this.addIntelligenceMessage(`❌ Authentication failed: ${err.message}`, 'red');
             this.passwordInput.value = '';
@@ -170,7 +414,71 @@ class KaliHackerBot {
     }
 
     updateUserInfo() {
-        this.userInfo.textContent = `📍 Session: ${this.sessionId.slice(0, 8)}...`;
+        this.sessionIDDisplay.textContent = this.sessionId.slice(0, 8);
+    }
+
+    // ============================================
+    // SETTINGS & PREFERENCES
+    // ============================================
+
+    loadUserSettings() {
+        const saved = JSON.parse(localStorage.getItem('userSettings')) || {};
+
+        this.targetIP = saved.targetIP || '192.168.1.100';
+        this.localIP = saved.localIP || '192.168.1.50';
+        this.listeningPort = saved.listeningPort || '4444';
+        this.ollamaUrl = saved.ollamaUrl || 'http://localhost:11434';
+        this.ollamaModel = saved.ollamaModel || 'dolphin-mixtral';
+        this.ollamaTemp = saved.ollamaTemp || 0.7;
+        this.showTimestamps = saved.showTimestamps !== false;
+        this.soundEnabled = saved.soundEnabled !== false;
+        this.panelSplitRatio = saved.panelSplitRatio || 0.5;
+        this.quickCmdsCollapsed = saved.quickCmdsCollapsed || false;
+
+        // Apply theme
+        const theme = saved.theme || 'default';
+        if (theme !== 'default') document.body.classList.add(`theme-${theme}`);
+
+        // Apply to UI
+        this.targetIPDisplay.value = this.targetIP;
+        this.localIPDisplay.value = this.localIP;
+        this.listeningPortDisplay.value = this.listeningPort;
+        this.activeModelDisplay.textContent = this.ollamaModel;
+        this.intelPanel.style.flex = this.panelSplitRatio;
+        this.wirePanel.style.flex = 1 - this.panelSplitRatio;
+
+        if (this.quickCmdsCollapsed) {
+            this.qcBody.classList.add('collapsed');
+        }
+
+        this.loadSessionNotes();
+        this.loadCommandHistory();
+    }
+
+    saveUserSettings() {
+        const settings = {
+            targetIP: this.targetIP,
+            localIP: this.localIP,
+            listeningPort: this.listeningPort,
+            ollamaUrl: this.ollamaUrl,
+            ollamaModel: this.ollamaModel,
+            ollamaTemp: this.ollamaTemp,
+            showTimestamps: this.showTimestamps,
+            soundEnabled: this.soundEnabled,
+            theme: this.themeSelect.value,
+            panelSplitRatio: this.panelSplitRatio,
+            quickCmdsCollapsed: this.quickCmdsCollapsed,
+        };
+
+        localStorage.setItem('userSettings', JSON.stringify(settings));
+    }
+
+    saveHudVariable(key, element) {
+        const value = element.value;
+        if (key === 'targetIP') this.targetIP = value;
+        else if (key === 'localIP') this.localIP = value;
+        else if (key === 'listeningPort') this.listeningPort = value;
+        this.saveUserSettings();
     }
 
     // ============================================
@@ -186,7 +494,6 @@ class KaliHackerBot {
         try {
             const response = await this.apiCall('GET', '/api/system/status');
 
-            // Update Docker LED
             if (response.docker.connected && response.docker.containerRunning) {
                 this.dockerLED.classList.add('connected');
                 this.dockerLED.classList.remove('disconnected');
@@ -195,7 +502,6 @@ class KaliHackerBot {
                 this.dockerLED.classList.add('disconnected');
             }
 
-            // Update Ollama LED
             if (response.ollama.connected) {
                 this.ollamaLED.classList.add('connected');
                 this.ollamaLED.classList.remove('disconnected');
@@ -204,7 +510,6 @@ class KaliHackerBot {
                 this.ollamaLED.classList.add('disconnected');
             }
 
-            // Target LED (always connected for now)
             this.targetLED.classList.add('connected');
         } catch (err) {
             console.error('Status check error:', err);
@@ -216,14 +521,25 @@ class KaliHackerBot {
     // ============================================
 
     executeCommand() {
-        const command = this.commandInput.value.trim();
-
-        if (!command) return;
+        const input = this.commandInput.value.trim();
+        if (!input) return;
 
         this.commandInput.value = '';
+        this.historyIndex = -1;
+        this.addToCommandHistory(input);
 
-        // Check if it looks like a natural language query or a system command
-        if (this.isNaturalLanguage(command)) {
+        let mode = 'auto';
+        let command = input;
+
+        if (input.startsWith('!')) {
+            mode = 'shell';
+            command = input.slice(1).trim();
+        } else if (input.startsWith('?')) {
+            mode = 'ai';
+            command = input.slice(1).trim();
+        }
+
+        if (mode === 'ai' || (mode === 'auto' && this.isNaturalLanguage(command))) {
             this.processNaturalLanguage(command);
         } else {
             if (this.livePipe) {
@@ -234,44 +550,57 @@ class KaliHackerBot {
         }
     }
 
+    addToCommandHistory(cmd) {
+        this.commandHistory.unshift(cmd);
+        if (this.commandHistory.length > 100) this.commandHistory.pop();
+    }
+
     isNaturalLanguage(input) {
-        // Simple heuristic: if it contains common English words, treat as natural language
-        const nlPatterns = /^(what|how|why|when|where|can|find|scan|test|check|enumerate|exploit|analyze|search|tell|explain)/i;
+        const nlPatterns = /^(what|how|why|when|where|can|find|scan|test|check|enumerate|exploit|analyze|search|tell|explain|show|list|get|describe|identify)/i;
         return nlPatterns.test(input);
     }
 
     async processNaturalLanguage(query) {
-        this.addIntelligenceMessage(`🧠 Processing query: "${query}"`, 'cyan');
+        this.addIntelligenceMessage(`🧠 Processing: "${query}"`, 'cyan');
         this.addIntelligenceMessage('⏳ AI is thinking...', 'cyan');
+        document.getElementById('main-container').classList.add('thinking');
 
         try {
-            const stream = new EventSource('/api/ollama/stream', {
-                headers: {
-                    'Authorization': `Bearer ${this.token}`
-                }
+            const response = await axios.post('/api/ollama/stream', {
+                prompt: query,
+                model: this.ollamaModel,
+                temperature: this.ollamaTemp,
+                systemPrompt: document.getElementById('system-prompt').value || undefined,
+            }, {
+                headers: { 'Authorization': `Bearer ${this.token}` },
+                responseType: 'stream',
             });
 
-            stream.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    if (data.token) {
-                        this.addIntelligenceMessage(data.token, 'green', true);
-                    }
-                    if (data.done) {
-                        stream.close();
-                        this.addIntelligenceMessage('✓ Done', 'green');
-                    }
-                } catch (e) {
-                    console.error('Parse error:', e);
-                }
-            };
+            let fullResponse = '';
+            response.data.on('data', (chunk) => {
+                const lines = chunk.toString().split('\n').filter(l => l.trim());
+                lines.forEach(line => {
+                    try {
+                        const data = JSON.parse(line);
+                        if (data.token) {
+                            fullResponse += data.token;
+                            this.addIntelligenceMessage(data.token, 'green', true);
+                        }
+                    } catch (e) { }
+                });
+            });
 
-            stream.onerror = (err) => {
-                stream.close();
-                this.addIntelligenceMessage(`❌ AI Error: ${err.message}`, 'red');
-            };
+            response.data.on('end', () => {
+                document.getElementById('main-container').classList.remove('thinking');
+                this.addIntelligenceMessage('\n✓ Response complete', 'green');
+                if (this.autoPilot && fullResponse.length > 0) {
+                    this.suggestNextCommand(fullResponse);
+                }
+            });
         } catch (err) {
-            this.addIntelligenceMessage(`❌ Error: ${err.message}`, 'red');
+            document.getElementById('main-container').classList.remove('thinking');
+            this.addIntelligenceMessage(`❌ AI Error: ${err.message}`, 'red');
+            this.playSound('error');
         }
     }
 
@@ -280,38 +609,61 @@ class KaliHackerBot {
         this.addWireMessage('⏳ Executing...', 'grey');
 
         try {
-            const response = await this.apiCall('POST', '/api/docker/exec', {
-                command: command
-            });
+            const response = await this.apiCall('POST', '/api/docker/exec', { command });
 
             if (response.success) {
                 const output = response.output || '(no output)';
                 this.addWireMessage(output, 'grey');
-                this.addWireMessage('✓ Command completed', 'green');
 
-                // Also send to intelligence stream for analysis
+                if (response.timedOut) {
+                    this.addWireMessage('⏱ Command timed out', 'yellow');
+                } else {
+                    this.addWireMessage('✓ Command completed', 'green');
+                }
+
                 if (this.autoPilot) {
                     this.analyzeCommandOutput(command, output);
                 }
+
+                this.highlightOutput(output);
             }
         } catch (err) {
             this.addWireMessage(`❌ Error: ${err.message}`, 'red');
+            this.playSound('error');
+        }
+    }
+
+    highlightOutput(output) {
+        // Detect IPs, ports, CVEs, credentials in output
+        const ipPattern = /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/g;
+        const portPattern = /(\d+\/tcp|\d+\/udp)/g;
+        const cvePattern = /(CVE-\d{4}-\d{4,})/gi;
+
+        if (ipPattern.test(output)) {
+            this.addIntelligenceMessage('🔍 Detected target addresses in output', 'cyan');
+        }
+        if (portPattern.test(output)) {
+            this.addIntelligenceMessage('🔓 Detected open ports - consider enum next', 'cyan');
+        }
+        if (cvePattern.test(output)) {
+            this.addIntelligenceMessage('⚠️ Detected CVEs - use CVE lookup for details', 'warning');
         }
     }
 
     async analyzeCommandOutput(command, output) {
-        const analysisPrompt = `Analyze this penetration test command output and suggest the next logical step:
+        const analysisPrompt = `Analyze this penetration test output:
 Command: ${command}
-Output: ${output.slice(0, 500)}...
+Output: ${output.slice(0, 1000)}...
 
-Provide a concise technical analysis and suggest the next command.`;
+Provide: 1) Key findings 2) Security implications 3) Next recommended command`;
 
         this.addIntelligenceMessage('🤖 Auto-Pilot analyzing...', 'cyan');
 
         try {
             const response = await this.apiCall('POST', '/api/ollama/generate', {
                 prompt: analysisPrompt,
-                model: 'dolphin-mixtral'
+                model: this.ollamaModel,
+                temperature: this.ollamaTemp,
             });
 
             this.addIntelligenceMessage(response.response, 'green');
@@ -320,47 +672,68 @@ Provide a concise technical analysis and suggest the next command.`;
         }
     }
 
+    async suggestNextCommand(output) {
+        const prompt = `Based on this information, suggest the next tactical penetration testing command:
+${output.slice(0, 500)}
+
+Format: <one-liner command suggestion>`;
+
+        try {
+            const response = await this.apiCall('POST', '/api/ollama/generate', {
+                prompt: prompt,
+                model: this.ollamaModel,
+            });
+
+            this.commandInput.placeholder = `Suggested: ${response.response.slice(0, 60)}...`;
+        } catch (err) { }
+    }
+
     // ============================================
-    // KILL & BURN FUNCTIONS
+    // KILL & BURN
     // ============================================
 
     async killAllProcesses() {
-        this.addWireMessage('⏹ Killing all processes...', 'red');
+        if (!confirm('Kill ALL processes in Kali container?')) return;
+
+        this.addWireMessage('⏹ KILL SWITCH ACTIVATED', 'red');
 
         try {
-            await this.apiCall('POST', '/api/docker/exec', {
-                command: 'pkill -9 -u root'
-            });
-
+            await this.apiCall('POST', '/api/docker/killall');
             this.addWireMessage('✓ All processes terminated', 'red');
             this.targetLED.classList.remove('connected');
+            this.playSound('success');
         } catch (err) {
             this.addWireMessage(`❌ Kill failed: ${err.message}`, 'red');
         }
     }
 
     async burnSession() {
-        if (!confirm('🔥 Burn entire session? This will reset Docker and clear all data.')) {
+        if (!confirm('🔥 BURN ENTIRE SESSION?\n\n- Clear all streams\n- Reset Docker\n- Clear browser cache\n- Wipe local storage\n\nContinue?')) {
             return;
         }
 
-        this.addWireMessage('🔥 BURNING SESSION...', 'warning');
-        this.addIntelligenceMessage('🔥 Purging all traces...', 'yellow');
+        this.addWireMessage('🔥 BURNING SESSION...', 'yellow');
+        this.addIntelligenceMessage('🔥 Purging all traces...', 'red');
 
-        // Clear localStorage
-        localStorage.clear();
+        try {
+            await this.apiCall('POST', '/api/docker/reset');
 
-        // Clear browser cache (simulated)
-        if ('caches' in window) {
-            caches.keys().then(names => {
-                names.forEach(name => caches.delete(name));
-            });
+            setTimeout(() => {
+                localStorage.clear();
+                sessionStorage.clear();
+
+                if ('caches' in window) {
+                    caches.keys().then(names => {
+                        names.forEach(name => caches.delete(name));
+                    });
+                }
+
+                this.playSound('success');
+                setTimeout(() => location.reload(), 1000);
+            }, 500);
+        } catch (err) {
+            this.addWireMessage(`❌ Burn failed: ${err.message}`, 'red');
         }
-
-        // Wait a moment then reload
-        setTimeout(() => {
-            location.reload();
-        }, 2000);
     }
 
     // ============================================
@@ -380,17 +753,26 @@ Provide a concise technical analysis and suggest the next command.`;
 
     toggleLivePipe() {
         this.livePipe = !this.livePipe;
+        this.modeIndicator.textContent = this.livePipe ? '⚡' : '›';
+        this.modeIndicator.title = this.livePipe ? 'Mode: Direct Execution' : 'Mode: Confirmation Required';
+
         if (this.livePipe) {
             this.livePipeBtn.classList.add('active');
-            this.addIntelligenceMessage('✓ Live-Pipe ENABLED (direct execution)', 'green');
+            this.addIntelligenceMessage('✓ Live-Pipe ENABLED - Direct execution mode', 'green');
         } else {
             this.livePipeBtn.classList.remove('active');
-            this.addIntelligenceMessage('✗ Live-Pipe DISABLED (confirmation required)', 'yellow');
+            this.addIntelligenceMessage('✗ Live-Pipe DISABLED - Confirmation required', 'yellow');
         }
     }
 
+    toggleQuickCommands() {
+        this.quickCmdsCollapsed = !this.quickCmdsCollapsed;
+        this.qcBody.classList.toggle('collapsed');
+        this.saveUserSettings();
+    }
+
     // ============================================
-    // MODAL MANAGEMENT
+    // MODALS
     // ============================================
 
     showLoginModal() {
@@ -403,13 +785,348 @@ Provide a concise technical analysis and suggest the next command.`;
     }
 
     showMainApp() {
-        // Hide login modal
         this.loginModal.classList.remove('active');
         this.commandInput.focus();
     }
 
+    openSettings() {
+        this.loadSettings();
+        this.settingsModal.classList.add('active');
+    }
+
+    closeSettings() {
+        this.settingsModal.classList.remove('active');
+    }
+
+    loadSettings() {
+        this.ollamaUrlInput.value = this.ollamaUrl;
+        this.ollamaModelInput.value = this.ollamaModel;
+        this.ollmaTempInput.value = this.ollamaTemp * 100;
+        this.tempValueDisplay.textContent = this.ollamaTemp.toFixed(2);
+        this.targetIPInput.value = this.targetIP;
+        this.localIPInput.value = this.localIP;
+        this.listeningPortInput.value = this.listeningPort;
+        this.themeSelect.value = document.body.className.replace('theme-', '') || 'default';
+        this.timestampToggle.value = this.showTimestamps ? 'true' : 'false';
+        this.soundToggle.value = this.soundEnabled ? 'true' : 'false';
+
+        this.checkOllamaStatus();
+        this.loadContainerInfo();
+    }
+
+    saveSettings() {
+        this.ollamaUrl = this.ollamaUrlInput.value;
+        this.ollamaModel = this.ollamaModelInput.value;
+        this.ollamaTemp = parseInt(this.ollmaTempInput.value) / 100;
+        this.targetIP = this.targetIPInput.value;
+        this.localIP = this.localIPInput.value;
+        this.listeningPort = this.listeningPortInput.value;
+        this.showTimestamps = this.timestampToggle.value === 'true';
+        this.soundEnabled = this.soundToggle.value === 'true';
+
+        // Apply theme
+        const theme = this.themeSelect.value;
+        document.body.className = theme !== 'default' ? `theme-${theme}` : '';
+
+        this.targetIPDisplay.value = this.targetIP;
+        this.localIPDisplay.value = this.localIP;
+        this.listeningPortDisplay.value = this.listeningPort;
+        this.activeModelDisplay.textContent = this.ollamaModel;
+
+        this.saveUserSettings();
+        this.addIntelligenceMessage('✓ Settings saved', 'green');
+        this.closeSettings();
+    }
+
+    resetSettingsToDefaults() {
+        if (!confirm('Reset all settings to defaults?')) return;
+
+        localStorage.removeItem('userSettings');
+        location.reload();
+    }
+
+    switchSettingsTab(tabName) {
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+
+        document.getElementById(`tab-${tabName}`).classList.add('active');
+        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+    }
+
+    async checkOllamaStatus() {
+        const url = this.ollamaUrlInput.value;
+        try {
+            const response = await axios.get(`${url}/api/tags`, { timeout: 5000 });
+            this.ollamaStatusBox.textContent = `✓ Connected\n${response.data.models?.length || 0} models available`;
+            this.ollamaStatusBox.classList.add('connected');
+            this.ollamaStatusBox.classList.remove('disconnected');
+        } catch (err) {
+            this.ollamaStatusBox.textContent = `✗ Disconnected\n${err.message}`;
+            this.ollamaStatusBox.classList.remove('connected');
+            this.ollamaStatusBox.classList.add('disconnected');
+        }
+    }
+
+    async refreshOllamaModels() {
+        const url = this.ollamaUrlInput.value;
+        this.refreshModelsBtn.textContent = '⏳';
+        this.refreshModelsBtn.disabled = true;
+
+        try {
+            const response = await axios.get(`${url}/api/tags`);
+            if (response.data.models && response.data.models.length > 0) {
+                this.ollamaModelInput.innerHTML = '';
+                response.data.models.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.name;
+                    option.textContent = model.name;
+                    this.ollamaModelInput.appendChild(option);
+                });
+                this.addIntelligenceMessage('✓ Models refreshed', 'green');
+            }
+        } catch (err) {
+            this.addIntelligenceMessage(`❌ Failed to fetch models: ${err.message}`, 'red');
+        } finally {
+            this.refreshModelsBtn.textContent = '🔄';
+            this.refreshModelsBtn.disabled = false;
+        }
+    }
+
+    async pullModel() {
+        const modelName = this.pullModelName.value.trim();
+        if (!modelName) {
+            this.pullProgress.textContent = 'Enter model name';
+            return;
+        }
+
+        this.pullProgress.textContent = `⏳ Pulling ${modelName}...`;
+        const url = this.ollamaUrlInput.value;
+
+        try {
+            const response = await axios.post(`${url}/api/pull`, {
+                name: modelName,
+                stream: true,
+            }, {
+                responseType: 'stream',
+            });
+
+            response.data.on('data', (chunk) => {
+                try {
+                    const lines = chunk.toString().split('\n').filter(l => l.trim());
+                    lines.forEach(line => {
+                        const json = JSON.parse(line);
+                        if (json.status === 'success') {
+                            this.pullProgress.textContent = `✓ ${modelName} pulled successfully`;
+                            this.pullModelName.value = '';
+                            this.refreshOllamaModels();
+                        }
+                    });
+                } catch (e) { }
+            });
+        } catch (err) {
+            this.pullProgress.textContent = `❌ ${err.message}`;
+        }
+    }
+
+    async pingTarget() {
+        const target = this.targetIPInput.value.trim();
+        if (!target) {
+            this.targetStatusBox.textContent = 'Enter target IP first';
+            return;
+        }
+
+        this.targetStatusBox.textContent = `⏳ Pinging ${target}...`;
+
+        try {
+            const response = await this.apiCall('POST', '/api/docker/exec', {
+                command: `ping -c 4 ${target} 2>&1 | tail -5`,
+                timeout: 10000,
+            });
+
+            this.targetStatusBox.textContent = response.output;
+            this.targetStatusBox.classList.add('connected');
+        } catch (err) {
+            this.targetStatusBox.textContent = `❌ ${err.message}`;
+            this.targetStatusBox.classList.add('disconnected');
+        }
+    }
+
+    async installPackages() {
+        const packages = this.installPackages.value.trim().split(/\s+/);
+        if (packages.length === 0 || packages[0] === '') {
+            this.installOutput.textContent = 'Enter package names';
+            return;
+        }
+
+        this.installOutput.style.display = 'block';
+        this.installOutput.textContent = `⏳ Installing ${packages.join(', ')}...`;
+        this.installBtn.disabled = true;
+
+        try {
+            const response = await this.apiCall('POST', '/api/docker/install', { packages });
+            this.installOutput.textContent = response.output;
+            this.addIntelligenceMessage(`✓ Installed: ${packages.join(', ')}`, 'green');
+        } catch (err) {
+            this.installOutput.textContent = `❌ ${err.message}`;
+            this.addIntelligenceMessage(`❌ Install failed: ${err.message}`, 'red');
+        } finally {
+            this.installBtn.disabled = false;
+        }
+    }
+
+    async restartContainer() {
+        if (!confirm('Restart Kali container?')) return;
+
+        try {
+            await this.apiCall('POST', '/api/docker/restart');
+            this.addIntelligenceMessage('✓ Container restarting...', 'green');
+            this.loadContainerInfo();
+        } catch (err) {
+            this.addIntelligenceMessage(`❌ Restart failed: ${err.message}`, 'red');
+        }
+    }
+
+    async resetContainer() {
+        if (!confirm('Factory reset Kali container? This cannot be undone!')) return;
+
+        try {
+            await this.apiCall('POST', '/api/docker/reset');
+            this.addIntelligenceMessage('✓ Container reset to clean state', 'green');
+            this.loadContainerInfo();
+        } catch (err) {
+            this.addIntelligenceMessage(`❌ Reset failed: ${err.message}`, 'red');
+        }
+    }
+
+    async loadContainerInfo() {
+        try {
+            const response = await this.apiCall('GET', '/api/docker/status');
+            this.containerInfo.textContent = `Image: ${response.image}\nState: ${response.state}\nUptime: ${new Date(response.uptime).toLocaleString()}`;
+        } catch (err) {
+            this.containerInfo.textContent = `Error: ${err.message}`;
+        }
+    }
+
+    // ============================================
+    // NOTEPAD
+    // ============================================
+
+    openNotepad() {
+        this.notepadModal.classList.add('active');
+        this.notepadText.focus();
+    }
+
+    closeNotepad() {
+        this.notepadModal.classList.remove('active');
+    }
+
+    async loadSessionNotes() {
+        try {
+            const response = await this.apiCall('GET', '/api/session/notes');
+            this.notepadText.value = response.notes || '';
+        } catch (err) {
+            console.error('Failed to load notes:', err);
+        }
+    }
+
+    async saveNotepad() {
+        try {
+            await this.apiCall('POST', '/api/session/notes', {
+                notes: this.notepadText.value,
+            });
+            this.addIntelligenceMessage('✓ Notepad saved', 'green');
+        } catch (err) {
+            this.addIntelligenceMessage(`❌ Save failed: ${err.message}`, 'red');
+        }
+    }
+
+    // ============================================
+    // SESSION MANAGEMENT
+    // ============================================
+
+    async loadCommandHistory() {
+        try {
+            const response = await this.apiCall('GET', '/api/session/history');
+            this.commandHistory = response.history.map(h => h.command);
+        } catch (err) {
+            console.error('Failed to load history:', err);
+        }
+    }
+
+    async exportSession() {
+        try {
+            const response = await this.apiCall('GET', '/api/session/export');
+            const blob = new Blob([JSON.stringify(response, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `pentest-session-${Date.now()}.json`;
+            a.click();
+            this.addIntelligenceMessage('✓ Session exported', 'green');
+        } catch (err) {
+            this.addIntelligenceMessage(`❌ Export failed: ${err.message}`, 'red');
+        }
+    }
+
+    // ============================================
+    // UTILITIES
+    // ============================================
+
+    toggleFullscreen() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => {
+                console.error(`Error attempting to enable fullscreen: ${err.message}`);
+            });
+        } else {
+            document.exitFullscreen();
+        }
+    }
+
+    copyToClipboard(element) {
+        const text = element.innerText;
+        navigator.clipboard.writeText(text).then(() => {
+            this.addIntelligenceMessage('✓ Copied to clipboard', 'green');
+        });
+    }
+
+    searchStream(stream, query) {
+        const lines = stream.querySelectorAll('.line');
+        lines.forEach(line => {
+            line.classList.remove('search-highlight');
+            if (query && line.textContent.toLowerCase().includes(query.toLowerCase())) {
+                line.classList.add('search-highlight');
+            }
+        });
+    }
+
+    playSound(type) {
+        if (!this.soundEnabled) return;
+
+        // Simple beep using Web Audio API
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        if (type === 'success') {
+            oscillator.frequency.value = 800;
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.1);
+        } else if (type === 'error') {
+            oscillator.frequency.value = 400;
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.2);
+        }
+    }
+
     showConfirmModal(command) {
-        document.getElementById('command-preview').textContent = `$ ${command}`;
+        this.commandPreview.textContent = `$ ${command}`;
         this.confirmModal.classList.add('active');
         this.pendingCommand = command;
     }
@@ -432,165 +1149,49 @@ Provide a concise technical analysis and suggest the next command.`;
     // ============================================
 
     addIntelligenceMessage(message, color = 'cyan', append = false) {
+        const timestamp = this.showTimestamps ? `[${new Date().toLocaleTimeString()}] ` : '';
         const span = document.createElement('span');
-        span.className = color || 'cyan';
+        span.className = color;
         span.textContent = message;
 
         if (append) {
-            const lastElement = this.intelligenceStream.lastChild;
-            if (lastElement && lastElement.tagName === 'SPAN') {
-                lastElement.textContent += message;
-            } else {
-                this.intelligenceStream.appendChild(span);
+            const lastLine = this.intelligenceStream.lastChild;
+            if (lastLine && lastLine.classList.contains('line')) {
+                lastLine.appendChild(span);
+                return;
             }
-        } else {
-            const line = document.createElement('div');
-            line.appendChild(span);
-            this.intelligenceStream.appendChild(line);
         }
 
+        const line = document.createElement('div');
+        line.className = 'line';
+        if (timestamp) {
+            const ts = document.createElement('span');
+            ts.className = 'timestamp';
+            ts.textContent = timestamp;
+            line.appendChild(ts);
+        }
+        line.appendChild(span);
+        this.intelligenceStream.appendChild(line);
         this.intelligenceStream.scrollTop = this.intelligenceStream.scrollHeight;
     }
 
     addWireMessage(message, color = 'grey') {
+        const timestamp = this.showTimestamps ? `[${new Date().toLocaleTimeString()}] ` : '';
         const span = document.createElement('span');
-        span.className = color || 'grey';
+        span.className = color;
         span.textContent = message;
 
         const line = document.createElement('div');
+        line.className = 'line';
+        if (timestamp) {
+            const ts = document.createElement('span');
+            ts.className = 'timestamp';
+            ts.textContent = timestamp;
+            line.appendChild(ts);
+        }
         line.appendChild(span);
         this.wireStream.appendChild(line);
-
         this.wireStream.scrollTop = this.wireStream.scrollHeight;
-    }
-
-    // ============================================
-    // SETTINGS
-    // ============================================
-
-    openSettings() {
-        this.loadSettings();
-        this.settingsModal.classList.add('active');
-    }
-
-    closeSettings() {
-        this.settingsModal.classList.remove('active');
-    }
-
-    loadSettings() {
-        const settings = JSON.parse(localStorage.getItem('settings')) || {};
-
-        this.ollamaUrlInput.value = settings.ollamaUrl || 'http://host.docker.internal:11434';
-        this.ollamaModelInput.value = settings.ollamaModel || 'dolphin-mixtral';
-        this.ollmaTempInput.value = settings.ollamaTemp || 70;
-        this.tempValueDisplay.textContent = (this.ollmaTempInput.value / 100).toFixed(2);
-
-        this.targetIPInput.value = settings.targetIP || this.targetIP;
-        this.localIPInput.value = settings.localIP || this.localIP;
-        this.listeningPortInput.value = settings.listeningPort || this.listeningPort;
-
-        this.checkOllamaStatus();
-    }
-
-    saveSettings() {
-        const settings = {
-            ollamaUrl: this.ollamaUrlInput.value,
-            ollamaModel: this.ollamaModelInput.value,
-            ollamaTemp: this.ollmaTempInput.value,
-            targetIP: this.targetIPInput.value,
-            localIP: this.localIPInput.value,
-            listeningPort: this.listeningPortInput.value
-        };
-
-        localStorage.setItem('settings', JSON.stringify(settings));
-
-        // Update in-memory values
-        this.targetIP = settings.targetIP;
-        this.localIP = settings.localIP;
-        this.listeningPort = settings.listeningPort;
-
-        // Update HUD
-        this.targetIPDisplay.textContent = this.targetIP;
-        this.localIPDisplay.textContent = this.localIP;
-        this.listeningPortDisplay.textContent = this.listeningPort;
-
-        this.addIntelligenceMessage('✓ Settings saved', 'green');
-        this.closeSettings();
-    }
-
-    resetSettingsToDefaults() {
-        if (!confirm('Reset all settings to defaults?')) return;
-
-        localStorage.removeItem('settings');
-        this.loadSettings();
-        this.addIntelligenceMessage('✓ Settings reset to defaults', 'green');
-    }
-
-    switchTab(tabName) {
-        // Hide all tabs
-        document.querySelectorAll('.tab-content').forEach(tab => {
-            tab.classList.remove('active');
-        });
-
-        // Remove active from all buttons
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-
-        // Show selected tab
-        document.getElementById(`tab-${tabName}`).classList.add('active');
-
-        // Mark button as active
-        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-    }
-
-    async checkOllamaStatus() {
-        const ollamaUrl = this.ollamaUrlInput.value;
-
-        try {
-            const response = await fetch(`${ollamaUrl}/api/tags`, {
-                headers: { 'Authorization': `Bearer ${this.token}` }
-            });
-
-            if (response.ok) {
-                this.ollamaStatusBox.textContent = '✓ Connected - Ollama is healthy';
-                this.ollamaStatusBox.classList.add('connected');
-                this.ollamaStatusBox.classList.remove('disconnected');
-            } else {
-                throw new Error('Connection failed');
-            }
-        } catch (err) {
-            this.ollamaStatusBox.textContent = `✗ Disconnected - ${err.message}`;
-            this.ollamaStatusBox.classList.remove('connected');
-            this.ollamaStatusBox.classList.add('disconnected');
-        }
-    }
-
-    async refreshOllamaModels() {
-        const ollamaUrl = this.ollamaUrlInput.value;
-        this.refreshModelsBtn.textContent = '⏳ LOADING...';
-        this.refreshModelsBtn.disabled = true;
-
-        try {
-            const response = await fetch(`${ollamaUrl}/api/tags`);
-            const data = await response.json();
-
-            if (data.models && data.models.length > 0) {
-                this.ollamaModelInput.innerHTML = '';
-                data.models.forEach(model => {
-                    const option = document.createElement('option');
-                    option.value = model.name;
-                    option.textContent = model.name;
-                    this.ollamaModelInput.appendChild(option);
-                });
-                this.addIntelligenceMessage('✓ Models refreshed from Ollama', 'green');
-            }
-        } catch (err) {
-            this.addIntelligenceMessage(`❌ Failed to fetch models: ${err.message}`, 'red');
-        } finally {
-            this.refreshModelsBtn.textContent = '🔄 REFRESH';
-            this.refreshModelsBtn.disabled = false;
-        }
     }
 
     // ============================================
@@ -602,8 +1203,8 @@ Provide a concise technical analysis and suggest the next command.`;
             method: method,
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.token}`
-            }
+                'Authorization': `Bearer ${this.token}`,
+            },
         };
 
         if (data) {
@@ -622,13 +1223,17 @@ Provide a concise technical analysis and suggest the next command.`;
 }
 
 // ============================================
-// INITIALIZE APP
+// INITIALIZE
 // ============================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    window.bot = new KaliHackerBot();
+    // Add axios for streaming
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.0/axios.min.js';
+    document.head.appendChild(script);
 
-    // Log startup
-    console.log('🎯 Kali Hacker Bot initialized');
-    console.log('🔐 Authenticate to begin');
+    script.onload = () => {
+        window.bot = new KaliHackerBot();
+        window.bot.checkAuthStatus();
+    };
 });

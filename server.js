@@ -10,17 +10,41 @@ const expressStaticGzip = require('express-static-gzip');
 
 const app = express();
 const PORT = process.env.PORT || 31337;
-const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
+let OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const KALI_CONTAINER = process.env.KALI_CONTAINER || 'kali-linux';
 
+// Pentesting system prompt for Ollama
+const SYSTEM_PROMPT = `You are an elite penetration testing AI assistant embedded in a Kali Linux terminal. You have deep expertise in:
+- Network reconnaissance (Nmap, Masscan, Netdiscover)
+- Web application testing (Burp Suite, SQLMap, Nikto, DirBuster, Gobuster)
+- Exploitation frameworks (Metasploit, SearchSploit)
+- Password attacks (Hydra, John the Ripper, Hashcat)
+- Wireless attacks (Aircrack-ng, Bettercap)
+- Privilege escalation (LinPEAS, WinPEAS, GTFOBins)
+- Post-exploitation and lateral movement
+- Social engineering and OSINT
+- Reverse engineering and binary exploitation
+- Active Directory attacks (BloodHound, Impacket, CrackMapExec)
+
+When analyzing tool output:
+1. Identify vulnerabilities and misconfigurations
+2. Suggest the next logical attack vector
+3. Provide exact commands ready to execute
+4. Rate findings by severity (CRITICAL/HIGH/MEDIUM/LOW/INFO)
+5. Reference relevant CVEs when applicable
+
+Always provide commands with variable placeholders like $TARGET_IP, $LOCAL_IP, $LPORT that the user can substitute. Be concise and tactical.`;
+
 // Security middleware
-app.use(helmet());
-app.use(cors({ origin: 'localhost' }));
+app.use(helmet({
+  contentSecurityPolicy: false,
+}));
+app.use(cors());
 
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 500,
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -39,20 +63,23 @@ app.use(expressStaticGzip(path.join(__dirname, 'public'), {
 // Docker client
 const docker = new Docker({ socketPath: '/var/run/docker.sock' });
 
-// Session storage (in-memory, in production use Redis)
+// Session storage
 const sessions = new Map();
+
+// Command history per session
+const commandHistory = new Map();
+
+// Active exec processes (for kill switch)
+const activeProcesses = new Map();
 
 // ============================================
 // AUTHENTICATION
 // ============================================
 
-// Simple token-based auth (in production use proper JWT)
 const AUTH_SECRET = process.env.AUTH_SECRET || 'changeme-' + uuidv4();
 
 app.post('/api/auth/login', (req, res) => {
   const { password } = req.body;
-
-  // In production, verify against proper credentials
   const expectedPassword = process.env.ADMIN_PASSWORD || 'kalibot';
 
   if (password !== expectedPassword) {
@@ -64,14 +91,16 @@ app.post('/api/auth/login', (req, res) => {
 
   sessions.set(sessionId, {
     createdAt: Date.now(),
-    expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
-    userId: 'admin'
+    expiresAt: Date.now() + (24 * 60 * 60 * 1000),
+    userId: 'admin',
+    notes: '',
   });
+
+  commandHistory.set(sessionId, []);
 
   res.json({ token, sessionId });
 });
 
-// Auth middleware
 function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -80,7 +109,10 @@ function authenticate(req, res, next) {
 
   const token = authHeader.slice(7);
   try {
-    const [sessionId, secret] = Buffer.from(token, 'base64').toString().split(':');
+    const decoded = Buffer.from(token, 'base64').toString();
+    const colonIdx = decoded.indexOf(':');
+    const sessionId = decoded.substring(0, colonIdx);
+    const secret = decoded.substring(colonIdx + 1);
     const session = sessions.get(sessionId);
 
     if (!session || session.expiresAt < Date.now() || secret !== AUTH_SECRET) {
@@ -99,11 +131,17 @@ function authenticate(req, res, next) {
 // ============================================
 
 app.post('/api/docker/exec', authenticate, async (req, res) => {
-  const { command } = req.body;
+  const { command, timeout = 30000 } = req.body;
 
   if (!command) {
     return res.status(400).json({ error: 'Command required' });
   }
+
+  // Store in history
+  const history = commandHistory.get(req.sessionId) || [];
+  history.push({ command, timestamp: new Date().toISOString() });
+  if (history.length > 500) history.shift();
+  commandHistory.set(req.sessionId, history);
 
   try {
     const container = docker.getContainer(KALI_CONTAINER);
@@ -114,46 +152,46 @@ app.post('/api/docker/exec', authenticate, async (req, res) => {
       AttachStderr: true,
     });
 
+    const execId = exec.id;
     const stream = await exec.start({ Detach: false });
     let output = '';
+    let timedOut = false;
+
+    activeProcesses.set(execId, exec);
+
+    const timer = setTimeout(() => {
+      timedOut = true;
+      stream.destroy();
+    }, timeout);
 
     stream.on('data', (chunk) => {
-      output += chunk.toString();
+      // Docker stream has 8-byte header per frame; strip it
+      const raw = chunk.toString();
+      output += raw;
     });
 
     stream.on('end', () => {
+      clearTimeout(timer);
+      activeProcesses.delete(execId);
       res.json({
         success: true,
         output: output,
         command: command,
-        timestamp: new Date().toISOString()
+        timedOut: timedOut,
+        timestamp: new Date().toISOString(),
       });
+    });
+
+    stream.on('error', (err) => {
+      clearTimeout(timer);
+      activeProcesses.delete(execId);
+      res.status(500).json({ error: err.message });
     });
 
   } catch (err) {
     console.error('Docker exec error:', err);
     res.status(500).json({ error: 'Command execution failed', details: err.message });
   }
-});
-
-// Stream command output via Server-Sent Events
-app.get('/api/docker/stream/:execId', authenticate, async (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-
-  // This is a placeholder for streaming infrastructure
-  // In production, would need proper stream management
-  res.write('data: {"status":"Stream initialized"}\n\n');
-
-  const interval = setInterval(() => {
-    res.write('data: {"status":"waiting"}\n\n');
-  }, 30000); // Keep-alive every 30s
-
-  req.on('close', () => {
-    clearInterval(interval);
-    res.end();
-  });
 });
 
 app.get('/api/docker/status', authenticate, async (req, res) => {
@@ -166,10 +204,114 @@ app.get('/api/docker/status', authenticate, async (req, res) => {
       state: info.State.Status,
       running: info.State.Running,
       pid: info.State.Pid,
-      uptime: new Date(info.State.StartedAt)
+      uptime: info.State.StartedAt,
+      image: info.Config.Image,
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to get container status', details: err.message });
+  }
+});
+
+// Restart Kali container
+app.post('/api/docker/restart', authenticate, async (req, res) => {
+  try {
+    const container = docker.getContainer(KALI_CONTAINER);
+    await container.restart();
+    res.json({ success: true, message: 'Container restarting' });
+  } catch (err) {
+    res.status(500).json({ error: 'Restart failed', details: err.message });
+  }
+});
+
+// Install tools in Kali
+app.post('/api/docker/install', authenticate, async (req, res) => {
+  const { packages } = req.body;
+
+  if (!packages || !Array.isArray(packages) || packages.length === 0) {
+    return res.status(400).json({ error: 'Packages array required' });
+  }
+
+  // Validate package names (only allow alphanumeric, hyphens, dots)
+  const validPkg = /^[a-zA-Z0-9._-]+$/;
+  for (const pkg of packages) {
+    if (!validPkg.test(pkg)) {
+      return res.status(400).json({ error: `Invalid package name: ${pkg}` });
+    }
+  }
+
+  const pkgList = packages.join(' ');
+
+  try {
+    const container = docker.getContainer(KALI_CONTAINER);
+    const exec = await container.exec({
+      Cmd: ['bash', '-c', `apt-get update -qq && apt-get install -y -qq ${pkgList} 2>&1`],
+      AttachStdout: true,
+      AttachStderr: true,
+    });
+
+    const stream = await exec.start({ Detach: false });
+    let output = '';
+
+    stream.on('data', (chunk) => { output += chunk.toString(); });
+    stream.on('end', () => {
+      res.json({ success: true, output, packages });
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Install failed', details: err.message });
+  }
+});
+
+// Kill all processes in container
+app.post('/api/docker/killall', authenticate, async (req, res) => {
+  try {
+    const container = docker.getContainer(KALI_CONTAINER);
+
+    // Kill all user processes except PID 1
+    const exec = await container.exec({
+      Cmd: ['bash', '-c', 'kill -9 $(ps aux | grep -v PID | awk \'{print $2}\' | grep -v "^1$") 2>/dev/null; echo "All processes killed"'],
+      AttachStdout: true,
+      AttachStderr: true,
+    });
+
+    const stream = await exec.start({ Detach: false });
+    let output = '';
+
+    stream.on('data', (chunk) => { output += chunk.toString(); });
+    stream.on('end', () => {
+      // Clear active processes tracker
+      activeProcesses.clear();
+      res.json({ success: true, output });
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Kill failed', details: err.message });
+  }
+});
+
+// Reset container to clean state
+app.post('/api/docker/reset', authenticate, async (req, res) => {
+  try {
+    const container = docker.getContainer(KALI_CONTAINER);
+    const info = await container.inspect();
+
+    // Stop, remove, and recreate
+    await container.stop().catch(() => {});
+    await container.remove();
+
+    const newContainer = await docker.createContainer({
+      Image: info.Config.Image,
+      name: KALI_CONTAINER,
+      Tty: true,
+      OpenStdin: true,
+      Cmd: ['/bin/bash'],
+      NetworkingConfig: {
+        EndpointsConfig: info.NetworkSettings.Networks,
+      },
+    });
+
+    await newContainer.start();
+    res.json({ success: true, message: 'Container reset to clean state' });
+  } catch (err) {
+    res.status(500).json({ error: 'Reset failed', details: err.message });
   }
 });
 
@@ -177,8 +319,23 @@ app.get('/api/docker/status', authenticate, async (req, res) => {
 // OLLAMA API ENDPOINTS
 // ============================================
 
+// Allow frontend to update Ollama URL
+app.post('/api/ollama/config', authenticate, (req, res) => {
+  const { url } = req.body;
+  if (url) {
+    OLLAMA_URL = url;
+    res.json({ success: true, url: OLLAMA_URL });
+  } else {
+    res.status(400).json({ error: 'URL required' });
+  }
+});
+
+app.get('/api/ollama/config', authenticate, (req, res) => {
+  res.json({ url: OLLAMA_URL });
+});
+
 app.post('/api/ollama/generate', authenticate, async (req, res) => {
-  const { prompt, model = 'dolphin-mixtral' } = req.body;
+  const { prompt, model = 'dolphin-mixtral', temperature = 0.7, systemPrompt } = req.body;
 
   if (!prompt) {
     return res.status(400).json({ error: 'Prompt required' });
@@ -187,16 +344,18 @@ app.post('/api/ollama/generate', authenticate, async (req, res) => {
   try {
     const response = await axios.post(`${OLLAMA_URL}/api/generate`, {
       model: model,
+      system: systemPrompt || SYSTEM_PROMPT,
       prompt: prompt,
       stream: false,
-      temperature: 0.7,
+      options: { temperature },
     });
 
     res.json({
       success: true,
       model: model,
       response: response.data.response,
-      timestamp: new Date().toISOString()
+      context: response.data.context,
+      timestamp: new Date().toISOString(),
     });
   } catch (err) {
     console.error('Ollama error:', err.message);
@@ -204,9 +363,8 @@ app.post('/api/ollama/generate', authenticate, async (req, res) => {
   }
 });
 
-// Stream ollama response via SSE
 app.post('/api/ollama/stream', authenticate, async (req, res) => {
-  const { prompt, model = 'dolphin-mixtral' } = req.body;
+  const { prompt, model = 'dolphin-mixtral', temperature = 0.7, systemPrompt } = req.body;
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -215,11 +373,12 @@ app.post('/api/ollama/stream', authenticate, async (req, res) => {
   try {
     const response = await axios.post(`${OLLAMA_URL}/api/generate`, {
       model: model,
+      system: systemPrompt || SYSTEM_PROMPT,
       prompt: prompt,
       stream: true,
-      temperature: 0.7,
+      options: { temperature },
     }, {
-      responseType: 'stream'
+      responseType: 'stream',
     });
 
     response.data.on('data', (chunk) => {
@@ -227,10 +386,14 @@ app.post('/api/ollama/stream', authenticate, async (req, res) => {
         const lines = chunk.toString().split('\n').filter(l => l.trim());
         lines.forEach(line => {
           const json = JSON.parse(line);
-          res.write(`data: ${JSON.stringify({ token: json.response })}\n\n`);
+          if (json.done) {
+            res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+          } else {
+            res.write(`data: ${JSON.stringify({ token: json.response })}\n\n`);
+          }
         });
       } catch (e) {
-        console.error('Parse error:', e);
+        // ignore parse errors on partial chunks
       }
     });
 
@@ -244,6 +407,10 @@ app.post('/api/ollama/stream', authenticate, async (req, res) => {
       res.end();
     });
 
+    req.on('close', () => {
+      response.data.destroy();
+    });
+
   } catch (err) {
     res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
     res.end();
@@ -253,12 +420,132 @@ app.post('/api/ollama/stream', authenticate, async (req, res) => {
 app.get('/api/ollama/models', authenticate, async (req, res) => {
   try {
     const response = await axios.get(`${OLLAMA_URL}/api/tags`);
-    res.json({
-      models: response.data.models || []
-    });
+    res.json({ models: response.data.models || [] });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch models', details: err.message });
   }
+});
+
+// Pull a new model
+app.post('/api/ollama/pull', authenticate, async (req, res) => {
+  const { model } = req.body;
+
+  if (!model) {
+    return res.status(400).json({ error: 'Model name required' });
+  }
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  try {
+    const response = await axios.post(`${OLLAMA_URL}/api/pull`, {
+      name: model,
+      stream: true,
+    }, {
+      responseType: 'stream',
+    });
+
+    response.data.on('data', (chunk) => {
+      try {
+        const lines = chunk.toString().split('\n').filter(l => l.trim());
+        lines.forEach(line => {
+          const json = JSON.parse(line);
+          res.write(`data: ${JSON.stringify(json)}\n\n`);
+        });
+      } catch (e) {
+        // ignore
+      }
+    });
+
+    response.data.on('end', () => {
+      res.write('data: {"status":"success"}\n\n');
+      res.end();
+    });
+
+  } catch (err) {
+    res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+    res.end();
+  }
+});
+
+// ============================================
+// CVE LOOKUP
+// ============================================
+
+app.get('/api/cve/:cveId', authenticate, async (req, res) => {
+  const { cveId } = req.params;
+
+  // Validate CVE format
+  if (!/^CVE-\d{4}-\d{4,}$/i.test(cveId)) {
+    return res.status(400).json({ error: 'Invalid CVE format. Use CVE-YYYY-NNNNN' });
+  }
+
+  try {
+    const response = await axios.get(
+      `https://cveawg.mitre.org/api/cve/${cveId.toUpperCase()}`,
+      { timeout: 10000 }
+    );
+    res.json({ success: true, cve: response.data });
+  } catch (err) {
+    // Fallback to NVD
+    try {
+      const nvd = await axios.get(
+        `https://services.nvd.nist.gov/rest/json/cves/2.0?cveId=${cveId.toUpperCase()}`,
+        { timeout: 10000 }
+      );
+      res.json({ success: true, cve: nvd.data });
+    } catch (e) {
+      res.status(500).json({ error: 'CVE lookup failed', details: e.message });
+    }
+  }
+});
+
+// ============================================
+// SESSION MANAGEMENT
+// ============================================
+
+// Get command history
+app.get('/api/session/history', authenticate, (req, res) => {
+  const history = commandHistory.get(req.sessionId) || [];
+  res.json({ history });
+});
+
+// Session notes (scratchpad)
+app.get('/api/session/notes', authenticate, (req, res) => {
+  const session = sessions.get(req.sessionId);
+  res.json({ notes: session ? session.notes : '' });
+});
+
+app.post('/api/session/notes', authenticate, (req, res) => {
+  const { notes } = req.body;
+  const session = sessions.get(req.sessionId);
+  if (session) {
+    session.notes = notes || '';
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Session not found' });
+  }
+});
+
+// Export session data
+app.get('/api/session/export', authenticate, (req, res) => {
+  const session = sessions.get(req.sessionId);
+  const history = commandHistory.get(req.sessionId) || [];
+
+  const exportData = {
+    sessionId: req.sessionId,
+    exportedAt: new Date().toISOString(),
+    session: {
+      createdAt: session ? new Date(session.createdAt).toISOString() : null,
+      notes: session ? session.notes : '',
+    },
+    commandHistory: history,
+  };
+
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', `attachment; filename="pentest-session-${req.sessionId.slice(0, 8)}-${Date.now()}.json"`);
+  res.json(exportData);
 });
 
 // ============================================
@@ -267,13 +554,16 @@ app.get('/api/ollama/models', authenticate, async (req, res) => {
 
 app.get('/api/system/status', authenticate, async (req, res) => {
   try {
-    const dockerStatus = await checkDockerHealth();
-    const ollamaStatus = await checkOllamaHealth();
+    const [dockerStatus, ollamaStatus] = await Promise.all([
+      checkDockerHealth(),
+      checkOllamaHealth(),
+    ]);
 
     res.json({
       docker: dockerStatus,
       ollama: ollamaStatus,
-      timestamp: new Date().toISOString()
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to check system status' });
@@ -287,28 +577,24 @@ async function checkDockerHealth() {
     return {
       connected: true,
       containerRunning: info.State.Running,
-      container: KALI_CONTAINER
+      container: KALI_CONTAINER,
+      image: info.Config.Image,
     };
   } catch (err) {
-    return {
-      connected: false,
-      error: err.message
-    };
+    return { connected: false, error: err.message };
   }
 }
 
 async function checkOllamaHealth() {
   try {
-    await axios.get(`${OLLAMA_URL}/api/tags`);
+    const response = await axios.get(`${OLLAMA_URL}/api/tags`, { timeout: 3000 });
     return {
       connected: true,
-      url: OLLAMA_URL
+      url: OLLAMA_URL,
+      modelCount: (response.data.models || []).length,
     };
   } catch (err) {
-    return {
-      connected: false,
-      error: err.message
-    };
+    return { connected: false, url: OLLAMA_URL, error: err.message };
   }
 }
 
@@ -317,8 +603,12 @@ async function checkOllamaHealth() {
 // ============================================
 
 app.listen(PORT, () => {
-  console.log(`🎯 Kali Hacker Bot running on http://localhost:${PORT}`);
-  console.log(`🐳 Docker Socket: /var/run/docker.sock`);
-  console.log(`🦙 Ollama API: ${OLLAMA_URL}`);
-  console.log(`⚙️  Kali Container: ${KALI_CONTAINER}`);
+  console.log(`\n  ╔══════════════════════════════════════════╗`);
+  console.log(`  ║     KALI HACKER BOT v1.0                ║`);
+  console.log(`  ╠══════════════════════════════════════════╣`);
+  console.log(`  ║  Web UI:    http://localhost:${PORT}      ║`);
+  console.log(`  ║  Docker:    /var/run/docker.sock         ║`);
+  console.log(`  ║  Ollama:    ${OLLAMA_URL.padEnd(28)}║`);
+  console.log(`  ║  Container: ${KALI_CONTAINER.padEnd(28)}║`);
+  console.log(`  ╚══════════════════════════════════════════╝\n`);
 });
