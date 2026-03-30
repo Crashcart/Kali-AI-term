@@ -267,3 +267,8 @@ For issues, questions, or feature requests, contact the development team.
 Workflows Active: ✅
 Branch Protection: ✅
 Auto-merge: ✅
+
+✅ Install script now supports:
+- Modern 'docker compose' format
+- Custom Ollama installations
+- Configuration via web UI
