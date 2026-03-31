@@ -106,7 +106,7 @@ The script will:
 
 **To reinstall afterward:**
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/test/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/install.sh)
 ```
 
 ### Manual Installation
