@@ -5,9 +5,11 @@ services:
     build: .
     container_name: Kali-AI-app
     ports:
-      - "31337:3000"
+      - "0.0.0.0:31337:3000"
     environment:
       - NODE_ENV=production
+      - PORT=3000
+      - BIND_HOST=0.0.0.0
       - OLLAMA_URL=http://host.docker.internal:11434
       - KALI_CONTAINER=Kali-AI-linux
       - LOG_LEVEL=info
