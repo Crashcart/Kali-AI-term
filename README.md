@@ -95,7 +95,7 @@ Then open `http://localhost:31337` and start pentesting!
 **One-command removal of all data, containers, and configurations:**
 
 ```bash
-./uninstall.sh
+bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/uninstall.sh)
 ```
 
 The script will:
@@ -107,7 +107,7 @@ The script will:
 
 **To reinstall afterward:**
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/test/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/install.sh)
 ```
 
 ### Manual Installation
