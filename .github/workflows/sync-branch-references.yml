@@ -1,0 +1,82 @@
+name: Sync Branch References
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'README.md'
+      - 'install.sh'
+      - 'uninstall.sh'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync-refs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update test→main references
+        run: |
+          echo "🔄 Syncing branch references from test to main..."
+          sed -i 's|/test/|/main/|g' README.md install.sh uninstall.sh
+          echo "✅ Update complete"
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "✓ No changes needed"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "✓ Changes detected - preparing to commit"
+            echo "--- Changes:"
+            git diff --color=never
+          fi
+
+      - name: Commit and push changes (Auto)
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          git config user.name "🤖 GitHub Actions"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md install.sh uninstall.sh
+          git commit -m "chore: auto-sync branch references to main
+
+- Updated all test → main references in docs and scripts
+- This commit is automatically generated when changes merge to main"
+
+          # Retry push up to 3 times (in case of conflicts)
+          for attempt in 1 2 3; do
+            if git push origin main; then
+              echo "✅ Push successful on attempt $attempt"
+              exit 0
+            else
+              echo "⚠️ Push failed on attempt $attempt, retrying..."
+              sleep $((attempt * 2))
+            fi
+          done
+
+          echo "❌ Push failed after 3 attempts"
+          exit 1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Workflow Summary
+        if: always()
+        run: |
+          echo "📋 Sync Workflow Summary"
+          echo "========================"
+          echo "Status: ${{ job.status }}"
+          echo "Branch: main"
+          echo "Action: Auto-sync branch references"
+          if [ "${{ steps.changes.outputs.has_changes }}" = "true" ]; then
+            echo "Result: ✅ Synced successfully"
+          else
+            echo "Result: ℹ️ No changes needed"
+          fi
