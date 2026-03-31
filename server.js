@@ -14,7 +14,7 @@ const app = express();
 const PORT = process.env.PORT || 31337;
 const BIND_HOST = process.env.BIND_HOST || '0.0.0.0';
 let OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
-const KALI_CONTAINER = process.env.KALI_CONTAINER || 'kali-linux';
+const KALI_CONTAINER = process.env.KALI_CONTAINER || 'Kali-AI-linux';
 
 // Pentesting system prompt for Ollama
 const SYSTEM_PROMPT = `You are an elite penetration testing AI assistant embedded in a Kali Linux terminal. You have deep expertise in:
