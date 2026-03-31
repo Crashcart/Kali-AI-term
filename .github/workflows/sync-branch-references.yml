@@ -35,37 +35,47 @@ jobs:
             echo "✓ No changes needed"
           else
             echo "has_changes=true" >> $GITHUB_OUTPUT
-            echo "✓ Changes detected - preparing to commit"
+            echo "✓ Changes detected - preparing pull request"
             echo "--- Changes:"
             git diff --color=never
           fi
 
-      - name: Commit and push changes (Auto)
+      - name: Create branch and commit changes
         if: steps.changes.outputs.has_changes == 'true'
         run: |
-          git config user.name "🤖 GitHub Actions"
+          BRANCH="chore/sync-branch-refs-$(date +%Y%m%d-%H%M%S)"
+          echo "SYNC_BRANCH=$BRANCH" >> $GITHUB_ENV
+          git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
           git add README.md install.sh uninstall.sh
-          git commit -m "chore: auto-sync branch references to main
+          git commit -m "chore: sync branch references to main
 
-- Updated all test → main references in docs and scripts
-- This commit is automatically generated when changes merge to main"
-
-          # Retry push up to 3 times (in case of conflicts)
-          for attempt in 1 2 3; do
-            if git push origin main; then
-              echo "✅ Push successful on attempt $attempt"
-              exit 0
-            else
-              echo "⚠️ Push failed on attempt $attempt, retrying..."
-              sleep $((attempt * 2))
-            fi
-          done
-
-          echo "❌ Push failed after 3 attempts"
-          exit 1
+- Updated all test -> main references in docs and scripts
+- This PR is automatically generated and requires human review"
+          git push origin "$BRANCH"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Open Pull Request
+        if: steps.changes.outputs.has_changes == 'true'
+        uses: actions/github-script@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SYNC_BRANCH: ${{ env.SYNC_BRANCH }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const branch = process.env.SYNC_BRANCH;
+            const { data: pr } = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'chore: auto-sync branch references to main',
+              body: '## Automated Branch Reference Sync\n\nThis PR was automatically generated to update `test \u2192 main` references in docs and scripts.\n\n**\u26a0\ufe0f Human review required before merging.**\n\n### Files changed\n- `README.md`\n- `install.sh`\n- `uninstall.sh`',
+              head: branch,
+              base: 'main',
+            });
+            console.log(`✅ PR created: ${pr.html_url}`);
 
       - name: Workflow Summary
         if: always()
@@ -74,9 +84,9 @@ jobs:
           echo "========================"
           echo "Status: ${{ job.status }}"
           echo "Branch: main"
-          echo "Action: Auto-sync branch references"
+          echo "Action: Auto-sync branch references via PR (no direct push)"
           if [ "${{ steps.changes.outputs.has_changes }}" = "true" ]; then
-            echo "Result: ✅ Synced successfully"
+            echo "Result: ✅ PR opened for human review"
           else
             echo "Result: ℹ️ No changes needed"
           fi

@@ -1,4 +1,4 @@
-name: Auto-merge test→main on approval
+name: PR Readiness Check (test→main)
 
 on:
   pull_request:
@@ -6,12 +6,12 @@ on:
     types: [ opened, reopened, synchronize, review_requested ]
 
 jobs:
-  auto-merge:
+  readiness-check:
     runs-on: ubuntu-latest
     if: github.head_ref == 'test'
     permissions:
       pull-requests: write
-      contents: write
+      contents: read
       issues: write
 
     steps:
@@ -70,62 +70,7 @@ jobs:
 
           core.setOutput('all_passed', failed === 0 && passed > 0);
 
-    - name: Verify approval and checks
-      if: steps.approval.outputs.has_approval == 'true' && steps.approval.outputs.has_changes == 'false' && steps.checks.outputs.all_passed == 'true'
-      run: |
-        echo "✅ All conditions met for auto-merge:"
-        echo "  ✓ Has approval"
-        echo "  ✓ No changes requested"
-        echo "  ✓ All checks passed"
-
-    - name: Auto-merge PR
-      if: steps.approval.outputs.has_approval == 'true' && steps.approval.outputs.has_changes == 'false' && steps.checks.outputs.all_passed == 'true'
-      uses: actions/github-script@v6
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          const pr = context.payload.pull_request;
-          try {
-            await github.rest.pulls.merge({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: pr.number,
-              merge_method: 'squash',
-            });
-            console.log('✅ PR merged successfully');
-          } catch (error) {
-            console.log('ℹ️ Auto-merge not available, may need manual merge');
-            console.log(error.message);
-          }
-
-    - name: Create Release
-      if: steps.approval.outputs.has_approval == 'true' && steps.approval.outputs.has_changes == 'false' && steps.checks.outputs.all_passed == 'true'
-      uses: actions/github-script@v6
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          const date = new Date().toISOString().split('T')[0];
-          const tag = `release-${date}`;
-
-          try {
-            const { data: release } = await github.rest.repos.createRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: tag,
-              name: `Release ${tag}`,
-              body: '## Production Release\n\n✅ All checks passed\n✅ Code reviewed and approved\n✅ Ready for deployment',
-              draft: false,
-            });
-            console.log(`✅ Release created: ${release.html_url}`);
-          } catch (error) {
-            console.log('ℹ️ Release creation skipped');
-          }
-
-    - name: Post comment
+    - name: Post readiness status
       if: always()
       uses: actions/github-script@v6
       env:
@@ -135,13 +80,18 @@ jobs:
         script: |
           const pr = context.payload.pull_request;
           const approval = '${{ steps.approval.outputs.has_approval }}';
+          const hasChanges = '${{ steps.approval.outputs.has_changes }}';
           const checks = '${{ steps.checks.outputs.all_passed }}';
 
           let message = '';
-          if (approval === 'true' && checks === 'true') {
-            message = '✅ Auto-merge complete! Release created.';
+          if (approval === 'true' && hasChanges === 'false' && checks === 'true') {
+            message = '✅ All conditions met:\n- ✓ Approved\n- ✓ No changes requested\n- ✓ All checks passed\n\n**This PR is ready for manual merge.**';
           } else {
-            message = '⏳ Waiting for approval and all checks to pass.';
+            const pending = [];
+            if (approval !== 'true') pending.push('- ⏳ Awaiting approval');
+            if (hasChanges === 'true') pending.push('- ❌ Changes requested — must be resolved');
+            if (checks !== 'true') pending.push('- ⏳ Awaiting all checks to pass');
+            message = '⏳ Not ready to merge:\n' + pending.join('\n');
           }
 
           try {
