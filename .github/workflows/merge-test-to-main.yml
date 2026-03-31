@@ -73,34 +73,12 @@ jobs:
     - name: Verify approval and checks
       if: steps.approval.outputs.has_approval == 'true' && steps.approval.outputs.has_changes == 'false' && steps.checks.outputs.all_passed == 'true'
       run: |
-        echo "✅ All conditions met for auto-merge:"
+        echo "✅ All conditions met for merge (Auto-merge disabled):"
         echo "  ✓ Has approval"
         echo "  ✓ No changes requested"
         echo "  ✓ All checks passed"
 
-    - name: Auto-merge PR
-      if: steps.approval.outputs.has_approval == 'true' && steps.approval.outputs.has_changes == 'false' && steps.checks.outputs.all_passed == 'true'
-      uses: actions/github-script@v6
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          const pr = context.payload.pull_request;
-          try {
-            await github.rest.pulls.merge({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: pr.number,
-              merge_method: 'squash',
-            });
-            console.log('✅ PR merged successfully');
-          } catch (error) {
-            console.log('ℹ️ Auto-merge not available, may need manual merge');
-            console.log(error.message);
-          }
-
-    - name: Create Release
+    - name: Create Release Draft
       if: steps.approval.outputs.has_approval == 'true' && steps.approval.outputs.has_changes == 'false' && steps.checks.outputs.all_passed == 'true'
       uses: actions/github-script@v6
       env:
@@ -109,20 +87,20 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           const date = new Date().toISOString().split('T')[0];
-          const tag = `release-${date}`;
+          const tag = `release-${date}-draft`;
 
           try {
             const { data: release } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: tag,
-              name: `Release ${tag}`,
-              body: '## Production Release\n\n✅ All checks passed\n✅ Code reviewed and approved\n✅ Ready for deployment',
-              draft: false,
+              name: `Draft Release ${tag}`,
+              body: '## Release Draft\n\n✅ All checks passed\n✅ Code reviewed and approved\n\nℹ️ Auto-merge disabled. Manual merge required.',
+              draft: true,
             });
-            console.log(`✅ Release created: ${release.html_url}`);
+            console.log(`✅ Draft release created: ${release.html_url}`);
           } catch (error) {
-            console.log('ℹ️ Release creation skipped');
+            console.log('ℹ️ Release draft creation skipped');
           }
 
     - name: Post comment
@@ -139,7 +117,7 @@ jobs:
 
           let message = '';
           if (approval === 'true' && checks === 'true') {
-            message = '✅ Auto-merge complete! Release created.';
+            message = '✅ Approval and checks passed! Manual merge is now required as auto-merge has been disabled.';
           } else {
             message = '⏳ Waiting for approval and all checks to pass.';
           }

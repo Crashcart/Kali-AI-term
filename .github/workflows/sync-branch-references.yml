@@ -40,30 +40,14 @@ jobs:
             git diff --color=never
           fi
 
-      - name: Commit and push changes (Auto)
+      - name: Commit changes (Local only)
         if: steps.changes.outputs.has_changes == 'true'
         run: |
           git config user.name "🤖 GitHub Actions"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add README.md install.sh uninstall.sh
-          git commit -m "chore: auto-sync branch references to main
-
-- Updated all test → main references in docs and scripts
-- This commit is automatically generated when changes merge to main"
-
-          # Retry push up to 3 times (in case of conflicts)
-          for attempt in 1 2 3; do
-            if git push origin main; then
-              echo "✅ Push successful on attempt $attempt"
-              exit 0
-            else
-              echo "⚠️ Push failed on attempt $attempt, retrying..."
-              sleep $((attempt * 2))
-            fi
-          done
-
-          echo "❌ Push failed after 3 attempts"
-          exit 1
+          git commit -m "chore: local branch references sync to main"
+          echo "ℹ️ Auto-push disabled - manual review required"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
