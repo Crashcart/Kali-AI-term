@@ -7,15 +7,17 @@ const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
 
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../data/kalibot.db');
+const DEFAULT_DB_PATH = path.join(__dirname, '../data/kalibot.db');
 const SCHEMA_PATH = path.join(__dirname, 'schema.sql');
 
 let db = null;
+let currentDbPath = null;
 
 /**
  * Initialize the database connection and create tables
  */
 function initializeDatabase() {
+  const DB_PATH = process.env.DB_PATH || DEFAULT_DB_PATH;
   try {
     // Ensure data directory exists
     const dataDir = path.dirname(DB_PATH);
@@ -25,6 +27,7 @@ function initializeDatabase() {
 
     // Open or create database
     db = new Database(DB_PATH);
+    currentDbPath = DB_PATH;
     db.pragma('journal_mode = WAL');
 
     // Read and execute schema
@@ -75,7 +78,8 @@ function createSession(sessionId, token, authSecret, expiresAt) {
     INSERT INTO sessions (id, token, auth_secret, expires_at, last_activity)
     VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
   `);
-  return stmt.run(sessionId, token, authSecret, new Date(expiresAt).toISOString());
+  const expiresAtSqlite = new Date(expiresAt).toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
+  return stmt.run(sessionId, token, authSecret, expiresAtSqlite);
 }
 
 function getSession(sessionId) {
@@ -86,7 +90,7 @@ function getSession(sessionId) {
 
 function updateSessionActivity(sessionId) {
   const database = getDatabase();
-  const stmt = database.prepare('UPDATE sessions SET last_activity = CURRENT_TIMESTAMP WHERE id = ?');
+  const stmt = database.prepare("UPDATE sessions SET last_activity = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?");
   return stmt.run(sessionId);
 }
 
@@ -119,7 +123,7 @@ function addCommand(sessionId, command, durationSeconds, output, errorOutput, su
     INSERT INTO commands (session_id, command, duration_seconds, output, error_output, success, executed_at)
     VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
   `);
-  return stmt.run(sessionId, command, durationSeconds, output || '', errorOutput || '', success);
+  return stmt.run(sessionId, command, durationSeconds, output || '', errorOutput || '', success ? 1 : 0);
 }
 
 function getCommandHistory(sessionId, limit = 100) {
@@ -128,7 +132,7 @@ function getCommandHistory(sessionId, limit = 100) {
     SELECT id, command, executed_at, duration_seconds, success
     FROM commands
     WHERE session_id = ?
-    ORDER BY executed_at DESC
+    ORDER BY executed_at DESC, id DESC
     LIMIT ?
   `);
   return stmt.all(sessionId, limit);
@@ -150,8 +154,7 @@ function addFinding(sessionId, severity, description, query, rawData) {
     INSERT INTO findings (session_id, severity, description, query, raw_data, timestamp)
     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
   `);
-  const result = stmt.run(sessionId, severity, description, query || '', rawData || '');
-  return result.lastInsertRowid;
+  return stmt.run(sessionId, severity, description, query || '', rawData || '');
 }
 
 function addCVEToFinding(findingId, cveId) {
@@ -362,7 +365,7 @@ function healthCheck() {
   try {
     const database = getDatabase();
     database.prepare('SELECT 1').get();
-    return { status: 'ok', location: DB_PATH };
+    return { status: 'ok', location: currentDbPath || DEFAULT_DB_PATH };
   } catch (err) {
     return { status: 'error', error: err.message };
   }
