@@ -89,6 +89,26 @@ The script will:
 
 Then open `http://localhost:31337` and start pentesting!
 
+### Complete Uninstall
+
+**One-command removal of all data, containers, and configurations:**
+
+```bash
+./uninstall.sh
+```
+
+The script will:
+- ✓ Stop and remove Docker containers
+- ✓ Delete `.env` and `.env.backup` files
+- ✓ Remove `node_modules` directory
+- ✓ Clean up `data` and `logs` directories
+- ✓ Confirm all data has been removed
+
+**To reinstall afterward:**
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/test/install.sh)
+```
+
 ### Manual Installation
 
 **Prerequisites**
