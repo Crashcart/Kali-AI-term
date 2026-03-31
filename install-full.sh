@@ -155,12 +155,13 @@ else
 # Kali Hacker Bot Configuration
 NODE_ENV=production
 PORT=31337
+BIND_HOST=0.0.0.0
 
 # Ollama (running on host)
 OLLAMA_URL=http://host.docker.internal:11434
 
 # Docker
-KALI_CONTAINER=kali-linux
+KALI_CONTAINER=Kali-AI-linux
 
 # Security
 ADMIN_PASSWORD=$ADMIN_PASSWORD
@@ -209,7 +210,7 @@ log_info "Waiting for containers to be healthy..."
 sleep 5
 
 # Check if containers are running
-if docker ps | grep -q kali-hacker-bot && docker ps | grep -q kali-linux; then
+if docker ps | grep -q "Kali-AI-app" && docker ps | grep -q "Kali-AI-linux"; then
     log_success "All containers are running"
 else
     log_warn "Containers may still be starting, checking logs..."
@@ -217,7 +218,41 @@ else
 fi
 
 # ============================================
-# 5. Display Success Message
+# 5. ZeroTier iptables (optional)
+# ============================================
+
+echo ""
+log_info "Checking for ZeroTier..."
+
+if command -v zerotier-cli &>/dev/null; then
+    log_success "ZeroTier detected — configuring iptables for Docker forwarding..."
+
+    # DOCKER-USER chain is the correct insertion point (Docker 17.06+)
+    if iptables -L DOCKER-USER >/dev/null 2>&1; then
+        iptables -I DOCKER-USER -i zt+ -j ACCEPT 2>/dev/null && \
+            log_success "iptables: ZeroTier (zt+) → DOCKER-USER ACCEPT rule added" || \
+            log_warn "Could not add iptables rule (try running as root)"
+    else
+        iptables -I FORWARD -i zt+ -j ACCEPT 2>/dev/null && \
+            log_success "iptables: ZeroTier (zt+) → FORWARD ACCEPT rule added" || \
+            log_warn "Could not add iptables rule (try running as root)"
+    fi
+
+    ZT_IP=$(zerotier-cli listnetworks 2>/dev/null | awk 'NR>1 {print $NF}' | grep -v '-' | head -1)
+    if [ -n "$ZT_IP" ]; then
+        log_success "ZeroTier access: http://${ZT_IP%/*}:31337"
+    fi
+
+    echo ""
+    log_info "To persist iptables rules across reboots:"
+    echo "     sudo apt-get install -y iptables-persistent"
+    echo "     sudo netfilter-persistent save"
+else
+    log_info "ZeroTier not detected. See README.md § 'Remote Access via ZeroTier' to enable later."
+fi
+
+# ============================================
+# 6. Display Success Message
 # ============================================
 
 echo ""
@@ -229,8 +264,9 @@ echo ""
 ADMIN_PASSWORD=$(grep ADMIN_PASSWORD .env | cut -d'=' -f2)
 
 echo -e "${BLUE}Access the application:${NC}"
-echo "    URL: ${GREEN}http://localhost:31337${NC}"
-echo "    Password: ${GREEN}$ADMIN_PASSWORD${NC}"
+echo "    Local URL:   ${GREEN}http://localhost:31337${NC}"
+echo "    Network URL: ${GREEN}http://$(hostname -I | awk '{print $1}'):31337${NC}"
+echo "    Password:    ${GREEN}$ADMIN_PASSWORD${NC}"
 echo ""
 
 echo -e "${BLUE}Documentation:${NC}"
