@@ -5,7 +5,7 @@ services:
     build: .
     container_name: Kali-AI-app
     ports:
-      - "0.0.0.0:31337:3000"
+      - "31337:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
