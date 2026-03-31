@@ -21,13 +21,13 @@ jobs:
       with:
         context: .
         push: false
-        tags: kali-hacker-bot:latest
+        tags: Kali-AI:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
     - name: Validate docker-compose.yml
       run: |
-        docker-compose config > /dev/null 2>&1 || (echo "❌ Invalid docker-compose.yml" && exit 1)
+        which docker-compose >/dev/null 2>&1 && docker-compose config > /dev/null 2>&1 || docker compose config > /dev/null 2>&1 || (echo "❌ Invalid docker-compose.yml" && exit 1)
         echo "✓ docker-compose.yml is valid"
 
     - name: Check Dockerfile syntax
