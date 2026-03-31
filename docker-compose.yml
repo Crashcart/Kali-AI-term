@@ -3,13 +3,13 @@ version: '3.8'
 services:
   app:
     build: .
-    container_name: kali-hacker-bot
+    container_name: Kali-AI-app
     ports:
       - "31337:3000"
     environment:
       - NODE_ENV=production
       - OLLAMA_URL=http://host.docker.internal:11434
-      - KALI_CONTAINER=kali-linux
+      - KALI_CONTAINER=Kali-AI-linux
       - LOG_LEVEL=info
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -17,19 +17,19 @@ services:
     depends_on:
       - kali
     networks:
-      - pentest-net
+      - Kali-AI-net
     restart: unless-stopped
 
   kali:
     image: kalilinux/kali-rolling:latest
-    container_name: kali-linux
+    container_name: Kali-AI-linux
     stdin_open: true
     tty: true
     networks:
-      - pentest-net
+      - Kali-AI-net
     command: /bin/bash
     restart: unless-stopped
 
 networks:
-  pentest-net:
+  Kali-AI-net:
     driver: bridge

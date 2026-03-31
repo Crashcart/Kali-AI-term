@@ -200,7 +200,7 @@ docker-compose down
 NODE_ENV=production          # Environment
 PORT=31337                   # Web server port
 OLLAMA_URL=http://ollama:11434  # Ollama API endpoint
-KALI_CONTAINER=kali-linux    # Container name
+KALI_CONTAINER=Kali-AI-linux # Container name
 ADMIN_PASSWORD=kalibot       # Login password
 AUTH_SECRET=<random-uuid>    # Session secret
 LOG_LEVEL=info               # Logging level
@@ -247,7 +247,7 @@ The application is fully Dockerized. To build and deploy:
 
 ```bash
 # Build image
-docker build -t kali-hacker-bot:latest .
+docker build -t Kali-AI:latest .
 
 # Run with custom docker-compose
 docker-compose -f docker-compose.yml up -d
