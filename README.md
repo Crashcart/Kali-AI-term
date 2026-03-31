@@ -121,7 +121,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/
 
 1. **Clone and navigate to repository**
    ```bash
-   cd tipistore
+   cd Kali-AI-term
    ```
 
 2. **Configure environment (optional)**
@@ -305,7 +305,7 @@ The install scripts (`install.sh` and `install-full.sh`) automatically detect Ze
 
 ### Project Structure
 ```
-tipistore/
+Kali-AI-term/
 ├── server.js              # Express backend
 ├── public/
 │   ├── index.html        # UI markup
