@@ -90,6 +90,19 @@ The script will:
 
 Then open `http://localhost:31337` and start pentesting!
 
+### Update (Pull Latest Images)
+
+**One-command update to pull the latest images and restart services:**
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/update.sh)
+```
+
+The script will:
+- ✓ Pull latest `kalilinux/kali-rolling:latest` base image
+- ✓ Rebuild the app container (no cache)
+- ✓ Restart all services with updated images
+
 ### Complete Uninstall
 
 **One-command removal of all data, containers, and configurations:**
