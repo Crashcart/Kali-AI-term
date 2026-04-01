@@ -24,10 +24,10 @@ echo "✓ Creating .env..."
 AUTH_SECRET=$(node -e "console.log(require('crypto').randomUUID())")
 cat > .env << ENVEOF
 NODE_ENV=production
-PORT=31337
+PORT=3000
 BIND_HOST=0.0.0.0
 OLLAMA_URL=http://host.docker.internal:11434
-KALI_CONTAINER=Kali-AI-linux
+KALI_CONTAINER=kali-ai-term-kali
 ADMIN_PASSWORD=$ADMIN_PASSWORD
 AUTH_SECRET=$AUTH_SECRET
 LOG_LEVEL=info
