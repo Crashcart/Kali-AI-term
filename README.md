@@ -118,10 +118,29 @@ The script will:
 - ✓ Clean up `data` and `logs` directories
 - ✓ Confirm all data has been removed
 
-**To reinstall afterward:**
+### Quick Diagnostics
+
+**Troubleshoot installation and Docker issues with one-line commands:**
+
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/install.sh)
+# Quick status check (10 seconds)
+bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/claude/logging-diagnostic-system/diagnose-quick.sh)
+
+# Full diagnostic report (2-5 minutes)
+bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/claude/logging-diagnostic-system/diagnose.sh)
+
+# Collect all logs for support (2-3 minutes)
+bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/claude/logging-diagnostic-system/collect-logs.sh)
 ```
+
+Each script:
+- ✓ Checks Docker daemon status
+- ✓ Validates configuration
+- ✓ Inspects containers and images
+- ✓ Generates detailed reports (saves to disk)
+- ✓ Masks sensitive data for safe sharing
+
+See `QUICK_DIAGNOSTICS.md` for detailed troubleshooting guide.
 
 ### Manual Installation
 
