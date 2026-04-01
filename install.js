@@ -36,6 +36,30 @@ async function checkPrerequisites() {
     missingDeps.push('docker');
   }
 
+  // Check Docker socket accessibility (Linux/macOS only)
+  // Newer Docker Engine (24+) / runc (1.1.x+) changed default bind propagation
+  // to rprivate (MS_REC), which fails for socket files. Catching this early
+  // gives a clear error instead of a cryptic OCI runtime failure.
+  if (process.platform !== 'win32') {
+    try {
+      const sockStat = fs.statSync('/var/run/docker.sock');
+      if (!sockStat.isSocket()) {
+        logger.error(
+          '/var/run/docker.sock exists but is not a socket file — check your Docker installation'
+        );
+        missingDeps.push('docker-socket');
+      } else {
+        logger.success('Docker socket accessible at /var/run/docker.sock');
+      }
+    } catch (err) {
+      logger.error(
+        'Docker socket not found at /var/run/docker.sock — is the Docker daemon running?',
+        { hint: 'Try: sudo systemctl start docker' }
+      );
+      missingDeps.push('docker-socket');
+    }
+  }
+
   // Check Docker Compose
   let hasCompose = false;
   try {
