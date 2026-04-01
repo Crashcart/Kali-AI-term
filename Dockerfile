@@ -15,8 +15,8 @@ RUN npm ci --only=production
 COPY server.js ./
 COPY public ./public
 
-# Create directories for socket and data
-RUN mkdir -p /app/data /var/run/docker.sock
+# Create data directory
+RUN mkdir -p /app/data
 
 # Expose port
 EXPOSE 3000
