@@ -9,12 +9,26 @@ const axios = require('axios');
 const expressStaticGzip = require('express-static-gzip');
 const reportPlugin = require('./plugins/report-plugin');
 const db = require('./db/init');
+const { InstallLogger } = require('./lib/install-logger');
 
 const app = express();
 const PORT = process.env.PORT || 31337;
 const BIND_HOST = process.env.BIND_HOST || '0.0.0.0';
 let OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const KALI_CONTAINER = process.env.KALI_CONTAINER || 'Kali-AI-linux';
+
+// Initialize application logger
+const appLogger = new InstallLogger({
+  scriptName: 'app',
+  verbose: process.env.LOG_LEVEL !== 'error',
+  maskSensitive: true
+});
+
+appLogger.info(`Starting Kali Hacker Bot`);
+appLogger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+appLogger.info(`Port: ${PORT}`);
+appLogger.info(`Ollama URL: ${OLLAMA_URL}`);
+appLogger.info(`Kali Container: ${KALI_CONTAINER}`);
 
 // Pentesting system prompt for Ollama
 const SYSTEM_PROMPT = `You are an elite penetration testing AI assistant embedded in a Kali Linux terminal. You have deep expertise in:
