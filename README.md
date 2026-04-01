@@ -142,11 +142,6 @@ Each script:
 
 See `QUICK_DIAGNOSTICS.md` for detailed troubleshooting guide.
 
-**To reinstall afterward:**
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/install.sh)
-```
-
 ### Manual Installation
 
 **Prerequisites**
