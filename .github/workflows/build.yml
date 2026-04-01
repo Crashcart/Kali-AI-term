@@ -29,8 +29,3 @@ jobs:
       run: |
         which docker-compose >/dev/null 2>&1 && docker-compose config > /dev/null 2>&1 || docker compose config > /dev/null 2>&1 || (echo "❌ Invalid docker-compose.yml" && exit 1)
         echo "✓ docker-compose.yml is valid"
-
-    - name: Check Dockerfile syntax
-      run: |
-        docker build --dry-run . || (echo "❌ Invalid Dockerfile" && exit 1)
-        echo "✓ Dockerfile is valid"

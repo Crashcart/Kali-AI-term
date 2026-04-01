@@ -13,8 +13,9 @@ const { InstallLogger } = require('./lib/install-logger');
 
 const app = express();
 const PORT = process.env.PORT || 31337;
+const BIND_HOST = process.env.BIND_HOST || '0.0.0.0';
 let OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
-const KALI_CONTAINER = process.env.KALI_CONTAINER || 'kali-linux';
+const KALI_CONTAINER = process.env.KALI_CONTAINER || 'Kali-AI-linux';
 
 // Initialize application logger
 const appLogger = new InstallLogger({
@@ -556,6 +557,35 @@ app.post('/api/proxy/test', authenticate, async (req, res) => {
       message: 'Cannot reach proxy server or test URL'
     });
   }
+});
+
+// Bind host configuration
+app.get('/api/settings/bind-host', authenticate, (req, res) => {
+  res.json({
+    current: BIND_HOST,
+    default: '0.0.0.0',
+    message: 'Current bind address (0.0.0.0 = all interfaces, localhost = loopback only)'
+  });
+});
+
+app.post('/api/settings/bind-host', authenticate, (req, res) => {
+  const { bindHost } = req.body;
+
+  if (!bindHost) {
+    return res.status(400).json({ error: 'bindHost required' });
+  }
+
+  // Note: This is informational only - actual restart required to apply
+  res.json({
+    success: true,
+    message: `To change bind address from ${BIND_HOST} to ${bindHost}, restart the server with: BIND_HOST=${bindHost} npm start`,
+    instructions: [
+      `1. Stop the server: docker-compose down`,
+      `2. Update .env with: BIND_HOST=${bindHost}`,
+      `3. Restart: docker-compose up -d`,
+      `4. Access at: http://${bindHost === '0.0.0.0' ? 'localhost' : bindHost}:${PORT}`
+    ]
+  });
 });
 
 app.post('/api/ollama/generate', authenticate, async (req, res) => {
@@ -1134,11 +1164,13 @@ async function checkOllamaHealth() {
 // START SERVER
 // ============================================
 
-app.listen(PORT, () => {
+app.listen(PORT, BIND_HOST, () => {
+  const HOST_DISPLAY = BIND_HOST === '0.0.0.0' ? 'localhost' : BIND_HOST;
   console.log(`\n  ╔══════════════════════════════════════════╗`);
   console.log(`  ║     KALI HACKER BOT v1.0                ║`);
   console.log(`  ╠══════════════════════════════════════════╣`);
-  console.log(`  ║  Web UI:    http://localhost:${PORT}      ║`);
+  console.log(`  ║  Web UI:    http://${HOST_DISPLAY}:${PORT}`.padEnd(44) + `║`);
+  console.log(`  ║  Bind:      ${BIND_HOST}`.padEnd(44) + `║`);
   console.log(`  ║  Docker:    /var/run/docker.sock         ║`);
   console.log(`  ║  Ollama:    ${OLLAMA_URL.padEnd(28)}║`);
   console.log(`  ║  Container: ${KALI_CONTAINER.padEnd(28)}║`);

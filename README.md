@@ -85,9 +85,43 @@ The script will:
 - ✓ Generate secure `.env` configuration
 - ✓ Install dependencies
 - ✓ Start Docker containers
+- ✓ Auto-configure ZeroTier iptables rules (if ZeroTier is installed)
 - ✓ Display access credentials
 
 Then open `http://localhost:31337` and start pentesting!
+
+### Update (Pull Latest Images)
+
+**One-command update to pull the latest images and restart services:**
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/update.sh)
+```
+
+The script will:
+- ✓ Pull latest `kalilinux/kali-rolling:latest` base image
+- ✓ Rebuild the app container (no cache)
+- ✓ Restart all services with updated images
+
+### Complete Uninstall
+
+**One-command removal of all data, containers, and configurations:**
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/uninstall.sh)
+```
+
+The script will:
+- ✓ Stop and remove Docker containers
+- ✓ Delete `.env` and `.env.backup` files
+- ✓ Remove `node_modules` directory
+- ✓ Clean up `data` and `logs` directories
+- ✓ Confirm all data has been removed
+
+**To reinstall afterward:**
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/install.sh)
+```
 
 ### Manual Installation
 
@@ -100,7 +134,7 @@ Then open `http://localhost:31337` and start pentesting!
 
 1. **Clone and navigate to repository**
    ```bash
-   cd tipistore
+   cd Kali-AI-term
    ```
 
 2. **Configure environment (optional)**
@@ -179,8 +213,9 @@ docker-compose down
 ```bash
 NODE_ENV=production          # Environment
 PORT=31337                   # Web server port
+BIND_HOST=0.0.0.0            # Bind address (0.0.0.0 = all interfaces)
 OLLAMA_URL=http://ollama:11434  # Ollama API endpoint
-KALI_CONTAINER=kali-linux    # Container name
+KALI_CONTAINER=Kali-AI-linux # Container name
 ADMIN_PASSWORD=kalibot       # Login password
 AUTH_SECRET=<random-uuid>    # Session secret
 LOG_LEVEL=info               # Logging level
@@ -204,11 +239,86 @@ LOG_LEVEL=info               # Logging level
 #### System
 - `GET /api/system/status` - Check system health
 
+## Remote Access via ZeroTier
+
+If you get `ERR_CONNECTION_REFUSED` when accessing the bot from a ZeroTier network, follow these steps.
+
+### Why This Happens
+
+Docker uses `iptables` rules (via the `DOCKER-USER` chain) to manage port forwarding. By default, Docker's forwarding rules apply to traffic arriving on the host's primary network interface. ZeroTier creates a virtual `zt*` interface, and traffic from it may be dropped by the FORWARD chain before Docker can process it.
+
+### Fix: Allow ZeroTier Traffic Through Docker's iptables
+
+Run these commands on the **host machine** running Docker:
+
+```bash
+# For Docker 17.06+ (recommended — uses DOCKER-USER chain)
+sudo iptables -I DOCKER-USER -i zt+ -j ACCEPT
+
+# For older Docker versions (fallback)
+sudo iptables -I FORWARD -i zt+ -j ACCEPT
+```
+
+The `zt+` wildcard matches all ZeroTier interfaces (e.g., `ztabcd1234`).
+
+### Make the Rule Persistent Across Reboots
+
+```bash
+sudo apt-get install -y iptables-persistent
+sudo netfilter-persistent save
+```
+
+On systemd systems without `iptables-persistent`, create a service:
+
+```bash
+cat > /etc/systemd/system/zerotier-docker.service << 'EOF'
+[Unit]
+Description=Allow ZeroTier traffic through Docker iptables
+After=docker.service zerotier-one.service
+Wants=docker.service zerotier-one.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/sbin/iptables -I DOCKER-USER -i zt+ -j ACCEPT
+ExecStop=/sbin/iptables -D DOCKER-USER -i zt+ -j ACCEPT
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl enable --now zerotier-docker.service
+```
+
+### Verify It Works
+
+```bash
+# Check the rule is present
+sudo iptables -L DOCKER-USER -n -v | grep zt
+
+# From any ZeroTier-connected machine, test connectivity
+curl -I http://<zerotier-ip>:31337
+```
+
+### Automated Setup
+
+The install scripts (`install.sh` and `install-full.sh`) automatically detect ZeroTier and apply the iptables rule during installation when run as root.
+
+### Quick Diagnostics Checklist
+
+| Check | Command |
+|-------|---------|
+| Container running? | `docker ps \| grep Kali-AI-app` |
+| Port bound to all interfaces? | `ss -tlnp \| grep 31337` |
+| ZeroTier connected? | `zerotier-cli listnetworks` |
+| iptables rule present? | `iptables -L DOCKER-USER -n \| grep zt` |
+| Firewall blocking? | `ufw status` or `firewall-cmd --list-all` |
+
 ## Development
 
 ### Project Structure
 ```
-tipistore/
+Kali-AI-term/
 ├── server.js              # Express backend
 ├── public/
 │   ├── index.html        # UI markup
@@ -227,7 +337,7 @@ The application is fully Dockerized. To build and deploy:
 
 ```bash
 # Build image
-docker build -t kali-hacker-bot:latest .
+docker build -t Kali-AI:latest .
 
 # Run with custom docker-compose
 docker-compose -f docker-compose.yml up -d
@@ -484,3 +594,4 @@ Auto-merge: ✅
 - Modern 'docker compose' format
 - Custom Ollama installations
 - Configuration via web UI
+- ZeroTier network access (auto-configured)
