@@ -233,6 +233,218 @@ docker build -t kali-hacker-bot:latest .
 docker-compose -f docker-compose.yml up -d
 ```
 
+## Installation Methods
+
+### Node.js-Based Installation Scripts
+
+We provide modern Node.js installation scripts with comprehensive logging and diagnostics:
+
+#### Basic Installation
+```bash
+node install.js
+```
+Quick setup with essential checks and logging. Good for experienced users.
+
+#### Full Installation (Recommended)
+```bash
+node install-full.js
+```
+Advanced diagnostics including:
+- ✓ Detailed prerequisite verification
+- ✓ System information gathering
+- ✓ Docker system analysis
+- ✓ Port availability checking
+- ✓ Dependency installation with fallbacks
+- ✓ Container health monitoring
+- ✓ Comprehensive diagnostics report
+
+#### Update Installation
+```bash
+node update.js
+```
+Updates existing installation:
+- Pulls latest code
+- Updates dependencies
+- Rebuilds Docker image
+- Restarts containers with health checks
+- Verifies installation
+
+#### Uninstallation
+```bash
+node uninstall.js
+```
+Safely removes all containers and data (preserves logs for reference).
+
+### Legacy Bash Script
+```bash
+bash install.sh
+```
+Original installation script (still works, but has less detailed logging).
+
+## Troubleshooting & Log Files
+
+### Installation Logs and Diagnostics
+
+All installation, update, and uninstall operations create detailed log files:
+
+**Log File Locations:**
+```
+install-TIMESTAMP.log          # Timestamped installation log
+install.log                    # Symlink to latest installation log
+install.diagnostic             # JSON diagnostic report with system state
+update-TIMESTAMP.log           # Update operation log
+uninstall-TIMESTAMP.log        # Uninstall operation log
+```
+
+### Viewing Logs
+
+**Recent installation events:**
+```bash
+tail -50 install.log           # Last 50 lines
+less install.log               # Full log with search (press '/' to search, 'q' to quit)
+```
+
+**JSON diagnostic data:**
+```bash
+cat install.diagnostic         # View complete diagnostic JSON
+```
+
+### Analyzing Installation Issues
+
+**1. Automated Diagnostic Analysis:**
+
+If installation fails or containers don't start properly:
+
+```bash
+node lib/diagnostic-analyzer.js install.diagnostic
+```
+
+This will:
+- ✓ Identify all errors and categorize them
+- ✓ Suggest specific fixes for common issues
+- ✓ Display container state
+- ✓ Show system requirements vs. actual
+
+**2. Interactive Diagnostic Menu:**
+
+Explore issues interactively:
+
+```bash
+node lib/install-menu.js install.diagnostic install.log
+```
+
+Menu provides:
+1. View error details
+2. View Docker container status
+3. View system information
+4. View diagnostic summary
+5. Exit
+
+### Common Installation Issues
+
+**"npm install failed with ERESOLVE error"**
+
+Dependency conflict detected. Solution:
+```bash
+npm ci --legacy-peer-deps
+# or
+rm package-lock.json && npm install
+```
+
+**"Docker containers created but not running"**
+
+Check container logs:
+```bash
+# View app container logs
+docker logs kali-ai-term-app
+
+# View Kali container logs
+docker logs kali-ai-term-kali
+
+# View detailed error output
+docker logs kali-ai-term-app | tail -50
+```
+
+**"Port 31337 already in use"**
+
+Check what's using the port:
+```bash
+lsof -i :31337                 # macOS/Linux
+netstat -tulpn | grep 31337    # Linux
+```
+
+Kill existing process or use different port in `.env`:
+```bash
+PORT=3001  # Change to different port
+```
+
+**"Ollama connection failed"**
+
+Verify Ollama is running on host:
+```bash
+# Check if Ollama is running
+curl http://localhost:11434/api/tags
+
+# If not running, start Ollama
+ollama serve
+```
+
+Verify OLLAMA_URL in `.env` matches your setup:
+```bash
+# For Docker Desktop (default)
+OLLAMA_URL=http://host.docker.internal:11434
+
+# For remote Ollama instance
+OLLAMA_URL=http://192.168.1.100:11434
+```
+
+**"Permission denied: docker.sock"**
+
+Docker socket access issue. Solution:
+```bash
+# Add user to docker group
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Then reinstall
+node install-full.js
+```
+
+### Understanding Sensitive Data Masking
+
+Log files automatically mask sensitive values for security:
+```
+ADMIN_PASSWORD=*** (instead of actual password)
+AUTH_SECRET=*** (instead of actual UUID)
+API_KEY=*** (instead of actual key)
+```
+
+This allows safe sharing of logs with support without exposing secrets.
+
+### Log Rotation
+
+Installation logs are automatically managed:
+- **Keep:** Last 5 installation runs
+- **Delete:** Older logs automatically
+- **Format:** `install-2024-03-15-10-30-45.log`
+
+### Runtime Application Logs
+
+View application logs after startup:
+```bash
+# View app container logs (real-time)
+docker logs -f kali-ai-term-app
+
+# View Kali container logs
+docker logs -f kali-ai-term-kali
+
+# Set verbosity with LOG_LEVEL in .env
+LOG_LEVEL=debug  # Very verbose
+LOG_LEVEL=info   # Standard (recommended)
+LOG_LEVEL=warn   # Warnings only
+LOG_LEVEL=error  # Errors only
+```
+
 ## Security Considerations
 
 ⚠️ **WARNING**: This tool is designed for authorized penetration testing only.

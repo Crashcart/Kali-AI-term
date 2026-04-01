@@ -3,13 +3,15 @@ version: '3.8'
 services:
   app:
     build: .
-    container_name: kali-hacker-bot
+    container_name: kali-ai-term-app
     ports:
-      - "31337:3000"
+      - "0.0.0.0:31337:3000"
     environment:
       - NODE_ENV=production
+      - PORT=3000
+      - BIND_HOST=0.0.0.0
       - OLLAMA_URL=http://host.docker.internal:11434
-      - KALI_CONTAINER=kali-linux
+      - KALI_CONTAINER=kali-ai-term-kali
       - LOG_LEVEL=info
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -17,19 +19,31 @@ services:
     depends_on:
       - kali
     networks:
-      - pentest-net
+      - kali-ai-term-net
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/system/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   kali:
     image: kalilinux/kali-rolling:latest
-    container_name: kali-linux
+    container_name: kali-ai-term-kali
     stdin_open: true
     tty: true
     networks:
-      - pentest-net
+      - kali-ai-term-net
     command: /bin/bash
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exit 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 networks:
-  pentest-net:
+  kali-ai-term-net:
     driver: bridge
