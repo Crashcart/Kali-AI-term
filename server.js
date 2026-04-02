@@ -10,6 +10,14 @@ const expressStaticGzip = require('express-static-gzip');
 const reportPlugin = require('./plugins/report-plugin');
 const db = require('./db/init');
 const { InstallLogger } = require('./lib/install-logger');
+const SandboxDetector = require('./lib/sandbox-detector');
+const SandboxConfig = require('./lib/sandbox-config');
+const SandboxManager = require('./lib/sandbox-manager');
+const createSandboxRoutes = require('./lib/sandbox-api-routes');
+const LLMOrchestrator = require('./lib/llm-orchestrator');
+const OllamaProvider = require('./lib/ollama-provider');
+const GeminiProvider = require('./lib/gemini-provider');
+const createMultiLLMRoutes = require('./lib/multi-llm-api-routes');
 
 const app = express();
 const PORT = process.env.PORT || 31337;
@@ -85,6 +93,82 @@ db.initializeDatabase();
 
 // Active exec processes (for kill switch)
 const activeProcesses = new Map();
+
+// ============================================
+// SANDBOX INFRASTRUCTURE (Issue #44)
+// ============================================
+
+const sandboxDetector = new SandboxDetector(appLogger);
+const sandboxConfig = new SandboxConfig(appLogger);
+const sandboxManager = new SandboxManager(sandboxConfig, docker, appLogger);
+
+// Load previously persisted sandbox configurations
+sandboxConfig.loadPersistedConfigs();
+
+// Initialize sandbox routes
+const sandboxRoutes = createSandboxRoutes(sandboxDetector, sandboxConfig, sandboxManager, appLogger);
+app.use(sandboxRoutes);
+
+// Log sandbox initialization
+(async () => {
+  const detection = await sandboxDetector.detect();
+  if (detection.available) {
+    appLogger.info(`✓ Docker Sandboxes available: ${detection.version}`);
+  } else {
+    appLogger.warn(`⚠ Docker Sandboxes not available on this system`);
+    if (detection.installCommand) {
+      appLogger.info(`  Install with: ${detection.installCommand}`);
+    }
+  }
+})();
+
+// ============================================
+// MULTI-LLM ORCHESTRATION (Issue #45)
+// ============================================
+
+const orchestrator = new LLMOrchestrator(appLogger);
+
+// Register Ollama provider (always available locally)
+const ollamaProvider = new OllamaProvider(OLLAMA_URL, appLogger);
+orchestrator.registerProvider('ollama', ollamaProvider);
+
+// Register Gemini provider (if API key is configured)
+const geminiApiKey = process.env.GEMINI_API_KEY;
+if (geminiApiKey) {
+  const geminiProvider = new GeminiProvider(geminiApiKey, appLogger);
+  orchestrator.registerProvider('gemini', geminiProvider);
+  appLogger.info(`✓ Gemini API provider registered`);
+} else {
+  appLogger.warn(`⚠ GEMINI_API_KEY not set. Gemini provider unavailable. Set it to enable hybrid reasoning.`);
+}
+
+// Set up routing strategies for different task types
+orchestrator.setRoutingStrategy('reasoning', {
+  primary: 'gemini',      // Use Gemini for complex reasoning
+  fallback: 'ollama',
+  timeout: 60000,
+  retries: 1
+});
+
+orchestrator.setRoutingStrategy('speed', {
+  primary: 'ollama',      // Use Ollama for speed
+  fallback: 'gemini',
+  timeout: 30000,
+  retries: 0
+});
+
+orchestrator.setRoutingStrategy('quality', {
+  primary: 'gemini',      // Use Gemini for quality
+  fallback: 'ollama',
+  timeout: 120000,
+  retries: 2
+});
+
+// Initialize multi-LLM routes
+const multiLLMRoutes = createMultiLLMRoutes(orchestrator, appLogger);
+app.use(multiLLMRoutes);
+
+appLogger.info(`✓ Multi-LLM Orchestrator initialized with ${orchestrator.getAllProviders().length} provider(s)`);
 
 // ============================================
 // PLUGIN SYSTEM
@@ -589,13 +673,29 @@ app.post('/api/settings/bind-host', authenticate, (req, res) => {
 });
 
 app.post('/api/ollama/generate', authenticate, async (req, res) => {
-  const { prompt, model = 'dolphin-mixtral', temperature = 0.7, systemPrompt } = req.body;
+  const { prompt, model = 'dolphin-mixtral', temperature = 0.7, systemPrompt, useOrchestrator = false, taskType = 'default' } = req.body;
 
   if (!prompt) {
     return res.status(400).json({ error: 'Prompt required' });
   }
 
   try {
+    // If useOrchestrator is true, route through the multi-LLM orchestrator
+    if (useOrchestrator) {
+      const response = await orchestrator.generate(prompt, {
+        taskType: taskType,
+        temperature: temperature,
+        systemPrompt: systemPrompt || SYSTEM_PROMPT
+      });
+
+      return res.json({
+        success: true,
+        response: response,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // Otherwise, use direct Ollama (backward compatibility)
     const response = await axios.post(`${OLLAMA_URL}/api/generate`, {
       model: model,
       system: systemPrompt || SYSTEM_PROMPT,
@@ -618,13 +718,31 @@ app.post('/api/ollama/generate', authenticate, async (req, res) => {
 });
 
 app.post('/api/ollama/stream', authenticate, async (req, res) => {
-  const { prompt, model = 'dolphin-mixtral', temperature = 0.7, systemPrompt } = req.body;
+  const { prompt, model = 'dolphin-mixtral', temperature = 0.7, systemPrompt, useOrchestrator = false, taskType = 'default' } = req.body;
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
 
   try {
+    // If useOrchestrator is true, route through the multi-LLM orchestrator
+    if (useOrchestrator) {
+      for await (const chunk of orchestrator.streamGenerate(prompt, {
+        taskType: taskType,
+        temperature: temperature,
+        systemPrompt: systemPrompt || SYSTEM_PROMPT
+      })) {
+        if (chunk.done) {
+          res.write(`data: ${JSON.stringify({ done: true, provider: chunk.provider })}\n\n`);
+        } else {
+          res.write(`data: ${JSON.stringify({ token: chunk.token, provider: chunk.provider })}\n\n`);
+        }
+      }
+      res.end();
+      return;
+    }
+
+    // Otherwise, use direct Ollama (backward compatibility)
     const response = await axios.post(`${OLLAMA_URL}/api/generate`, {
       model: model,
       system: systemPrompt || SYSTEM_PROMPT,
@@ -1164,7 +1282,7 @@ async function checkOllamaHealth() {
 // START SERVER
 // ============================================
 
-app.listen(PORT, BIND_HOST, () => {
+const server = app.listen(PORT, BIND_HOST, () => {
   const HOST_DISPLAY = BIND_HOST === '0.0.0.0' ? 'localhost' : BIND_HOST;
   console.log(`\n  ╔══════════════════════════════════════════╗`);
   console.log(`  ║     KALI HACKER BOT v1.0                ║`);
@@ -1176,3 +1294,40 @@ app.listen(PORT, BIND_HOST, () => {
   console.log(`  ║  Container: ${KALI_CONTAINER.padEnd(28)}║`);
   console.log(`  ╚══════════════════════════════════════════╝\n`);
 });
+
+// ============================================
+// GRACEFUL SHUTDOWN
+// ============================================
+
+// Handle graceful shutdown for sandbox cleanup
+async function gracefulShutdown(signal) {
+  console.log(`\n🛑 Received ${signal}, shutting down gracefully...`);
+  
+  try {
+    // Clean up active sandboxes
+    if (sandboxManager) {
+      console.log('⏳ Cleaning up sandboxes...');
+      await sandboxManager.cleanup();
+      console.log('✓ Sandboxes cleaned up');
+    }
+
+    // Close server
+    console.log('⏳ Closing server...');
+    server.close(() => {
+      console.log('✓ Server closed');
+      process.exit(0);
+    });
+
+    // Force exit after 10 seconds
+    setTimeout(() => {
+      console.error('✗ Forced shutdown (timeout)');
+      process.exit(1);
+    }, 10000);
+  } catch (error) {
+    console.error('✗ Error during shutdown:', error.message);
+    process.exit(1);
+  }
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
