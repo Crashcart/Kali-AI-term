@@ -86,7 +86,21 @@ app.use(expressStaticGzip(path.join(__dirname, 'public'), {
 }));
 
 // Docker client
-const docker = new Docker({ socketPath: '/var/run/docker.sock' });
+const dockerOptions = {};
+if (process.env.DOCKER_HOST) {
+  const host = process.env.DOCKER_HOST.replace(/^unix:\/\//, '');
+  if (process.env.DOCKER_HOST.startsWith('unix://')) {
+    dockerOptions.socketPath = host;
+  } else {
+    // Supports tcp://host:port URLs
+    const parsed = new URL(process.env.DOCKER_HOST);
+    dockerOptions.host = parsed.hostname;
+    dockerOptions.port = parsed.port;
+  }
+} else {
+  dockerOptions.socketPath = process.env.DOCKER_SOCKET || '/var/run/docker.sock';
+}
+const docker = new Docker(dockerOptions);
 
 // Initialize database
 db.initializeDatabase();

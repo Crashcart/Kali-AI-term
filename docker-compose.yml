@@ -13,8 +13,9 @@ services:
       - LOG_LEVEL=info
     volumes:
       - type: bind
-        source: /var/run/docker.sock
+        source: "${DOCKER_SOCKET:-/var/run/docker.sock}"
         target: /var/run/docker.sock
+        read_only: true
         bind:
           propagation: private
       - type: bind
