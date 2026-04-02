@@ -642,7 +642,7 @@ class KaliHackerBot {
 
             if (response.success) {
                 const output = response.output || '(no output)';
-                this.addWireMessage(output, 'grey');
+                if (output) this.addWireMessage(output, 'grey');
 
                 if (response.timedOut) {
                     this.addWireMessage('⏱ Command timed out', 'yellow');
@@ -695,7 +695,9 @@ Provide: 1) Key findings 2) Security implications 3) Next recommended command`;
                 temperature: this.ollamaTemp,
             });
 
-            this.addIntelligenceMessage(response.response, 'green');
+            if (response.response) {
+                this.addIntelligenceMessage(response.response, 'green');
+            }
         } catch (err) {
             console.error('Analysis error:', err);
         }
@@ -1144,7 +1146,7 @@ Format: <one-liner command suggestion>`;
                 timeout: 10000,
             });
 
-            this.targetStatusBox.textContent = response.output;
+            this.targetStatusBox.textContent = response.output || '(no output)';
             this.targetStatusBox.classList.add('connected');
         } catch (err) {
             this.targetStatusBox.textContent = `❌ ${err.message}`;
@@ -1419,10 +1421,13 @@ Format: <one-liner command suggestion>`;
     // ============================================
 
     addIntelligenceMessage(message, color = 'cyan', append = false) {
+        // Handle null/undefined values
+        if (!message) return;
+        
         const timestamp = this.showTimestamps ? `[${new Date().toLocaleTimeString()}] ` : '';
         const span = document.createElement('span');
         span.className = color;
-        span.textContent = message;
+        span.textContent = String(message);
 
         if (append) {
             const lastLine = this.intelligenceStream.lastChild;
@@ -1446,6 +1451,9 @@ Format: <one-liner command suggestion>`;
     }
 
     addWireMessage(message, color = 'grey') {
+        // Handle null/undefined values
+        if (!message) return;
+        
         const timestamp = this.showTimestamps ? `[${new Date().toLocaleTimeString()}] ` : '';
         const span = document.createElement('span');
         span.className = color;
