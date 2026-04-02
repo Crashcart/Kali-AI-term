@@ -148,10 +148,24 @@ async function analyzeDockerSystem() {
     logger.info(`Docker: ${dockerInfo}`);
 
     // Check docker.sock access
-    if (fs.existsSync('/var/run/docker.sock')) {
-      logger.success('Docker socket accessible');
+    if (process.env.DOCKER_HOST) {
+      logger.info(`DOCKER_HOST is set (${process.env.DOCKER_HOST}); Docker socket path check skipped`);
     } else {
-      logger.warn('Docker socket not found at /var/run/docker.sock');
+      const socketPath = process.env.DOCKER_SOCKET || '/var/run/docker.sock';
+      if (fs.existsSync(socketPath)) {
+        try {
+          const sockStat = fs.statSync(socketPath);
+          if (sockStat.isSocket()) {
+            logger.success(`Docker socket accessible at ${socketPath}`);
+          } else {
+            logger.error(`${socketPath} exists but is not a socket file`);
+          }
+        } catch (err) {
+          logger.error(`Failed to stat ${socketPath} — ${err.message}`);
+        }
+      } else {
+        logger.warn(`Docker socket not found at ${socketPath}`);
+      }
     }
 
     // Check docker network

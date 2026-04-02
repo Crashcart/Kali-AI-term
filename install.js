@@ -41,22 +41,27 @@ async function checkPrerequisites() {
   // to rprivate (MS_REC), which fails for socket files. Catching this early
   // gives a clear error instead of a cryptic OCI runtime failure.
   if (process.platform !== 'win32') {
-    try {
-      const sockStat = fs.statSync('/var/run/docker.sock');
-      if (!sockStat.isSocket()) {
+    if (process.env.DOCKER_HOST) {
+      logger.info(`DOCKER_HOST is set (${process.env.DOCKER_HOST}); Docker socket path check skipped`);
+    } else {
+      const socketPath = process.env.DOCKER_SOCKET || '/var/run/docker.sock';
+      try {
+        const sockStat = fs.statSync(socketPath);
+        if (!sockStat.isSocket()) {
+          logger.error(
+            `${socketPath} exists but is not a socket file — check your Docker installation`
+          );
+          missingDeps.push('docker-socket');
+        } else {
+          logger.success(`Docker socket accessible at ${socketPath}`);
+        }
+      } catch (err) {
         logger.error(
-          '/var/run/docker.sock exists but is not a socket file — check your Docker installation'
+          `Docker socket not found at ${socketPath} — is the Docker daemon running?`,
+          { hint: 'Try: sudo systemctl start docker' }
         );
         missingDeps.push('docker-socket');
-      } else {
-        logger.success('Docker socket accessible at /var/run/docker.sock');
       }
-    } catch (err) {
-      logger.error(
-        'Docker socket not found at /var/run/docker.sock — is the Docker daemon running?',
-        { hint: 'Try: sudo systemctl start docker' }
-      );
-      missingDeps.push('docker-socket');
     }
   }
 
@@ -108,6 +113,10 @@ async function checkPrerequisites() {
   }
 
   return true;
+}
+
+function getDockerSocketPath() {
+  return process.env.DOCKER_SOCKET || '/var/run/docker.sock';
 }
 
 // ============================================
@@ -355,6 +364,11 @@ async function runInstallation() {
     process.exit(1);
   }
 }
+
+module.exports = {
+  checkPrerequisites,
+  getDockerSocketPath
+};
 
 // Run installation
 runInstallation();
