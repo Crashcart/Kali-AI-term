@@ -8,7 +8,6 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const https = require('https');
 const { createLogger } = require('./lib/install-logger');
 
 const logger = createLogger('update', {
@@ -109,36 +108,18 @@ async function updateSourceCode() {
       logger.trackCommand('git pull', 0, gitOutput);
       logger.success('Code updated from git');
     } else {
-      logger.warn('Not a git repository, refreshing core files from fix/issue-41 branch');
+      logger.warn('Not a git repository, refreshing full project snapshot from fix/issue-41 branch');
 
-      const downloadFile = (url, destination) => new Promise((resolve, reject) => {
-        const file = fs.createWriteStream(destination);
-        https.get(url, (res) => {
-          if (res.statusCode !== 200) {
-            reject(new Error(`Failed to download ${url} (status ${res.statusCode})`));
-            return;
-          }
-          res.pipe(file);
-          file.on('finish', () => {
-            file.close(resolve);
-          });
-        }).on('error', reject);
-      });
+      const tmpDir = execSync('mktemp -d', { encoding: 'utf8' }).trim();
+      const downloadCmd = [
+        `curl -fsSL https://codeload.github.com/Crashcart/Kali-AI-term/tar.gz/refs/heads/fix/issue-41 -o ${tmpDir}/project.tar.gz`,
+        `tar -xzf ${tmpDir}/project.tar.gz -C ${tmpDir}`,
+        `rsync -a --delete --exclude '.env' --exclude 'data/' --exclude '.backup-*' ${tmpDir}/Kali-AI-term-fix-issue-41/ ./`,
+        `rm -rf ${tmpDir}`
+      ].join(' && ');
 
-      await downloadFile(
-        'https://raw.githubusercontent.com/Crashcart/Kali-AI-term/fix/issue-41/docker-compose.yml',
-        path.join(process.cwd(), 'docker-compose.yml')
-      );
-      await downloadFile(
-        'https://raw.githubusercontent.com/Crashcart/Kali-AI-term/fix/issue-41/Dockerfile',
-        path.join(process.cwd(), 'Dockerfile')
-      );
-      await downloadFile(
-        'https://raw.githubusercontent.com/Crashcart/Kali-AI-term/fix/issue-41/server.js',
-        path.join(process.cwd(), 'server.js')
-      );
-
-      logger.success('Core files refreshed from remote branch');
+      execSync(downloadCmd, { shell: true, stdio: 'pipe' });
+      logger.success('Project files refreshed from remote branch snapshot');
     }
   } catch (err) {
     logger.warn('git pull failed', { error: err.message });
