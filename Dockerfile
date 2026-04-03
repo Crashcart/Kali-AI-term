@@ -1,7 +1,7 @@
 FROM node:18-alpine
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
+# Install dumb-init and curl for proper signal handling and health checks
+RUN apk add --no-cache dumb-init curl
 
 WORKDIR /app
 
@@ -13,6 +13,9 @@ RUN npm ci --only=production
 
 # Copy application code
 COPY server.js ./
+COPY db ./db
+COPY lib ./lib
+COPY plugins ./plugins
 COPY public ./public
 
 # Create data directory

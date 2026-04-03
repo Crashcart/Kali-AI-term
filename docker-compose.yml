@@ -15,7 +15,6 @@ services:
       - type: bind
         source: "${DOCKER_SOCKET:-/var/run/docker.sock}"
         target: /var/run/docker.sock
-        read_only: true
         bind:
           propagation: private
       - type: bind
@@ -27,7 +26,7 @@ services:
       - kali-ai-term-net
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/system/status"]
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 10s
       timeout: 5s
       retries: 3
