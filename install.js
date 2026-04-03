@@ -17,6 +17,57 @@ const logger = createLogger('install', {
 });
 
 const COMPOSE_SCRIPT = process.platform === 'win32' ? 'docker-compose.cmd' : 'docker-compose';
+const REQUIRED_CONTAINERS = ['kali-ai-term-app', 'kali-ai-term-kali'];
+
+function getContainerStates() {
+  const psOutput = execSync('docker ps -a --format "{{.Names}}\t{{.State}}\t{{.Status}}"', {
+    encoding: 'utf8',
+    shell: true
+  });
+
+  const containerStates = new Map();
+  psOutput
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .forEach((line) => {
+      const [name, state, status] = line.split('\t');
+      if (name) {
+        containerStates.set(name, {
+          state: state || 'unknown',
+          status: status || ''
+        });
+      }
+    });
+
+  return containerStates;
+}
+
+function verifyRequiredContainersRunning() {
+  const containerStates = getContainerStates();
+  const failures = [];
+
+  REQUIRED_CONTAINERS.forEach((name) => {
+    const info = containerStates.get(name);
+    if (!info) {
+      failures.push(`${name}: not found`);
+      return;
+    }
+
+    if (info.state !== 'running') {
+      failures.push(`${name}: state=${info.state} status=${info.status}`);
+      return;
+    }
+
+    logger.trackContainer(name, 'running', { status: info.status, state: info.state });
+  });
+
+  if (failures.length > 0) {
+    throw new Error(`Required containers are not running: ${failures.join('; ')}`);
+  }
+
+  logger.success('Required containers verified as running');
+}
 
 // ============================================
 // 1. Check Prerequisites
@@ -220,27 +271,14 @@ async function startContainers() {
 
     while (!healthy && attempts < maxAttempts) {
       try {
-        const psOutput = execSync('docker ps --format "{{.Names}}\t{{.Status}}"',
-          { encoding: 'utf8' });
-
-        const lines = psOutput.trim().split('\n');
-        const appRunning = lines.some(line =>
-          line.includes('kali-ai-term-app') && line.includes('Up'));
-        const kaliRunning = lines.some(line =>
-          line.includes('kali-ai-term-kali') && line.includes('Up'));
+        const containerStates = getContainerStates();
+        const appRunning = containerStates.get('kali-ai-term-app')?.state === 'running';
+        const kaliRunning = containerStates.get('kali-ai-term-kali')?.state === 'running';
 
         if (appRunning && kaliRunning) {
           healthy = true;
           logger.success('All containers are running and healthy');
-
-          // Track container states
-          lines.forEach(line => {
-            if (line.trim()) {
-              const [name, status] = line.split('\t');
-              const action = status.includes('Up') ? 'running' : 'created';
-              logger.trackContainer(name, action, { status });
-            }
-          });
+          verifyRequiredContainersRunning();
         } else {
           attempts++;
           if (attempts % 5 === 0) {
@@ -264,6 +302,7 @@ async function startContainers() {
       } catch (err) {
         // Ignore log fetch errors
       }
+      verifyRequiredContainersRunning();
     }
 
   } catch (err) {
@@ -278,6 +317,8 @@ async function startContainers() {
 
 async function verifyInstallation() {
   logger.info('Verifying installation...');
+
+  verifyRequiredContainersRunning();
 
   try {
     // Check if app is responding

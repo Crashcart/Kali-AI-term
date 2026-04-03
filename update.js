@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const https = require('https');
 const { createLogger } = require('./lib/install-logger');
 
 const logger = createLogger('update', {
@@ -108,10 +109,57 @@ async function updateSourceCode() {
       logger.trackCommand('git pull', 0, gitOutput);
       logger.success('Code updated from git');
     } else {
-      logger.warn('Not a git repository, skipping code update');
+      logger.warn('Not a git repository, refreshing core files from fix/issue-41 branch');
+
+      const downloadFile = (url, destination) => new Promise((resolve, reject) => {
+        const file = fs.createWriteStream(destination);
+        https.get(url, (res) => {
+          if (res.statusCode !== 200) {
+            reject(new Error(`Failed to download ${url} (status ${res.statusCode})`));
+            return;
+          }
+          res.pipe(file);
+          file.on('finish', () => {
+            file.close(resolve);
+          });
+        }).on('error', reject);
+      });
+
+      await downloadFile(
+        'https://raw.githubusercontent.com/Crashcart/Kali-AI-term/fix/issue-41/docker-compose.yml',
+        path.join(process.cwd(), 'docker-compose.yml')
+      );
+      await downloadFile(
+        'https://raw.githubusercontent.com/Crashcart/Kali-AI-term/fix/issue-41/Dockerfile',
+        path.join(process.cwd(), 'Dockerfile')
+      );
+      await downloadFile(
+        'https://raw.githubusercontent.com/Crashcart/Kali-AI-term/fix/issue-41/server.js',
+        path.join(process.cwd(), 'server.js')
+      );
+
+      logger.success('Core files refreshed from remote branch');
     }
   } catch (err) {
     logger.warn('git pull failed', { error: err.message });
+  }
+}
+
+// ============================================
+// VALIDATE COMPOSE CONFIG
+// ============================================
+
+async function validateComposeConfig() {
+  logger.info('Validating docker-compose configuration...');
+
+  try {
+    execSync('docker compose config >/dev/null 2>&1 || docker-compose config >/dev/null 2>&1', {
+      shell: true
+    });
+    logger.success('docker-compose.yml is valid');
+  } catch (err) {
+    logger.error('docker-compose.yml validation failed', { error: err.message });
+    throw new Error('Invalid docker-compose.yml. Fix configuration before update.');
   }
 }
 
@@ -193,10 +241,10 @@ async function startContainers() {
   logger.info('Starting updated containers...');
 
   try {
-    const upOutput = execSync('docker-compose up -d 2>/dev/null || docker compose up -d',
+    const upOutput = execSync('docker-compose up -d --build --force-recreate 2>/dev/null || docker compose up -d --build --force-recreate',
       { encoding: 'utf8', shell: true, maxBuffer: 10 * 1024 * 1024 });
-    logger.trackCommand('docker-compose up -d', 0, upOutput);
-    logger.success('Containers started');
+    logger.trackCommand('docker-compose up -d --build --force-recreate', 0, upOutput);
+    logger.success('Containers built and started');
 
     // Monitor startup
     logger.info('Waiting for containers to become healthy...');
@@ -288,6 +336,7 @@ async function runUpdate() {
     await checkInstallation();
     await backupConfiguration();
     await updateSourceCode();
+    await validateComposeConfig();
     await updateDependencies();
     await stopContainers();
     await rebuildDockerImage();
