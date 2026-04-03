@@ -17,6 +17,58 @@ const logger = createLogger('install-full', {
   maskSensitive: true
 });
 
+const REQUIRED_CONTAINERS = ['kali-ai-term-app', 'kali-ai-term-kali'];
+
+function getContainerStates() {
+  const psOutput = execSync('docker ps -a --format "{{.Names}}\t{{.State}}\t{{.Status}}"', {
+    encoding: 'utf8',
+    shell: true
+  });
+
+  const containerStates = new Map();
+  psOutput
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .forEach((line) => {
+      const [name, state, status] = line.split('\t');
+      if (name) {
+        containerStates.set(name, {
+          state: state || 'unknown',
+          status: status || ''
+        });
+      }
+    });
+
+  return containerStates;
+}
+
+function verifyRequiredContainersRunning() {
+  const containerStates = getContainerStates();
+  const failures = [];
+
+  REQUIRED_CONTAINERS.forEach((name) => {
+    const info = containerStates.get(name);
+    if (!info) {
+      failures.push(`${name}: not found`);
+      return;
+    }
+
+    if (info.state !== 'running') {
+      failures.push(`${name}: state=${info.state} status=${info.status}`);
+      return;
+    }
+
+    logger.trackContainer(name, 'running', { status: info.status, state: info.state });
+  });
+
+  if (failures.length > 0) {
+    throw new Error(`Required containers are not running: ${failures.join('; ')}`);
+  }
+
+  logger.success('Required containers verified as running');
+}
+
 // ============================================
 // DETAILED PREREQUISITE CHECKING
 // ============================================
@@ -391,6 +443,7 @@ async function startContainers() {
         if (appReady && kaliReady) {
           allHealthy = true;
           logger.success('All containers are running');
+          verifyRequiredContainersRunning();
         } else {
           attempts++;
           if (attempts % 10 === 0) {
@@ -450,6 +503,8 @@ async function verifyInstallation() {
   }
 
   // Health check API
+  verifyRequiredContainersRunning();
+
   logger.info('Checking application health...');
   try {
     execSync('curl -f http://localhost:3000/api/system/status 2>/dev/null',
