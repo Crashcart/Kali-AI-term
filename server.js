@@ -1246,6 +1246,11 @@ app.post('/api/plugins/disable/:name', authenticate, (req, res) => {
 // SYSTEM ENDPOINTS
 // ============================================
 
+// Health check endpoint (no auth required)
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 app.get('/api/system/status', authenticate, async (req, res) => {
   try {
     const [dockerStatus, ollamaStatus] = await Promise.all([
