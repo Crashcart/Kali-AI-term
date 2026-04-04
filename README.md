@@ -100,8 +100,9 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/
 
 The script will:
 - ✓ Pull latest `kalilinux/kali-rolling:latest` base image
-- ✓ Rebuild the app container (no cache)
-- ✓ Restart all services with updated images
+- ✓ Validate `docker-compose.yml`
+- ✓ Rebuild and force-recreate services with updated images
+- ✓ Recover project files automatically if run outside a git checkout
 
 ### Complete Uninstall
 
@@ -124,13 +125,13 @@ The script will:
 
 ```bash
 # Quick status check (10 seconds)
-bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/claude/logging-diagnostic-system/diagnose-quick.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/diagnose-quick.sh)
 
 # Full diagnostic report (2-5 minutes)
-bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/claude/logging-diagnostic-system/diagnose.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/diagnose.sh)
 
 # Collect all logs for support (2-3 minutes)
-bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/claude/logging-diagnostic-system/collect-logs.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/collect-logs.sh)
 ```
 
 Each script:

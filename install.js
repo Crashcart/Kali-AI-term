@@ -258,10 +258,10 @@ async function startContainers() {
     }
 
     // Start containers
-    const upOutput = execSync('docker-compose up -d 2>/dev/null || docker compose up -d',
+    const upOutput = execSync('docker-compose up -d --build --force-recreate 2>/dev/null || docker compose up -d --build --force-recreate',
       { encoding: 'utf8', shell: true, maxBuffer: 10 * 1024 * 1024 });
-    logger.trackCommand('docker-compose up -d', 0, upOutput);
-    logger.success('Docker containers started');
+    logger.trackCommand('docker-compose up -d --build --force-recreate', 0, upOutput);
+    logger.success('Docker containers built and started');
 
     // Wait for containers with health checks
     logger.info('Waiting for containers to be healthy (max 60 seconds)...');

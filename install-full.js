@@ -400,10 +400,10 @@ async function startContainers() {
 
     // Start new containers
     logger.info('Building and starting containers (this may take a minute)...');
-    const upOutput = execSync('docker-compose up -d 2>/dev/null || docker compose up -d',
+    const upOutput = execSync('docker-compose up -d --build --force-recreate 2>/dev/null || docker compose up -d --build --force-recreate',
       { encoding: 'utf8', shell: true, maxBuffer: 10 * 1024 * 1024 });
-    logger.trackCommand('docker-compose up -d', 0, upOutput);
-    logger.success('Containers started');
+    logger.trackCommand('docker-compose up -d --build --force-recreate', 0, upOutput);
+    logger.success('Containers built and started');
 
     // Monitor startup with detailed logging
     logger.info('Monitoring container startup...');

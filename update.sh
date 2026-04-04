@@ -11,11 +11,17 @@ echo "✓ Updating source files..."
 if [ -d .git ]; then
 	git pull --ff-only && echo "  ✓ Code updated from git" || echo "  ⚠ Git pull failed, continuing with local files"
 else
-	echo "  ⚠ Not a git repository; pulling core files from branch fix/issue-41"
-	curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/fix/issue-41/docker-compose.yml -o docker-compose.yml
-	curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/fix/issue-41/Dockerfile -o Dockerfile
-	curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/fix/issue-41/server.js -o server.js
-	echo "  ✓ Core files refreshed"
+	echo "  ⚠ Not a git repository; downloading full project snapshot from branch fix/issue-41"
+	TMP_DIR=$(mktemp -d)
+	curl -fsSL https://codeload.github.com/Crashcart/Kali-AI-term/tar.gz/refs/heads/fix/issue-41 -o "$TMP_DIR/project.tar.gz"
+	tar -xzf "$TMP_DIR/project.tar.gz" -C "$TMP_DIR"
+	rsync -a --delete \
+		--exclude '.env' \
+		--exclude 'data/' \
+		--exclude '.backup-*' \
+		"$TMP_DIR/Kali-AI-term-fix-issue-41/" ./
+	rm -rf "$TMP_DIR"
+	echo "  ✓ Project files refreshed"
 fi
 
 echo ""
