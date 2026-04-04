@@ -2,9 +2,20 @@
 
 set -e
 
+PROJECT_DIR="${KALI_AI_TERM_DIR:-$HOME/Kali-AI-term}"
+
+if [ ! -d "$PROJECT_DIR" ]; then
+	mkdir -p "$PROJECT_DIR"
+fi
+
+cd "$PROJECT_DIR"
+
 echo "💉 ═══════════════════════════════════════════════════════════════════ 💉"
 echo "    Kali Hacker Bot - Update"
 echo "💉 ═══════════════════════════════════════════════════════════════════ 💉"
+echo ""
+
+echo "✓ Working directory: $PROJECT_DIR"
 echo ""
 
 echo "✓ Updating source files..."

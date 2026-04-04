@@ -2,6 +2,11 @@
 
 # Quick Diagnostic - Fast checks for immediate issues
 
+PROJECT_DIR="${KALI_AI_TERM_DIR:-$HOME/Kali-AI-term}"
+if [ -d "$PROJECT_DIR" ]; then
+    cd "$PROJECT_DIR"
+fi
+
 echo "🔍 Quick Diagnostic Check"
 echo "════════════════════════════════════════"
 echo ""
