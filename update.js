@@ -6,9 +6,36 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { execSync } = require('child_process');
 const { createLogger } = require('./lib/install-logger');
+
+function resolveProjectDirectory() {
+  const cwd = process.cwd();
+  const homeProjectDir = path.join(os.homedir(), 'Kali-AI-term');
+
+  const looksLikeProject = (dir) =>
+    fs.existsSync(path.join(dir, 'docker-compose.yml')) ||
+    fs.existsSync(path.join(dir, 'package.json'));
+
+  if (looksLikeProject(cwd)) {
+    return cwd;
+  }
+
+  if (looksLikeProject(homeProjectDir)) {
+    return homeProjectDir;
+  }
+
+  if (!fs.existsSync(homeProjectDir)) {
+    fs.mkdirSync(homeProjectDir, { recursive: true });
+  }
+
+  return homeProjectDir;
+}
+
+const projectDir = resolveProjectDirectory();
+process.chdir(projectDir);
 
 const logger = createLogger('update', {
   logDir: process.cwd(),
@@ -53,11 +80,12 @@ async function checkInstallation() {
   }
 
   if (!allPresent) {
-    logger.error('Installation check failed - some components missing');
-    throw new Error('Installation incomplete. Run install.js first.');
+    logger.warn('Some project components are missing. Continuing: updater will attempt recovery.');
+    return false;
   }
 
   logger.success('Installation verified');
+  return true;
 }
 
 // ============================================
@@ -314,6 +342,7 @@ async function runUpdate() {
     console.log('║  Kali Hacker Bot - Update             ║');
     console.log('╚════════════════════════════════════════╝\n');
 
+    logger.info(`Using project directory: ${projectDir}`);
     await checkInstallation();
     await backupConfiguration();
     await updateSourceCode();

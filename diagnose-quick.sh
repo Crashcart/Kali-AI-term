@@ -2,6 +2,15 @@
 
 # Quick Diagnostic - Fast checks for immediate issues
 
+PROJECT_DIR="${KALI_AI_TERM_DIR:-$HOME/Kali-AI-term}"
+if [ -d "$PROJECT_DIR" ]; then
+    cd "$PROJECT_DIR"
+fi
+
+REPORT_FILE="diagnostic-quick-$(date +%Y-%m-%d-%H-%M-%S).txt"
+exec > >(tee "$REPORT_FILE")
+exec 2>&1
+
 echo "🔍 Quick Diagnostic Check"
 echo "════════════════════════════════════════"
 echo ""
@@ -66,3 +75,4 @@ echo ""
 echo "════════════════════════════════════════"
 echo "Status: OK - Ready to install" || echo "Status: Issues found - see above"
 echo ""
+echo "Report saved to: $REPORT_FILE"

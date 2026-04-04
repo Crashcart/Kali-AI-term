@@ -1,5 +1,12 @@
 #!/bin/bash
 
+PROJECT_DIR="${KALI_AI_TERM_DIR:-$HOME/Kali-AI-term}"
+if [ -d "$PROJECT_DIR" ]; then
+    cd "$PROJECT_DIR"
+fi
+
+set -e
+
 echo "💉 ═══════════════════════════════════════════════════════════════════ 💉"
 echo "    Kali Hacker Bot - Uninstall"
 echo "💉 ═══════════════════════════════════════════════════════════════════ 💉"
@@ -27,6 +34,15 @@ echo "✓ Removing dependencies..."
 echo "✓ Removing data..."
 [ -d data ] && rm -rf data && echo "  ✓ data directory removed" || echo "  ✓ data directory not found"
 [ -d logs ] && rm -rf logs && echo "  ✓ logs directory removed" || echo "  ✓ logs directory not found"
+find . -maxdepth 1 -type d -name 'diagnostic-logs-*' -exec rm -rf {} + && echo "  ✓ diagnostic log directories removed" || true
+find . -maxdepth 1 -type f -name 'diagnostic-*.txt' -delete && echo "  ✓ diagnostic report files removed" || true
+find . -maxdepth 1 -type f -name 'install-*.log' -delete && echo "  ✓ install log files removed" || true
+find . -maxdepth 1 -type f -name 'update-*.log' -delete && echo "  ✓ update log files removed" || true
+find . -maxdepth 1 -type d -name '.backup-*' -exec rm -rf {} + && echo "  ✓ backup directories removed" || true
+[ -f install.diagnostic ] && rm -f install.diagnostic && echo "  ✓ install.diagnostic removed" || true
+[ -f install-full.diagnostic ] && rm -f install-full.diagnostic && echo "  ✓ install-full.diagnostic removed" || true
+[ -f update.diagnostic ] && rm -f update.diagnostic && echo "  ✓ update.diagnostic removed" || true
+[ -d .cache ] && rm -rf .cache && echo "  ✓ .cache removed" || true
 
 echo ""
 echo "💉 ═══════════════════════════════════════════════════════════════════ 💉"
