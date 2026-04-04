@@ -1,6 +1,6 @@
 # 📊 Kali-AI-term Strategic Planning & Coordination
 
-**Last Updated**: 2026-04-04 14:50:00 UTC  
+**Last Updated**: 2026-04-04 23:50:00 UTC  
 **Document Purpose**: Centralized planning for multi-agent coordination, architectural decisions, and project context
 
 ---
@@ -155,6 +155,7 @@ All identified blockers from issue #52 have been resolved:
 3. Validated complete auth flow end-to-end
 4. Executed comprehensive security code review via Code Review subagent
 5. Created coordination system (this file + TODO.md + rules)
+6. Updated instruction policy: agents must re-check ticket comments after each new user update before continuing
 
 **⏭️ What's Next**:
 1. **Immediate user action**: Run install/diagnostics from `~/Kali-AI-term` directory

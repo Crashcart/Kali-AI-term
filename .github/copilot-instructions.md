@@ -190,8 +190,11 @@ Before declaring a task done, verify:
 
 **NEVER close a ticket.** Always comment instead.
 
+**When the user posts a new update/comment, agents MUST re-check comments before continuing work.**
+
 When working on an issue:
 1. **Read ALL existing comments** on the ticket first
+2. **On every new user update**: re-read latest ticket comments before making code or planning decisions
 2. **Always post a comment** when you make changes
 3. **Post comment AFTER pushing** changes to GitHub
 4. **Never click "Close issue"** - let humans make that decision
@@ -353,6 +356,7 @@ Before starting EVERY work session, print this checklist:
 - [ ] Read `TODO.md` - What's the current status?
 - [ ] Read `PLANNING.md` - Any blockers, handoffs, or decisions I need?
 - [ ] Read ALL ticket comments - What context do I need?
+- [ ] Re-check ticket comments after each new user update before proceeding
 - [ ] Verify my assigned task - Is it in the todo list with status `not-started`?
 - [ ] Mark task `in-progress` - Did I update the todo list?
 - [ ] Plan multi-step work - Should I update `PLANNING.md` first?
