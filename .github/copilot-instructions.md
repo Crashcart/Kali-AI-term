@@ -51,8 +51,10 @@ If your work is blocked:
 
 ---
 
-### Rule 4: Commit and Push Protocol
-**Applies to:** After completing substantial work
+### Rule 4: Commit, Push, and Comment Protocol
+**Applies to:** After EVERY change (even small updates)
+
+🔴 **MANDATORY: ALWAYS PUSH IMMEDIATELY AFTER COMMITTING**
 
 Follow this sequence:
 1. **Stage changes**: `git add <files>`
@@ -62,11 +64,22 @@ Follow this sequence:
    - `docs(domain):` for documentation
    - `test(domain):` for test additions
    - `chore(domain):` for maintenance
+   - `update(files):` for coordination/planning file updates
 3. **Include issue reference**: Append `fixes #{issue-number}` or `refs #{issue-number}`
-4. **Push to branch**: `git push origin <branch>`
-5. **Update PLANNING.md**: Record the commit hash and what was accomplished
+4. **🔴 PUSH IMMEDIATELY**: `git push origin <branch>` — DO NOT SKIP THIS
+5. **🔴 COMMENT ON TICKET**: Post update to relevant GitHub issue as comment
+   - Do NOT close the issue
+   - Include: what changed, commit hash, next steps
+   - Reference files affected with line numbers
+6. **Update PLANNING.md locally AND push**: Record the commit hash and changes
 
-**Example**:
+**⚠️ VISIBILITY RULE**: All work must be visible in:
+- GitHub commit history ✅
+- Branch push ✅
+- Issue comment ✅
+- Updated PLANNING.md ✅
+
+**Example Commit**:
 ```bash
 git commit -m "fix(auth): add bcrypt password hashing for security
 
@@ -75,9 +88,31 @@ git commit -m "fix(auth): add bcrypt password hashing for security
 - Update tests to verify hashing behavior
 
 fixes #52"
+
+git push origin fix/issue-41
 ```
 
-**Why:** Creates audit trail, links PRs to issues, enables rollback if needed
+**Example Comment** (post to issue immediately after push):
+```
+## Update: Password Hashing Implementation
+
+✅ **Completed**: Replaced plaintext passwords with bcrypt hashing
+
+**Changes**:
+- [server.js](server.js#L350-L365): Updated login endpoint with bcrypt.compare()
+- [tests/unit/api-endpoints.test.js](tests/unit/auth.test.js): Added hashing tests
+- [package.json](package.json): Added bcrypt dependency
+
+**Commit**: abc123d - `fix(auth): add bcrypt password hashing for security`
+
+**Next Steps**:
+- Review CRITICAL-2 (JWT tokens) after this merges
+- Related to Security Hardening Sprint in PLANNING.md
+
+**Status**: ✅ Ready for review
+```
+
+**Why:** Creates audit trail, enables real-time visibility, maintains transparent communication with team
 
 ---
 
@@ -150,7 +185,55 @@ Before declaring a task done, verify:
 
 ---
 
-### Rule 8: Session Continuity
+### Rule 9: Ticket Management & Visibility
+**Applies to:** All work on GitHub issues
+
+**NEVER close a ticket.** Always comment instead.
+
+When working on an issue:
+1. **Read ALL existing comments** on the ticket first
+2. **Always post a comment** when you make changes
+3. **Post comment AFTER pushing** changes to GitHub
+4. **Never click "Close issue"** - let humans make that decision
+5. **Link related commits** in comments using commit hash format
+6. **Reference file changes** with markdown links: `[file.js](file.js#L10)`
+7. **Update issue description** if context has changed (use edit button, don't close)
+
+**Comment Requirements**:
+- What changed (code, docs, config)
+- Why it changed (reference to ADR, blocker resolution, etc.)
+- What commit(s) implement the change
+- What files were affected
+- What still needs to be done
+- Next steps or blockers
+
+**Example format**:
+```markdown
+## Work Update
+
+✅ **Completed**: Database migration for session storage
+
+**Changes Made**:
+- [db/schema.sql](db/schema.sql#L1-L20): Added sessions table with indexes
+- [db/init.js](db/init.js#L50-L75): Implemented session creation methods
+- [tests/db.test.js](tests/db.test.js): Added 8 new test cases
+
+**Commits**:
+- `a1b2c3d` - `feat(db): add session persistence schema`
+
+**Validation**:
+- ✅ All tests pass (12/12)
+- ✅ No console errors
+- ✅ Database schema verified
+
+**Next Steps**:
+- Task 6 in TODO.md: Implement JWT token signing (blocked on this)
+- Security review pending (issue #52 comment)
+
+**Related Issues**: refs #52, #41
+```
+
+**Why:** Creates permanent record, enables async collaboration, maintains context
 **Applies to:** When an agent's session ends
 
 At the end of every session:
@@ -158,13 +241,15 @@ At the end of every session:
 2. Update all in-progress todos with best-effort %-complete estimate
 3. Leave a clear "Resume here on next session" note
 4. Push any uncommitted changes with `[WIP]` prefix if incomplete
+5. **Post final session summary comment on primary ticket**
+6. **Push all changes immediately**
 
 **Format**:
 ```markdown
-## Resume Instructions for Next Session
+## Session Summary - Start here on next session
 
 This session's progress: 45% complete
-- ✅ Completed: X, Y, Z
+- ✅ Completed: X, Y, Z (commits: abc123, def456)
 - ⏳ In-progress: A (needs B done first)
 - ⏳ Blocked: C (waiting for architecture decision)
 
@@ -174,7 +259,7 @@ Next agent should:
 3. Then unblock C by making decision noted in issue comment
 
 Files modified: auth-logic.js, tests/unit/api-endpoints.test.js
-Commits: c4f8e2d, d5g9f3e
+All changes pushed to branch. See PLANNING.md for handoff details.
 ```
 
 ---
@@ -267,12 +352,15 @@ Before starting EVERY work session, print this checklist:
 
 - [ ] Read `TODO.md` - What's the current status?
 - [ ] Read `PLANNING.md` - Any blockers, handoffs, or decisions I need?
+- [ ] Read ALL ticket comments - What context do I need?
 - [ ] Verify my assigned task - Is it in the todo list with status `not-started`?
 - [ ] Mark task `in-progress` - Did I update the todo list?
 - [ ] Plan multi-step work - Should I update `PLANNING.md` first?
 - [ ] Complete work - Did I run tests and check for errors?
 - [ ] Mark task complete - Are blockers resolved, or should I flag them?
 - [ ] Commit properly - Did I use correct prefix and issue reference?
+- [ ] 🔴 Push immediately - Did I push to origin?
+- [ ] 🔴 Comment on ticket - Did I post update with all details?
 - [ ] Leave handoff notes - Will next agent understand what I did?
 
 ---
