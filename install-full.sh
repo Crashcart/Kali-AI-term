@@ -8,6 +8,22 @@ set -e
 export PS4='+ [${BASH_SOURCE##*/}:${LINENO}] '
 set -x
 
+# Stabilize execution context so deleted/invalid cwd does not break install flow.
+if ! pwd >/dev/null 2>&1; then
+    cd "$HOME" 2>/dev/null || cd /tmp
+fi
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+cd "$SCRIPT_DIR"
+
+for required in docker-compose.yml package.json server.js; do
+    if [[ ! -e "$required" ]]; then
+        echo "ERROR: Installer must run from a Kali-AI-term repository checkout"
+        echo "Missing required file: $required"
+        exit 1
+    fi
+done
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'

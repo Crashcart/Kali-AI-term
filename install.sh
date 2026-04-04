@@ -4,6 +4,22 @@ set -e
 export PS4='+ [${BASH_SOURCE##*/}:${LINENO}] '
 set -x
 
+# Stabilize execution context so deleted/invalid cwd does not break install flow.
+if ! pwd >/dev/null 2>&1; then
+  cd "$HOME" 2>/dev/null || cd /tmp
+fi
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+cd "$SCRIPT_DIR"
+
+for required in docker-compose.yml package.json server.js; do
+  if [[ ! -e "$required" ]]; then
+    echo "  ❌ Installer must run from a Kali-AI-term repository checkout"
+    echo "  Missing required file: $required"
+    exit 1
+  fi
+done
+
 echo "💉 ═══════════════════════════════════════════════════════════════════ 💉"
 echo "    Kali Hacker Bot - Installation"
 echo "💉 ═══════════════════════════════════════════════════════════════════ 💉"
@@ -20,7 +36,13 @@ command -v node &>/dev/null && echo "  ✓ Node.js found: $(node --version)" || 
 # Interactive password prompt
 echo ""
 echo "✓ Configuration:"
-read -p "  Enter admin password: " ADMIN_PASSWORD
+while true; do
+  read -p "  Enter admin password: " ADMIN_PASSWORD
+  if [[ -n "$ADMIN_PASSWORD" ]]; then
+    break
+  fi
+  echo "  ⚠ Password cannot be empty"
+done
 echo ""
 
 # Generate .env

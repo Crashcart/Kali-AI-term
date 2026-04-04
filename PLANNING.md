@@ -1,6 +1,6 @@
 # 📊 Kali-AI-term Strategic Planning & Coordination
 
-**Last Updated**: 2026-04-04 23:50:00 UTC  
+**Last Updated**: 2026-04-05 00:10:00 UTC  
 **Document Purpose**: Centralized planning for multi-agent coordination, architectural decisions, and project context
 
 ---
@@ -156,6 +156,8 @@ All identified blockers from issue #52 have been resolved:
 4. Executed comprehensive security code review via Code Review subagent
 5. Created coordination system (this file + TODO.md + rules)
 6. Updated instruction policy: agents must re-check ticket comments after each new user update before continuing
+7. Hardened install scripts to auto-stabilize working directory and fail fast if run outside repo checkout
+8. Hardened quick installer password prompt to reject empty input (prevents login password mismatch)
 
 **⏭️ What's Next**:
 1. **Immediate user action**: Run install/diagnostics from `~/Kali-AI-term` directory
@@ -180,6 +182,7 @@ All identified blockers from issue #52 have been resolved:
 - `/.github/copilot-instructions.md` - new file (2.3KB rules)
 - `/TODO.md` - new file (tracking system)
 - `/PLANNING.md` - new file (this file)
+- `/install-full.sh` - runtime cwd stabilization + repo sanity checks
 
 **Commits Pushed**:
 - `34f6442` - `fix(install): enable full debug mode with set -x tracing`
