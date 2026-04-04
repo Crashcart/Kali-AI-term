@@ -36,7 +36,7 @@ function promptConfirmation() {
     console.log('  • Stop and remove Docker containers');
     console.log('  • Remove volume data');
     console.log('  • Delete .env configuration');
-    console.log('  • Preserve logs for review\n');
+    console.log('  • Delete generated logs/diagnostics/backups\n');
 
     rl.question('Type "uninstall" to confirm: ', (answer) => {
       rl.close();
@@ -124,25 +124,52 @@ async function removeVolumes() {
 async function removeDataDirectories() {
   logger.info('Removing application data...');
 
-  const dirs = ['./data', './node_modules', './.env'];
+  const cleanupTargets = [
+    './data',
+    './logs',
+    './node_modules',
+    './.env',
+    './.env.backup',
+    './install.diagnostic',
+    './install-full.diagnostic',
+    './update.diagnostic',
+    './.cache'
+  ];
 
-  for (const dir of dirs) {
-    if (fs.existsSync(dir)) {
+  const wildcardPatterns = [
+    'diagnostic-logs-*',
+    'diagnostic-*.txt',
+    'install-*.log',
+    'update-*.log',
+    '.backup-*'
+  ];
+
+  for (const target of cleanupTargets) {
+    if (fs.existsSync(target)) {
       try {
-        if (fs.statSync(dir).isDirectory()) {
-          execSync(`rm -rf ${dir}`);
-          logger.debug(`Removed directory: ${dir}`);
+        if (fs.statSync(target).isDirectory()) {
+          execSync(`rm -rf ${target}`);
+          logger.debug(`Removed directory: ${target}`);
         } else {
-          fs.unlinkSync(dir);
-          logger.debug(`Removed file: ${dir}`);
+          fs.unlinkSync(target);
+          logger.debug(`Removed file: ${target}`);
         }
       } catch (err) {
-        logger.warn(`Could not remove ${dir}`, { error: err.message });
+        logger.warn(`Could not remove ${target}`, { error: err.message });
       }
     }
   }
 
-  logger.success('Data directories removed');
+  wildcardPatterns.forEach((pattern) => {
+    try {
+      execSync(`find . -maxdepth 1 -name "${pattern}" -exec rm -rf {} +`, { stdio: 'ignore' });
+      logger.debug(`Removed pattern matches: ${pattern}`);
+    } catch (err) {
+      logger.debug(`No matches for pattern: ${pattern}`);
+    }
+  });
+
+  logger.success('Generated data and artifacts removed');
 }
 
 // ============================================
@@ -173,6 +200,15 @@ async function verifyCleanup() {
     },
     '.env removed': () => !fs.existsSync('.env'),
     'data directory removed': () => !fs.existsSync('./data'),
+    'diagnostic artifacts removed': () => {
+      try {
+        const output = execSync('find . -maxdepth 1 \( -name "diagnostic-logs-*" -o -name "diagnostic-*.txt" -o -name "install-*.log" -o -name "update-*.log" -o -name ".backup-*" \)',
+          { encoding: 'utf8', shell: true, stdio: 'pipe' }).trim();
+        return !output;
+      } catch (err) {
+        return true;
+      }
+    }
   };
 
   let allClean = true;
@@ -228,8 +264,7 @@ async function runUninstallation() {
     console.log('  • Environment configuration\n');
 
     console.log('Preserved:');
-    console.log('  • Installation logs (for reference)');
-    console.log('  • Source code files\n');
+    console.log('  • Source code files (unless manually removed)\n');
 
     if (!isClean) {
       console.log('⚠️  Some files may remain (permission issues)');
