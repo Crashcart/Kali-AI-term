@@ -5,6 +5,8 @@
 # ============================================
 
 set -e
+export PS4='+ [${BASH_SOURCE##*/}:${LINENO}] '
+set -x
 
 # Colors for output
 RED='\033[0;31m'

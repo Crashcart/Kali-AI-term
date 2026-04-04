@@ -1,6 +1,8 @@
 #!/bin/bash
 
 set -e
+export PS4='+ [${BASH_SOURCE##*/}:${LINENO}] '
+set -x
 
 PROJECT_DIR="${KALI_AI_TERM_DIR:-$HOME/Kali-AI-term}"
 

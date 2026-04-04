@@ -7,6 +7,9 @@ if [ -d "$PROJECT_DIR" ]; then
     cd "$PROJECT_DIR"
 fi
 
+export PS4='+ [${BASH_SOURCE##*/}:${LINENO}] '
+set -x
+
 REPORT_FILE="diagnostic-logs-$(date +%Y-%m-%d-%H-%M-%S).txt"
 
 write_section() {
