@@ -163,7 +163,7 @@ BIND_HOST=0.0.0.0
 OLLAMA_URL=http://host.docker.internal:11434
 
 # Docker
-KALI_CONTAINER=Kali-AI-linux
+KALI_CONTAINER=kali-ai-term-kali
 
 # Security
 ADMIN_PASSWORD=$ADMIN_PASSWORD
@@ -212,7 +212,7 @@ log_info "Waiting for containers to be healthy..."
 sleep 5
 
 # Check if containers are running
-if docker ps | grep -q "Kali-AI-app" && docker ps | grep -q "Kali-AI-linux"; then
+if docker ps | grep -q "kali-ai-term-app" && docker ps | grep -q "kali-ai-term-kali"; then
     log_success "All containers are running"
 else
     log_warn "Containers may still be starting, checking logs..."
