@@ -240,7 +240,7 @@ NODE_ENV=production          # Environment
 PORT=31337                   # Web server port
 BIND_HOST=0.0.0.0            # Bind address (0.0.0.0 = all interfaces)
 OLLAMA_URL=http://ollama:11434  # Ollama API endpoint
-KALI_CONTAINER=Kali-AI-linux # Container name
+KALI_CONTAINER=kali-ai-term-kali # Container name
 ADMIN_PASSWORD=kalibot       # Login password
 AUTH_SECRET=<random-uuid>    # Session secret
 LOG_LEVEL=info               # Logging level
@@ -333,7 +333,7 @@ The install scripts (`install.sh` and `install-full.sh`) automatically detect Ze
 
 | Check | Command |
 |-------|---------|
-| Container running? | `docker ps \| grep Kali-AI-app` |
+| Container running? | `docker ps \| grep kali-ai-term-app` |
 | Port bound to all interfaces? | `ss -tlnp \| grep 31337` |
 | ZeroTier connected? | `zerotier-cli listnetworks` |
 | iptables rule present? | `iptables -L DOCKER-USER -n \| grep zt` |
