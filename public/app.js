@@ -434,8 +434,32 @@ class KaliHackerBot {
             this.startUptimeCounter();
             this.addIntelligenceMessage('🔓 Authentication successful! Welcome to Kali Hacker Bot.', 'green');
         } catch (err) {
+            const reportId = await this.submitLoginErrorReport(err);
             this.addIntelligenceMessage(`❌ Authentication failed: ${err.message}`, 'red');
+            if (reportId) {
+                this.addIntelligenceMessage(`📋 Login error report captured: ${reportId}`, 'yellow');
+                this.addIntelligenceMessage('Run ./collect-logs.sh and include this report ID in the issue.', 'yellow');
+            }
             this.passwordInput.value = '';
+        }
+    }
+
+    async submitLoginErrorReport(err) {
+        const loginReportId = err?.payload?.reportId || null;
+        const payload = {
+            message: err?.message || 'Unknown login error',
+            status: err?.status || null,
+            location: window.location.href,
+            timestamp: new Date().toISOString(),
+            serverReportId: loginReportId,
+        };
+
+        try {
+            const reportResponse = await this.apiCall('POST', '/api/auth/login/error-report', payload);
+            return reportResponse.reportId || loginReportId;
+        } catch (reportErr) {
+            console.warn('Failed to submit login error report:', reportErr);
+            return loginReportId;
         }
     }
 
@@ -955,14 +979,14 @@ Format: <one-liner command suggestion>`;
 
     async loadPlugins() {
         try {
-            const response = await this.apiCall('/api/plugins', 'GET');
-            if (response.data.success) {
-                this.enabledPlugins = response.data.plugins.filter(p => p.enabled).map(p => p.name);
+            const response = await this.apiCall('GET', '/api/plugins');
+            if (response.success) {
+                this.enabledPlugins = response.plugins.filter(p => p.enabled).map(p => p.name);
                 this.plugins.clear();
-                response.data.plugins.forEach(p => {
+                response.plugins.forEach(p => {
                     this.plugins.set(p.name, p);
                 });
-                return response.data.plugins;
+                return response.plugins;
             }
         } catch (err) {
             console.error('Failed to load plugins:', err);
@@ -999,8 +1023,8 @@ Format: <one-liner command suggestion>`;
     async togglePlugin(name, enabled) {
         try {
             const endpoint = enabled ? `/api/plugins/enable/${name}` : `/api/plugins/disable/${name}`;
-            const response = await this.apiCall(endpoint, 'POST');
-            if (response.data.success) {
+            const response = await this.apiCall('POST', endpoint);
+            if (response.success) {
                 this.addIntelligenceMessage(`✓ Plugin ${name} ${enabled ? 'enabled' : 'disabled'}`, 'green');
                 if (enabled) {
                     this.enabledPlugins.push(name);
@@ -1018,8 +1042,8 @@ Format: <one-liner command suggestion>`;
         if (!this.llmModelSelector) return;
 
         try {
-            const response = await this.apiCall('/api/ollama/models', 'GET');
-            const models = response.data.models || [];
+            const response = await this.apiCall('GET', '/api/ollama/models');
+            const models = response.models || [];
 
             this.llmModelSelector.innerHTML = '';
 
@@ -1476,27 +1500,49 @@ Format: <one-liner command suggestion>`;
     // API CALLS
     // ============================================
 
-    async apiCall(method, endpoint, data = null) {
+    async apiCall(methodOrEndpoint, endpointOrMethod, data = null) {
+        let method = methodOrEndpoint;
+        let endpoint = endpointOrMethod;
+
+        // Backwards compatibility for legacy call order: apiCall(endpoint, method, data)
+        if (typeof methodOrEndpoint === 'string' && methodOrEndpoint.startsWith('/')) {
+            endpoint = methodOrEndpoint;
+            method = endpointOrMethod || 'GET';
+        }
+
+        if (typeof endpoint !== 'string' || !endpoint.startsWith('/')) {
+            throw new Error('Invalid API endpoint');
+        }
+
         const options = {
-            method: method,
+            method: String(method || 'GET').toUpperCase(),
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.token}`,
             },
         };
+
+        if (this.token) {
+            options.headers.Authorization = `Bearer ${this.token}`;
+        }
 
         if (data) {
             options.body = JSON.stringify(data);
         }
 
         const response = await fetch(endpoint, options);
+        const contentType = response.headers.get('content-type') || '';
+        const payload = contentType.includes('application/json')
+            ? await response.json()
+            : { message: await response.text() };
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || `HTTP ${response.status}`);
+            const err = new Error(payload.error || payload.message || `HTTP ${response.status}`);
+            err.status = response.status;
+            err.payload = payload;
+            throw err;
         }
 
-        return await response.json();
+        return payload;
     }
 }
 

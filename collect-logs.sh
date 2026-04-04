@@ -64,6 +64,18 @@ echo ""
     [ -f update.log ] && { echo "--- update.log ---"; cat update.log; echo ""; } || echo "update.log not found"
     [ -f .env ] && { echo "--- .env (sanitized) ---"; sed 's/PASSWORD=.*/PASSWORD=***/' .env; echo ""; } || echo ".env not found"
     [ -f docker-compose.yml ] && { echo "--- docker-compose.yml ---"; cat docker-compose.yml; echo ""; } || echo "docker-compose.yml not found"
+    if [ -d data/login-error-reports ]; then
+        echo "--- data/login-error-reports ---"
+        ls -lah data/login-error-reports || true
+        for report in data/login-error-reports/*.json; do
+            [ -f "$report" ] || continue
+            echo "--- $(basename "$report") ---"
+            cat "$report"
+            echo ""
+        done
+    else
+        echo "data/login-error-reports not found"
+    fi
 
     write_section "System Information"
     uname -a 2>&1 || true

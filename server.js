@@ -1,7 +1,10 @@
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const Docker = require('dockerode');
@@ -296,13 +299,72 @@ const pluginManager = new PluginManager();
 // ============================================
 
 const AUTH_SECRET = process.env.AUTH_SECRET || 'changeme-' + uuidv4();
+const LOGIN_REPORT_DIR = path.join(__dirname, 'data', 'login-error-reports');
+
+function truncateString(value, maxLength = 512) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value.slice(0, maxLength);
+}
+
+function createLoginErrorReport(req, details = {}) {
+  try {
+    if (!fs.existsSync(LOGIN_REPORT_DIR)) {
+      fs.mkdirSync(LOGIN_REPORT_DIR, { recursive: true });
+    }
+
+    const reportId = uuidv4();
+    const report = {
+      reportId,
+      timestamp: new Date().toISOString(),
+      route: req.originalUrl,
+      method: req.method,
+      remoteIp: truncateString(req.ip || req.socket?.remoteAddress || 'unknown', 128),
+      userAgent: truncateString(req.get('user-agent') || 'unknown', 512),
+      authConfig: {
+        adminPasswordSource: process.env.ADMIN_PASSWORD ? 'env' : 'default',
+        authSecretSource: process.env.AUTH_SECRET ? 'env' : 'generated-fallback',
+      },
+      details,
+    };
+
+    const filePath = path.join(LOGIN_REPORT_DIR, `login-error-${reportId}.json`);
+    fs.writeFileSync(filePath, JSON.stringify(report, null, 2), 'utf8');
+
+    appLogger.warn('Login error report created', {
+      reportId,
+      route: req.originalUrl,
+      remoteIp: report.remoteIp,
+    });
+
+    return reportId;
+  } catch (err) {
+    appLogger.error('Failed to create login error report', { error: err.message });
+    return null;
+  }
+}
 
 app.post('/api/auth/login', (req, res) => {
   const { password } = req.body;
   const expectedPassword = process.env.ADMIN_PASSWORD || 'kalibot';
 
+  if (typeof password !== 'string' || password.length === 0) {
+    const reportId = createLoginErrorReport(req, { reason: 'missing-password' });
+    return res.status(400).json({
+      error: 'Password required',
+      reportId,
+      hint: 'Run ./collect-logs.sh and include this reportId in the issue.',
+    });
+  }
+
   if (password !== expectedPassword) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    const reportId = createLoginErrorReport(req, { reason: 'password-mismatch' });
+    return res.status(401).json({
+      error: 'Unauthorized',
+      reportId,
+      hint: 'Run ./collect-logs.sh and include this reportId in the issue.',
+    });
   }
 
   const sessionId = uuidv4();
@@ -313,6 +375,27 @@ app.post('/api/auth/login', (req, res) => {
   db.createSession(sessionId, token, AUTH_SECRET, expiresAt.toISOString());
 
   res.json({ token, sessionId });
+});
+
+app.post('/api/auth/login/error-report', (req, res) => {
+  const payload = req.body || {};
+  const reportId = createLoginErrorReport(req, {
+    reason: 'client-login-error',
+    message: truncateString(payload.message || '', 1024),
+    status: Number(payload.status) || null,
+    location: truncateString(payload.location || '', 1024),
+    clientTimestamp: truncateString(payload.timestamp || '', 128),
+    serverReportId: truncateString(payload.serverReportId || '', 128),
+  });
+
+  if (!reportId) {
+    return res.status(500).json({ error: 'Failed to create login error report' });
+  }
+
+  return res.status(201).json({
+    success: true,
+    reportId,
+  });
 });
 
 function authenticate(req, res, next) {
