@@ -10,6 +10,8 @@ services:
       - BIND_HOST=0.0.0.0
       - OLLAMA_URL=http://host.docker.internal:11434
       - KALI_CONTAINER=kali-ai-term-kali
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-kalibot}
+      - AUTH_SECRET=${AUTH_SECRET:-changeme-local-dev}
       - LOG_LEVEL=info
     volumes:
       - type: bind

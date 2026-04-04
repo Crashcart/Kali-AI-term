@@ -186,6 +186,9 @@ docker-compose down
 2. Enter the admin password (default: `kalibot`)
 3. You're logged in for 24 hours
 
+If login fails, the UI now generates a login error report ID and tells you what to collect.
+Run `./collect-logs.sh` and share the report output plus the login report ID.
+
 ### Command Types
 
 **Natural Language Queries** (processed by Ollama)
@@ -424,6 +427,7 @@ install.log                    # Symlink to latest installation log
 install.diagnostic             # JSON diagnostic report with system state
 update-TIMESTAMP.log           # Update operation log
 uninstall-TIMESTAMP.log        # Uninstall operation log
+data/login-error-reports/*.json # Login failure diagnostics (generated on auth failures)
 ```
 
 ### Viewing Logs
