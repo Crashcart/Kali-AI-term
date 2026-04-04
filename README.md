@@ -114,9 +114,11 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/
 
 The script will:
 - ✓ Stop and remove Docker containers
+- ✓ Remove orphaned compose networks and legacy container names
 - ✓ Delete `.env` and `.env.backup` files
 - ✓ Remove `node_modules` directory
 - ✓ Clean up `data` and `logs` directories
+- ✓ Optionally remove the entire project directory (including `.git`)
 - ✓ Confirm all data has been removed
 
 ### Quick Diagnostics
