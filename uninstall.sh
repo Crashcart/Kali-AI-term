@@ -6,6 +6,8 @@ if [ -d "$PROJECT_DIR" ]; then
 fi
 
 set -e
+export PS4='+ [${BASH_SOURCE##*/}:${LINENO}] '
+set -x
 
 echo "💉 ═══════════════════════════════════════════════════════════════════ 💉"
 echo "    Kali Hacker Bot - Uninstall"
