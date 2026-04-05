@@ -302,35 +302,91 @@ After pushing code to origin, verify no merge conflicts exist with main:
    - If "CONFLICT" or "Auto-merging" → **Conflicts detected ⚠️** Follow steps below
    - If "Updating ... Fast-forward" → **No conflicts ✅** Continue normally
 
-3. **If conflicts found** (CRITICAL):
-   - Immediately run: `git merge --abort` to revert the test pull
-   - Document each conflicted file with exact conflict description
-   - Update `PLANNING.md` "Current Blockers" section with:
-     - Each conflicted file name
+3. **If conflicts found** (MANDATORY RESOLUTION LOOP):
+   - Run: `git merge --abort` to revert the test pull
+   - Document each conflicted file:
+     - Exact conflict location (file, lines)
      - Nature of conflict (content overlap, structural difference, etc.)
-     - Your attempted changes that caused the conflict
-     - Blocking status (prevents further work)
-   - **🔴 Post comment on ticket** with:
+     - Your attempted changes that caused it
+   - Update `PLANNING.md` "Current Blockers" with full details
+   - **🔴 Post comment on ticket**:
      ```
-     ⚠️ **MERGE CONFLICTS DETECTED** — Work blocked
+     ⚠️ **MERGE CONFLICTS DETECTED**
      
-     **Conflicted Files**:
-     - [.github/copilot-instructions.md](link) — [description of conflict]
-     - [other-file.js](link) — [description of conflict]
-     
-     **Cause**: [What change triggered the conflict]
-     
-     **Blocking**: Unable to proceed until conflicts resolved
-     
-     **Recommended Resolution**: [Your approach or request for human decision]
+     **Conflicted Files**: [list each file]
+     **Cause**: [trigger]
+     **Status**: Attempting autonomous resolution...
      ```
-   - DO NOT proceed with more commits until conflicts are resolved
-   - Wait for guidance from human or collaborating agent
 
-4. **If conflict is structural/architectural**:
-   - Request explicit human decision in issue comment
-   - Document the decision rationale in `PLANNING.md`
-   - Do NOT attempt to resolve complex conflicts autonomously
+### 🔄 CONFLICT RESOLUTION LOOP (DO NOT SKIP)
+
+**Repeat the following until ALL conflicts are resolved**:
+
+**Loop Step A: Attempt Resolution**
+   - **For simple content conflicts**: Manually resolve by:
+     - Review both versions in conflict
+     - Merge logically (keeping both perspectives if valuable)
+     - Test the merged result
+   - **For structural conflicts** (.github/copilot-instructions.md, etc.):
+     - Create hybrid version combining both approaches
+     - Verify no original content is lost
+     - Validate syntax/structure
+   - **For architectural conflicts**: SKIP to Step C
+
+**Loop Step B: Verify Resolution**
+   - Stage resolved files: `git add <resolved-files>`
+   - Create commit: `git commit -m "fix(conflicts): resolve merge conflicts in [files]"`
+   - Push: `git push origin <branch>`
+   - **RE-RUN CONFLICT CHECK**:
+     ```bash
+     git pull --no-commit origin main
+     ```
+   - If **"Automatic merge went well"** → Go to Step D ✅
+   - If **STILL conflicts** → Go back to Step A (keep trying)
+   - If **"Already up to date"** → Go to Step D ✅
+
+**Loop Step C: Escalate to Human (if needed)**
+   - If conflict requires architectural/policy decision:
+     - Update `PLANNING.md`: "Awaiting human decision on [conflict]"
+     - Post on ticket: Request explicit human decision with options:
+       ```
+       🚨 **CONFLICT REQUIRES HUMAN DECISION**
+       
+       **Conflicted File**: [file]
+       **Issue**: [technical issue]
+       
+       **Options**:
+       1. [Option A and rationale]
+       2. [Option B and rationale]
+       
+       **Blocking**: Cannot proceed until decision made.
+       Please reply with chosen option or explicit guidance.
+       ```
+     - **WAIT for human response** (do not retry autonomously)
+     - Once human decides → Go back to Step A with decision as guidance
+
+**Loop Step D: Final Verification**
+   - Re-test merge one more time to confirm:
+     ```bash
+     git pull --no-commit origin main
+     # Should show: "Automatic merge went well" or "Already up to date"
+     ```
+   - Update `PLANNING.md` "Current Blockers": Remove this conflict
+   - Post final comment on ticket:
+     ```
+     ✅ **CONFLICTS RESOLVED**
+     
+     **Resolved Files**: [list]
+     **Resolution Approach**: [brief summary]
+     **Final Commit**: [commit hash]
+     
+     Branch ready for merge.
+     ```
+   - Proceed with normal work
+
+**🔴 CRITICAL**: You MUST loop through A→B→C→D until all conflicts are resolved. 
+Do NOT stop after documenting conflicts. Do NOT skip the re-check in Step B.
+CONFLICTS ARE NON-NEGOTIABLE - Fix them, don't just report them.
 
 **Why:** Early detection prevents conflict accumulation. Detecting conflicts immediately is 10x faster than discovering them weeks later when the codebase has diverged further.
 
