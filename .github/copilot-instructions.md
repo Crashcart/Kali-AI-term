@@ -285,6 +285,91 @@ git push origin fix/issue-41
 **Status**: ✅ Ready for review
 ```
 
+### Rule 4a: Conflict Detection After Push
+**Applies to:** Immediately after every `git push`
+
+🔴 **MANDATORY: CHECK FOR CONFLICTS IMMEDIATELY AFTER PUSHING**
+
+After pushing code to origin, verify no merge conflicts exist with main:
+
+1. **Run conflict detection**: 
+   ```bash
+   git pull --no-commit origin main
+   ```
+
+2. **Analyze the output**:
+   - If "Already up to date" → **No conflicts ✅** Continue normally
+   - If "CONFLICT" or "Auto-merging" → **Conflicts detected ⚠️** Follow steps below
+   - If "Updating ... Fast-forward" → **No conflicts ✅** Continue normally
+
+3. **If conflicts found** (CRITICAL):
+   - Immediately run: `git merge --abort` to revert the test pull
+   - Document each conflicted file with exact conflict description
+   - Update `PLANNING.md` "Current Blockers" section with:
+     - Each conflicted file name
+     - Nature of conflict (content overlap, structural difference, etc.)
+     - Your attempted changes that caused the conflict
+     - Blocking status (prevents further work)
+   - **🔴 Post comment on ticket** with:
+     ```
+     ⚠️ **MERGE CONFLICTS DETECTED** — Work blocked
+     
+     **Conflicted Files**:
+     - [.github/copilot-instructions.md](link) — [description of conflict]
+     - [other-file.js](link) — [description of conflict]
+     
+     **Cause**: [What change triggered the conflict]
+     
+     **Blocking**: Unable to proceed until conflicts resolved
+     
+     **Recommended Resolution**: [Your approach or request for human decision]
+     ```
+   - DO NOT proceed with more commits until conflicts are resolved
+   - Wait for guidance from human or collaborating agent
+
+4. **If conflict is structural/architectural**:
+   - Request explicit human decision in issue comment
+   - Document the decision rationale in `PLANNING.md`
+   - Do NOT attempt to resolve complex conflicts autonomously
+
+**Why:** Early detection prevents conflict accumulation. Detecting conflicts immediately is 10x faster than discovering them weeks later when the codebase has diverged further.
+
+**Common Conflict-Prone Files** (check extra carefully):
+- `.github/copilot-instructions.md` — Often updated by multiple agents
+- `install.sh`, `install-full.sh` — Feature/safety changes
+- `server.js` — Route, middleware, or integration changes
+- `package.json` — Dependency version conflicts
+- `docker-compose.yml` — Container configuration changes
+
+**Example - No Conflicts** ✅:
+```bash
+$ git push origin fix/issue-41
+[main 12345ab] fix(auth): add password validation
+ 1 file changed, 15 insertions(+), 2 deletions(-)
+
+$ git pull --no-commit origin main
+Updating c3f8bc7..d4eadbc
+Fast-forward
+ 1 file changed, 434 insertions(+), 33 deletions(-)
+✓ No conflicts detected — proceed normally
+```
+
+**Example - Conflicts Detected** ⚠️:
+```bash
+$ git push origin feat/new-workflow
+[main 99999xy] feat(workflow): add new phase
+ 2 files changed, 200 insertions(+)
+
+$ git pull --no-commit origin main
+Auto-merging .github/copilot-instructions.md
+CONFLICT (add/add): Merge conflict in .github/copilot-instructions.md
+Auto-merging server.js
+CONFLICT (content): Merge conflict in server.js
+Automatic merge failed; fix conflicts and then commit the result.
+
+⚠️ CONFLICTS DETECTED — Execute Rule 4a escalation procedure (steps 3-4 above)
+```
+
 ### Rule 5: Code Review Gating
 Before declaring a task done, verify:
 - ✅ All tests pass (`npm test`)
@@ -539,6 +624,82 @@ PLANNING.md: updated ✅
 - ✅ **ALWAYS read ALL comments** on every issue before starting work
 - ✅ **ALWAYS log decisions** in PLANNING.md
 - ✅ **ALWAYS continue on errors** — log and proceed, never silently fail
+- 🔴 **ALWAYS check for conflicts** after every push — Rule 4a is non-negotiable
+
+---
+
+## 🔍 CONFLICT DETECTION & RESOLUTION WORKFLOW
+
+**Why This Matters**: The PRs #61, #63, #64 revealed that merge conflicts can go undetected for days, making them exponentially harder to resolve. This workflow prevents that.
+
+### Conflict Detection Protocol
+
+**When**: Immediately after every `git push origin <branch>`
+
+**Process**:
+```
+┌─ git push origin branch ──┐
+│                           │
+└─── Run: git pull --no-commit origin main
+      │
+      ├─ "Already up to date" ──> ✅ SAFE — Continue
+      ├─ "Fast-forward" ──────────> ✅ SAFE — Continue  
+      └─ "CONFLICT" ──────────────> ⚠️ BLOCKED — Execute escalation
+           │
+           ├─ Run: git merge --abort
+           ├─ Document in PLANNING.md
+           ├─ Post conflict details to issue
+           └─ Wait for resolution guidance
+```
+
+### Conflict Resolution Escalation Path
+
+1. **Agent detects conflict** → Run `git merge --abort`
+2. **Agent documents** → Update PLANNING.md "Current Blockers" + comment on issue
+3. **Human reviews** → Determines if conflict should be resolved:
+   - Autonomously by agent (if simple content overlap)
+   - By human decision (if architectural/policy decision)
+   - By coordinating with other agents (if caused by parallel work)
+4. **Resolution approach** → Documented in PLANNING.md before work resumes
+5. **Implementation** → Agent resolves conflict and creates new commit
+6. **Verification** → Agent re-runs conflict check before proceeding
+
+### Conflicts That Require Human Decision
+
+**DO NOT attempt to resolve autonomously**:
+- `.github/copilot-instructions.md` — Policy/rules changes need human review
+- Architectural changes (server.js routes, lib/ structure)
+- Dependency version conflicts (need compatibility assessment)
+- Security-related changes (password validation, auth logic)
+- Database schema changes
+
+**DO resolve autonomously** (with careful review):
+- Documentation updates (markdown files)
+- Comments in code
+- Simple formatting/style conflicts
+- Non-critical configuration changes
+
+### Prevention: File Monitoring
+
+These files have highest conflict risk — watch them carefully:
+
+| File | Risk | Why | Prevention |
+|------|------|-----|-----------|
+| `.github/copilot-instructions.md` | 🔴 HIGH | Multiple agents update rules | Coordinate changes in PLANNING.md first |
+| `install.sh` | 🟡 MEDIUM | Installers change frequently | Document installer changes in design doc |
+| `server.js` | 🟡 MEDIUM | Routes/middleware updated together | Review server.js before committing changes |
+| `package.json` | 🟡 MEDIUM | Dependency additions conflict | Check current dependencies before adding |
+| `docker-compose.yml` | 🟡 MEDIUM | Service configs updated in parallel | Document container changes upfront |
+
+### Post-Conflict Checklist
+
+After conflicts are resolved and merged to main:
+
+- [ ] Run all tests (`npm test`) to verify no regressions
+- [ ] Update PLANNING.md with resolution details and lessons learned
+- [ ] Document what caused the conflict for future prevention
+- [ ] Post final resolution comment on issue
+- [ ] Update `.github/copilot-instructions.md` if the conflict revealed a new rule need
 
 ---
 
@@ -575,6 +736,8 @@ Before starting EVERY work session, print this checklist:
 - [ ] Mark task complete - Are blockers resolved, or should I flag them?
 - [ ] Commit properly - Did I use correct prefix and issue reference?
 - [ ] 🔴 Push immediately - Did I push to origin?
+- [ ] 🔴 Check for conflicts - Did I run `git pull --no-commit origin main`? (Rule 4a)
+- [ ] 🔴 Conflict-safe? - No conflicts detected, or escalation initiated?
 - [ ] 🔴 Comment on ticket - Did I post update with all details?
 - [ ] Leave handoff notes - Will next agent understand what I did?
 
