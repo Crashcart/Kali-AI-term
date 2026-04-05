@@ -162,20 +162,36 @@ echo ""
 log_info "Configuring environment..."
 echo ""
 
+CREATE_ENV=1
 if [ -f .env ]; then
     log_warn ".env file already exists"
     read -p "    Overwrite? (y/n) " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         log_info "Keeping existing .env"
+        CREATE_ENV=0
     else
         cp .env .env.backup
         log_success "Backed up to .env.backup"
     fi
-else
+fi
+
+if [ "$CREATE_ENV" -eq 1 ]; then
     # Generate secure random values
     AUTH_SECRET=$(node -e "console.log(require('crypto').randomUUID())")
-    ADMIN_PASSWORD=$(node -e "console.log(require('crypto').randomBytes(8).toString('hex'))")
+    GENERATED_ADMIN_PASSWORD=$(node -e "console.log(require('crypto').randomBytes(8).toString('hex'))")
+    ADMIN_PASSWORD="$GENERATED_ADMIN_PASSWORD"
+
+    # Ask for password in interactive shells, default to generated if left blank.
+    if [ -t 0 ]; then
+        read -r -p "    Enter admin password (press Enter to auto-generate): " USER_ADMIN_PASSWORD
+        if [ -n "$USER_ADMIN_PASSWORD" ]; then
+            ADMIN_PASSWORD="$USER_ADMIN_PASSWORD"
+            log_success "Using custom admin password"
+        else
+            log_info "Using generated admin password"
+        fi
+    fi
 
     cat > .env << EOF
 # Kali Hacker Bot Configuration

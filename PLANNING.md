@@ -1,6 +1,6 @@
 # 📊 Kali-AI-term Strategic Planning & Coordination
 
-**Last Updated**: 2026-04-05 03:55:00 UTC  
+**Last Updated**: 2026-04-05 04:05:00 UTC  
 **Document Purpose**: Centralized planning for multi-agent coordination, architectural decisions, and project context
 
 ---
@@ -32,6 +32,7 @@
 - ✅ install.sh enhanced with full debug mode (set -x tracing)
 - ✅ install.sh now detects streamed execution and bootstraps repo checkout, then hands off to install-full.sh
 - ✅ install-full.sh now hard-fails with explicit guidance when invoked from transient `/dev/fd` path
+- ✅ install-full.sh now prompts for admin password during interactive installs (uses generated secure fallback when left blank)
 
 **Next Steps**:
 1. User should run install/diagnostics from valid repo directory (~/Kali-AI-term)
