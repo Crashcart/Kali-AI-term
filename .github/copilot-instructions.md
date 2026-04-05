@@ -594,6 +594,141 @@ Automatic merge failed; fix conflicts and then commit the result.
 ⚠️ CONFLICTS DETECTED — Execute Rule 4a escalation procedure (steps 3-4 above)
 ```
 
+### Rule 4b: Autonomous Workflow Creation
+**Applies to:** Enterprise Workflow Agent operating autonomously
+
+🟢 **PERMISSION GRANTED: Create any workflow needed to resolve issues**
+
+The Enterprise Workflow Agent has autonomy to design and create custom workflows **beyond the standard 4-phase workflow** when the situation demands it.
+
+#### When You Can Create Custom Workflows
+
+**Autonomously create workflows for**:
+- Parallelizing multiple independent issues
+- Handling complex multi-repository dependencies
+- Automating repetitive tasks across issues
+- Creating specialized workflows for specific issue types
+- Implementing process improvements on-the-fly
+- Coordinating with multiple contributors
+
+#### How to Create Custom Workflows
+
+1. **Document the workflow** in PLANNING.md:
+   ```markdown
+   ## Custom Workflow: [Workflow Name]
+   
+   **Purpose**: [Why this workflow is needed]
+   **Issues Addressed**: [Which issues use this workflow]
+   **Steps**: 
+   1. [Step 1]
+   2. [Step 2]
+   ...
+   
+   **Rationale**: [Why standard workflow doesn't fit]
+   ```
+
+2. **Implement the workflow** with the same safety rules:
+   - Feature branches only (no main commits)
+   - Conflict detection after each push (Rule 4a)
+   - TODO.md and PLANNING.md tracking
+   - PR-based workflow (no auto-merge)
+   - Full audit trails in commits and comments
+
+3. **Post on the issue**:
+   ```
+   🟢 **CUSTOM WORKFLOW CREATED**
+   
+   **Workflow Name**: [name]
+   **Reason**: [brief explanation]
+   **Process**: [high-level steps]
+   **Documentation**: See PLANNING.md
+   ```
+
+4. **Re-document in this file** if the workflow proves valuable:
+   - Add it as a new section in copilot-instructions.md
+   - Share the pattern for other agents to use
+   - Create PR documenting the new workflow pattern
+
+#### Examples of Custom Workflows
+
+**Parallel Issue Resolution Workflow**:
+- Work on multiple TIER 1 issues simultaneously
+- Each issue gets its own feature branch and PR
+- Coordination via PLANNING.md shared blockers list
+
+**Dependency Chain Workflow**:
+- Issue A blocks Issue B blocks Issue C
+- Resolve in dependency order (C → B → A)
+- Document chain in PLANNING.md
+- Each resolution triggers next in chain
+
+**Cross-Repo Coordination Workflow**:
+- Issue spans multiple repositories
+- Create feature branches in each affected repo
+- Coordinate via PLANNING.md (shared file or issue comments)
+- Single PR per repo, but linked together
+
+**Automated Task Workflow**:
+- Repetitive task across multiple issues
+- Create batch script/automation
+- Apply to all matching issues
+- Document the automation in PLANNING.md
+
+#### Constraints on Custom Workflows
+
+Even with workflow creation autonomy, **THESE RULES ALWAYS APPLY**:
+- 🚫 Never merge to main
+- 🚫 Never close issues
+- 🚫 Never push directly to main
+- 🚫 Never skip tests
+- 🚫 Never auto-merge
+- 🚫 Always check for conflicts (Rule 4a loop)
+- ✅ Always update TODO.md and PLANNING.md
+- ✅ Always create audit trail
+- ✅ Always await human review before merging
+
+#### When to Request Human Input
+
+Even with workflow autonomy, **escalate for human decision**:
+- Major architectural changes
+- Changes to security/auth systems
+- Changes affecting multiple teams
+- Workflows that risk significant regressions
+- Situations requiring policy decisions
+- Any workflow touching production directly
+
+#### Workflow Documentation Standard
+
+When a custom workflow proves valuable, document it:
+
+```markdown
+## [Workflow Name] Pattern
+
+**Use when**: [Conditions that trigger this workflow]
+**Complexity**: [Simple/Moderate/Advanced]
+**Risk Level**: [Low/Medium/High]
+**Time to Complete**: [Typical duration]
+
+### Steps
+1. [Step 1 with why]
+2. [Step 2 with why]
+...
+
+### Tools/Commands
+[Key commands or tools needed]
+
+### Exit Criteria
+[When workflow is complete]
+
+### Common Issues
+[Gotchas and how to handle them]
+
+### Example
+[Real example of this workflow in use]
+```
+
+**Why this matters**: The Enterprise Workflow Agent learns and evolves. What starts as a custom one-off workflow might become a standard pattern that benefits future issue resolution.
+
 ### Rule 5: Code Review Gating
 Before declaring a task done, verify:
 - ✅ All tests pass (`npm test`)
