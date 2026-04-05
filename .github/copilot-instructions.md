@@ -155,6 +155,18 @@ Verify the working environment before making changes:
 
 When starting work:
 
+### Rule 1: Always Sync with Shared Planning Files
+- **BEFORE starting work**: Read both `TODO.md` and `PLANNING.md` in the repository root
+- **Track progress**: After each discrete task, update `TODO.md` immediately using the `manage_todo_list` tool
+- **Mark status correctly**: 
+  - `not-started` = haven't begun
+  - `in-progress` = currently working (max 1 per agent)
+  - `completed` = fully finished with no blockers
+- **NO batching**: Mark todos completed individually *as soon as they finish*, don't wait to batch completions
+
+**Why:** Prevents duplicate work, maintains visibility, enables hand-offs between agents
+
+### Rule 2: Planning Window for Multi-Step Work
 1. **FIRST**: Check `PLANNING.md` for any active context or prior decisions
 2. **SECOND**: If new planning needed, update `PLANNING.md` with:
    - Task name and issue reference
@@ -166,23 +178,6 @@ When starting work:
 5. **BEGIN** implementation with todo tracking
 6. **Update `TODO.md` status** to `in-progress`
 7. **Post**: `[PHASE 1/4] ✅ COMPLETE` on the issue
-
-**Example handoff note:**
-```markdown
-## Handoff Notes from Agent: Code Review
-
-✅ Completed: Reviewed server.js auth logic for regression
-- Found 3 critical security issues (plaintext passwords, weak tokens, data exposure)
-- Detailed findings posted to issue #52 comment
-
-⏭️ Next steps: 
-- Address CRITICAL items in security hardening sprint
-- Consider bcrypt + JWT migration
-
-🔍 Gotchas:
-- install-full.sh already has set -x enabled (lines 8-9), no change needed
-- Docker env var passing is correct; issue is with invalid cwd during diagnostics
-```
 
 **Why:** Enables continuity across agent handoffs, prevents strategy rework, keeps work traceable
 
@@ -214,26 +209,6 @@ refs #52"
 git push origin -u fix/issue-41
 ```
 
-**Post on Issue**:
-```
-## Update: Documentation Sync
-
-✅ **Completed**: Documentation updated with implementation plan
-
-**Changes**:
-- [PLANNING.md](PLANNING.md): Added approach for bcrypt migration
-- [TODO.md](TODO.md): Updated task breakdown
-- [.github/copilot-instructions.md](.github/copilot-instructions.md): Referenced in issue flow
-
-**Commit**: abc123d - `docs(auth): update PLANNING.md`
-
-**Next Steps**:
-- Begin PHASE 3 implementation
-- Reference updated PLANNING.md during coding
-
-**Status**: ✅ Ready for implementation
-```
-
 **Why:** Keeps planning synchronized, creates visible progress checkpoints
 
 ---
@@ -242,25 +217,16 @@ git push origin -u fix/issue-41
 
 **Applies to:** During active code work
 
-Execute the implementation with strict push and review discipline:
-
-### Rule: Always Sync with Shared Planning Files
-- **BEFORE starting work**: Read both `TODO.md` and `PLANNING.md` in the repository root
-- **Track progress**: After each discrete task, update `TODO.md` immediately using the `manage_todo_list` tool
-- **Mark status correctly**: 
-  - `not-started` = haven't begun
-  - `in-progress` = currently working (max 1 per agent)
-  - `completed` = fully finished with no blockers
-- **NO batching**: Mark todos completed individually *as soon as they finish*, don't wait to batch completions
-
-### Rule: Dependency Resolution
+### Rule 3: Dependency Resolution
 If your work is blocked:
 - Update `TODO.md` status to `not-started` (unblock for next agent)
 - Add blocking reason to `PLANNING.md` under "Current Blockers" section
 - Document exact error/constraint with file paths and line numbers
 - Do NOT proceed with workarounds—flag for explicit human decision
 
-### Rule: Commit, Push, and Comment Protocol
+**Why:** Maintains trust, prevents hidden technical debt
+
+### Rule 4: Commit, Push, and Comment Protocol
 **🔴 MANDATORY: ALWAYS PUSH IMMEDIATELY AFTER COMMITTING**
 
 Follow this sequence:
@@ -319,7 +285,7 @@ git push origin fix/issue-41
 **Status**: ✅ Ready for review
 ```
 
-### Rule: Code Review Gating
+### Rule 5: Code Review Gating
 Before declaring a task done, verify:
 - ✅ All tests pass (`npm test`)
 - ✅ No new errors detected
@@ -332,22 +298,49 @@ Before declaring a task done, verify:
 - OR mark todo `not-started` and document blocker for next agent
 - DO NOT mark as `completed` with known issues
 
-### Rule: Communication via Files
+**Why:** Maintains code quality, prevents tech debt accumulation
+
+### Rule 6: Communication via Files
 **For leaving notes for next agent:**
 - Update `PLANNING.md` "Handoff Notes" section
 - Include: what you completed, what's next, any gotchas/lessons learned
 - Format: Clear bullet points, specific file references, example commands
 
-### Rule: Branch Strategy
+**Example handoff note:**
+```markdown
+## Handoff Notes from Agent: Code Review
+
+✅ Completed: Reviewed server.js auth logic for regression
+- Found 3 critical security issues (plaintext passwords, weak tokens, data exposure)
+- Detailed findings posted to issue #52 comment
+
+⏭️ Next steps: 
+- Address CRITICAL items in security hardening sprint
+- Consider bcrypt + JWT migration
+
+🔍 Gotchas:
+- install-full.sh already has set -x enabled (lines 8-9), no change needed
+- Docker env var passing is correct; issue is with invalid cwd during diagnostics
+```
+
+### Rule 7: Branch Strategy
 **Main branch rules:**
 - `main` is production-ready, protected
 - NO direct commits to main
 - All work on feature/fix branches
 
+**Branch naming**:
+- `fix/issue-{number}` for bug fixes
+- `feat/issue-{number}` for new features
+- `docs/{name}` for documentation
+- `chore/{name}` for maintenance
+
 **Merging:**
 - Only merge after full code review passes
 - PR title should match commit message prefix
 - Squash commits when landing if branch has 5+ commits
+
+**Why:** Maintains main stability, enables parallel work
 
 ## 🧪 Testing Requirements
 - Run `npm test` before every PR
@@ -371,8 +364,9 @@ Prepare the work for human review and merge:
 2. **Ensure PR is up to date** with main branch
 3. **Verify all tests passing** locally and in CI
 4. **Update `TODO.md`** to mark all tasks complete
-5. **Post final completion comment** on issue:
+5. **Post final completion comment** on issue
 
+**Post message**:
 ```
 ## Work Update — READY FOR MERGE
 
@@ -402,18 +396,7 @@ Prepare the work for human review and merge:
 **Related Issues**: refs #52, #41
 ```
 
-6. **REQUEST MERGE** from human:
-
-```
-[PHASE 4/4] ✅ COMPLETE (100%)
-Branch: [branch-name] → main
-PR #[n] is ready for human review and merge.
-TODO.md: ✅ updated
-PLANNING.md: ✅ updated
-Tests: ✅ passing
-
-**ACTION REQUIRED**: Please review PR #[n] and merge when satisfied.
-```
+6. **REQUEST MERGE** from human
 
 7. **WAIT** — do NOT merge. Human merges only.
 
@@ -609,7 +592,7 @@ Before starting EVERY work session, print this checklist:
 ## Version Control
 
 **Last Updated**: 2026-04-05  
-**Hybrid Merge**: Combined PR #61 enterprise workflow structure with main's detailed coordination rules  
+**Hybrid Merge**: Merged PR #63 enterprise workflow structure with main's detailed coordination rules  
 **Enforced Since**: This session  
 **Updates**: When team structure or tooling changes  
 
