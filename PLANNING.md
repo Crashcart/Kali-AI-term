@@ -1,6 +1,6 @@
 # 📊 Kali-AI-term Strategic Planning & Coordination
 
-**Last Updated**: 2026-04-05 04:05:00 UTC  
+**Last Updated**: 2026-04-05 04:20:00 UTC  
 **Document Purpose**: Centralized planning for multi-agent coordination, architectural decisions, and project context
 
 ---
@@ -24,6 +24,7 @@
 - **Secondary**: Error reporting infrastructure missing (now added)
 - **Tertiary**: Security concerns with plaintext passwords + weak tokens (pre-existing)
 - **New blocker (2026-04-05)**: Streamed quick install (`bash <(curl .../install.sh)`) resolved to transient `/dev/fd` path and failed before repo checks
+- **Current blocker refinement (2026-04-05)**: streamed install now boots correctly, but password prompt still skips because `install-full.sh` checks `[ -t 0 ]` after handoff from process-substitution stdin
 
 **Solution Deployed**:
 - ✅ Login failure diagnostic reporting added (error reports in `data/login-error-reports/`)
@@ -33,6 +34,10 @@
 - ✅ install.sh now detects streamed execution and bootstraps repo checkout, then hands off to install-full.sh
 - ✅ install-full.sh now hard-fails with explicit guidance when invoked from transient `/dev/fd` path
 - ✅ install-full.sh now prompts for admin password during interactive installs (uses generated secure fallback when left blank)
+
+**Implementation In Progress**:
+- Replace stdin terminal detection with explicit `/dev/tty`-based prompting so streamed interactive installs can still ask for password
+- Apply same tty-safe behavior to overwrite confirmation path for existing `.env`
 
 **Next Steps**:
 1. User should run install/diagnostics from valid repo directory (~/Kali-AI-term)

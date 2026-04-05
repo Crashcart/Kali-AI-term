@@ -56,6 +56,36 @@ log_warn() {
     echo -e "${YELLOW}⚠${NC}  $1"
 }
 
+can_prompt_user() {
+    [ -r /dev/tty ] && [ -w /dev/tty ]
+}
+
+prompt_line() {
+    local prompt_message="$1"
+    local result_var="$2"
+    local input_value=""
+
+    if can_prompt_user; then
+        read -r -p "$prompt_message" input_value < /dev/tty
+    fi
+
+    printf -v "$result_var" '%s' "$input_value"
+}
+
+prompt_confirm() {
+    local prompt_message="$1"
+    local response=""
+
+    if can_prompt_user; then
+        read -r -p "$prompt_message" -n 1 response < /dev/tty
+        echo
+        [[ "$response" =~ ^[Yy]$ ]]
+        return
+    fi
+
+    return 1
+}
+
 check_command() {
     if ! command -v $1 &> /dev/null; then
         return 1
@@ -165,9 +195,7 @@ echo ""
 CREATE_ENV=1
 if [ -f .env ]; then
     log_warn ".env file already exists"
-    read -p "    Overwrite? (y/n) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    if ! prompt_confirm "    Overwrite? (y/n) "; then
         log_info "Keeping existing .env"
         CREATE_ENV=0
     else
@@ -182,15 +210,17 @@ if [ "$CREATE_ENV" -eq 1 ]; then
     GENERATED_ADMIN_PASSWORD=$(node -e "console.log(require('crypto').randomBytes(8).toString('hex'))")
     ADMIN_PASSWORD="$GENERATED_ADMIN_PASSWORD"
 
-    # Ask for password in interactive shells, default to generated if left blank.
-    if [ -t 0 ]; then
-        read -r -p "    Enter admin password (press Enter to auto-generate): " USER_ADMIN_PASSWORD
+    # Ask for password from the controlling terminal so streamed installs can still prompt.
+    if can_prompt_user; then
+        prompt_line "    Enter admin password (press Enter to auto-generate): " USER_ADMIN_PASSWORD
         if [ -n "$USER_ADMIN_PASSWORD" ]; then
             ADMIN_PASSWORD="$USER_ADMIN_PASSWORD"
             log_success "Using custom admin password"
         else
             log_info "Using generated admin password"
         fi
+    else
+        log_info "Using generated admin password (non-interactive mode)"
     fi
 
     cat > .env << EOF
