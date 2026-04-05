@@ -1,6 +1,6 @@
 # 📊 Kali-AI-term Strategic Planning & Coordination
 
-**Last Updated**: 2026-04-05 00:10:00 UTC  
+**Last Updated**: 2026-04-05 03:40:00 UTC  
 **Document Purpose**: Centralized planning for multi-agent coordination, architectural decisions, and project context
 
 ---
@@ -23,12 +23,15 @@
 - **Primary**: Diagnostic scripts run from deleted/invalid working directory
 - **Secondary**: Error reporting infrastructure missing (now added)
 - **Tertiary**: Security concerns with plaintext passwords + weak tokens (pre-existing)
+- **New blocker (2026-04-05)**: Streamed quick install (`bash <(curl .../install.sh)`) resolved to transient `/dev/fd` path and failed before repo checks
 
 **Solution Deployed**:
 - ✅ Login failure diagnostic reporting added (error reports in `data/login-error-reports/`)
 - ✅ Enhanced error messages with reportId for support tracking
 - ✅ Diagnostic collection script targets auth/container logs (phase 3 refinement)
 - ✅ install.sh enhanced with full debug mode (set -x tracing)
+- ✅ install.sh now detects streamed execution and bootstraps repo checkout, then hands off to install-full.sh
+- ✅ install-full.sh now hard-fails with explicit guidance when invoked from transient `/dev/fd` path
 
 **Next Steps**:
 1. User should run install/diagnostics from valid repo directory (~/Kali-AI-term)

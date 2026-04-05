@@ -13,6 +13,14 @@ if ! pwd >/dev/null 2>&1; then
     cd "$HOME" 2>/dev/null || cd /tmp
 fi
 
+SOURCE_PATH="${BASH_SOURCE[0]}"
+if [[ "$SOURCE_PATH" == /dev/fd/* || "$SOURCE_PATH" == /proc/*/fd/* ]]; then
+    log_error() { echo "$1"; }
+    log_error "ERROR: install-full.sh should run from a real repository checkout"
+    log_error "Run: git clone https://github.com/Crashcart/Kali-AI-term.git && cd Kali-AI-term && bash install-full.sh"
+    exit 1
+fi
+
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 cd "$SCRIPT_DIR"
 

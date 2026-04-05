@@ -9,6 +9,23 @@ if ! pwd >/dev/null 2>&1; then
   cd "$HOME" 2>/dev/null || cd /tmp
 fi
 
+SOURCE_PATH="${BASH_SOURCE[0]}"
+if [[ "$SOURCE_PATH" == /dev/fd/* || "$SOURCE_PATH" == /proc/*/fd/* ]]; then
+  REPO_DIR="${KALI_AI_TERM_DIR:-$HOME/Kali-AI-term}"
+  REPO_URL="https://github.com/Crashcart/Kali-AI-term.git"
+
+  echo "✓ Streamed installer detected; bootstrapping repository checkout..."
+  command -v git >/dev/null 2>&1 || { echo "  ❌ git is required for streamed install"; exit 1; }
+
+  if [[ -d "$REPO_DIR/.git" ]]; then
+    git -C "$REPO_DIR" pull --ff-only >/dev/null 2>&1 || true
+  else
+    git clone "$REPO_URL" "$REPO_DIR" >/dev/null 2>&1
+  fi
+
+  exec bash "$REPO_DIR/install-full.sh" "$@"
+fi
+
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 cd "$SCRIPT_DIR"
 
