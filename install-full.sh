@@ -214,8 +214,14 @@ if [ "$CREATE_ENV" -eq 1 ]; then
     if can_prompt_user; then
         prompt_line "    Enter admin password (press Enter to auto-generate): " USER_ADMIN_PASSWORD
         if [ -n "$USER_ADMIN_PASSWORD" ]; then
-            ADMIN_PASSWORD="$USER_ADMIN_PASSWORD"
-            log_success "Using custom admin password"
+            prompt_line "    Confirm admin password: " CONFIRM_ADMIN_PASSWORD
+            if [ "$USER_ADMIN_PASSWORD" = "$CONFIRM_ADMIN_PASSWORD" ]; then
+                ADMIN_PASSWORD="$USER_ADMIN_PASSWORD"
+                log_success "Using custom admin password"
+            else
+                log_warn "Password confirmation did not match; using generated admin password"
+                log_info "Using generated admin password"
+            fi
         else
             log_info "Using generated admin password"
         fi
@@ -245,8 +251,11 @@ EOF
 
     log_success "Generated .env with secure secrets"
     echo ""
-    echo -e "${YELLOW}⚠  Save your credentials:${NC}"
-    echo "    Admin Password: ${GREEN}$ADMIN_PASSWORD${NC}"
+    echo -e "${YELLOW}╔════════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}║  SAVE THESE CREDENTIALS NOW           ║${NC}"
+    echo -e "${YELLOW}╚════════════════════════════════════════╝${NC}"
+    echo -e "${YELLOW}Admin Password:${NC} ${GREEN}$ADMIN_PASSWORD${NC}"
+    echo -e "${YELLOW}This password will be required to log in.${NC}"
     echo ""
 fi
 

@@ -1,6 +1,6 @@
 # 📊 Kali-AI-term Strategic Planning & Coordination
 
-**Last Updated**: 2026-04-05 04:20:00 UTC  
+**Last Updated**: 2026-04-05 04:35:00 UTC  
 **Document Purpose**: Centralized planning for multi-agent coordination, architectural decisions, and project context
 
 ---
@@ -34,6 +34,8 @@
 - ✅ install.sh now detects streamed execution and bootstraps repo checkout, then hands off to install-full.sh
 - ✅ install-full.sh now hard-fails with explicit guidance when invoked from transient `/dev/fd` path
 - ✅ install-full.sh now prompts for admin password during interactive installs (uses generated secure fallback when left blank)
+- ✅ install-full.sh now confirms custom password entry and prints stronger save-your-credentials messaging
+- ✅ README now documents interactive prompt behavior and removes outdated default-password guidance
 
 **Implementation In Progress**:
 - Replace stdin terminal detection with explicit `/dev/tty`-based prompting so streamed interactive installs can still ask for password

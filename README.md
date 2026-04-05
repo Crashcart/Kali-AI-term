@@ -82,6 +82,8 @@ cd Kali-AI-term
 
 The script will:
 - ✓ Check all prerequisites (Docker, Node.js, Ollama)
+- ✓ Prompt for an admin password during interactive installs
+- ✓ Generate a secure fallback password if you press Enter or run non-interactively
 - ✓ Generate secure `.env` configuration
 - ✓ Install dependencies
 - ✓ Start Docker containers
@@ -173,7 +175,7 @@ See `QUICK_DIAGNOSTICS.md` for detailed troubleshooting guide.
 4. **Access the terminal**
    ```
    Open browser: http://localhost:31337
-   Default password: kalibot
+   Use the password you entered during install, or the generated password printed by the installer
    ```
 
 ### Stopping the System
@@ -185,7 +187,7 @@ docker-compose down
 
 ### Authentication
 1. Navigate to `http://localhost:31337`
-2. Enter the admin password (default: `kalibot`)
+2. Enter the admin password you set during install, or the generated password shown by the installer
 3. You're logged in for 24 hours
 
 If login fails, the UI now generates a login error report ID and tells you what to collect.
