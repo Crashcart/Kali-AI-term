@@ -1186,7 +1186,7 @@ Format: <one-liner command suggestion>`;
                     this.geminiStatusBox.classList.add('connected');
                     this.geminiStatusBox.classList.remove('disconnected');
                 } else {
-                    this.geminiStatusBox.textContent = '✗ Not configured — set GEMINI_API_KEY';
+                    this.geminiStatusBox.textContent = '✗ Not configured — add GEMINI_API_KEY to server environment';
                     this.geminiStatusBox.classList.remove('connected');
                     this.geminiStatusBox.classList.add('disconnected');
                 }
