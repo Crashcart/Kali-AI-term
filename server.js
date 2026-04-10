@@ -895,6 +895,67 @@ app.get('/api/ollama/models', authenticate, async (req, res) => {
   }
 });
 
+// Detailed Ollama connectivity status with diagnostics
+app.get('/api/ollama/status', authenticate, async (req, res) => {
+  const testUrl = (req.query.url && typeof req.query.url === 'string')
+    ? req.query.url.trim()
+    : OLLAMA_URL;
+
+  // Basic URL validation to prevent SSRF against internal-only paths
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(testUrl);
+  } catch (_) {
+    return res.status(400).json({ error: 'Invalid URL provided' });
+  }
+  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+    return res.status(400).json({ error: 'URL must use http or https' });
+  }
+
+  try {
+    const response = await axios.get(`${testUrl}/api/tags`, { timeout: 5000 });
+    const models = response.data.models || [];
+    return res.json({
+      connected: true,
+      url: testUrl,
+      httpStatus: response.status,
+      modelCount: models.length,
+      models: models.map(m => m.name)
+    });
+  } catch (err) {
+    let errorType = 'unknown';
+    let suggestion = '';
+    const httpStatus = err.response ? err.response.status : null;
+
+    if (err.code === 'ECONNREFUSED') {
+      errorType = 'connection_refused';
+      suggestion = 'Ollama is not listening on this address/port. Run: ollama serve';
+    } else if (err.code === 'ENOTFOUND' || err.code === 'EAI_AGAIN') {
+      errorType = 'dns_error';
+      suggestion = 'Hostname could not be resolved. Check the URL or use an IP address instead.';
+    } else if (err.code === 'ETIMEDOUT' || (err.message && err.message.includes('timeout'))) {
+      errorType = 'timeout';
+      suggestion = 'Connection timed out. Ollama may be unreachable from this server. Check network routing and firewall rules.';
+    } else if (httpStatus) {
+      errorType = 'http_error';
+      suggestion = `Ollama returned HTTP ${httpStatus}. Check Ollama logs for details.`;
+    } else if (err.code === 'ECONNRESET' || err.code === 'EPIPE') {
+      errorType = 'connection_reset';
+      suggestion = 'Connection was reset. Ollama may have rejected the request or restarted.';
+    }
+
+    return res.json({
+      connected: false,
+      url: testUrl,
+      error: err.message,
+      errorCode: err.code || null,
+      errorType,
+      httpStatus,
+      suggestion
+    });
+  }
+});
+
 // Pull a new model
 app.post('/api/ollama/pull', authenticate, async (req, res) => {
   const { model } = req.body;

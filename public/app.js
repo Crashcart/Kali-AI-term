@@ -1081,14 +1081,44 @@ Format: <one-liner command suggestion>`;
     }
 
     async checkOllamaStatus() {
-        const url = this.ollamaUrlInput.value;
+        const url = this.ollamaUrlInput.value.trim();
+        this.ollamaStatusBox.textContent = '⏳ Testing connection...';
+        this.ollamaStatusBox.classList.remove('connected', 'disconnected');
+
         try {
-            const response = await axios.get(`${url}/api/tags`, { timeout: 5000 });
-            this.ollamaStatusBox.textContent = `✓ Connected\n${response.data.models?.length || 0} models available`;
-            this.ollamaStatusBox.classList.add('connected');
-            this.ollamaStatusBox.classList.remove('disconnected');
+            const result = await this.apiCall('GET', `/api/ollama/status?url=${encodeURIComponent(url)}`);
+
+            if (result.connected) {
+                const modelList = result.models && result.models.length > 0
+                    ? `Models: ${result.models.join(', ')}`
+                    : 'No models installed';
+                this.ollamaStatusBox.textContent = [
+                    `✓ Connected`,
+                    `URL: ${result.url}`,
+                    `${result.modelCount} model(s) available`,
+                    modelList
+                ].join('\n');
+                this.ollamaStatusBox.classList.add('connected');
+                this.ollamaStatusBox.classList.remove('disconnected');
+            } else {
+                const lines = [
+                    `✗ Disconnected`,
+                    `URL: ${result.url}`,
+                    `Error: ${result.error}`
+                ];
+                if (result.errorCode) lines.push(`Code: ${result.errorCode}`);
+                if (result.httpStatus) lines.push(`HTTP Status: ${result.httpStatus}`);
+                if (result.suggestion) lines.push(`Tip: ${result.suggestion}`);
+                this.ollamaStatusBox.textContent = lines.join('\n');
+                this.ollamaStatusBox.classList.remove('connected');
+                this.ollamaStatusBox.classList.add('disconnected');
+            }
         } catch (err) {
-            this.ollamaStatusBox.textContent = `✗ Disconnected\n${err.message}`;
+            this.ollamaStatusBox.textContent = [
+                `✗ Status check failed`,
+                `Error: ${err.message}`,
+                `Tip: Ensure the server is running and you are authenticated.`
+            ].join('\n');
             this.ollamaStatusBox.classList.remove('connected');
             this.ollamaStatusBox.classList.add('disconnected');
         }
