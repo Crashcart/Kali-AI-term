@@ -1125,21 +1125,23 @@ Format: <one-liner command suggestion>`;
     }
 
     async refreshOllamaModels() {
-        const url = this.ollamaUrlInput.value;
+        const url = this.ollamaUrlInput.value.trim();
         this.refreshModelsBtn.textContent = '⏳';
         this.refreshModelsBtn.disabled = true;
 
         try {
-            const response = await axios.get(`${url}/api/tags`);
-            if (response.data.models && response.data.models.length > 0) {
+            const response = await this.apiCall('GET', `/api/ollama/models?url=${encodeURIComponent(url)}`);
+            if (response.models && response.models.length > 0) {
                 this.ollamaModelInput.innerHTML = '';
-                response.data.models.forEach(model => {
+                response.models.forEach(model => {
                     const option = document.createElement('option');
                     option.value = model.name;
                     option.textContent = model.name;
                     this.ollamaModelInput.appendChild(option);
                 });
                 this.addIntelligenceMessage('✓ Models refreshed', 'green');
+            } else {
+                this.addIntelligenceMessage('⚠ No models found at that URL', 'yellow');
             }
         } catch (err) {
             this.addIntelligenceMessage(`❌ Failed to fetch models: ${err.message}`, 'red');
