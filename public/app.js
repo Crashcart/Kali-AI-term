@@ -406,6 +406,7 @@ class KaliHackerBot {
             this.showMainApp();
             this.updateUserInfo();
             this.loadUserSettings();
+            this.syncOllamaUrlToServer();
             this.initializeSystemStatus();
             this.startUptimeCounter();
         } else {
@@ -430,6 +431,7 @@ class KaliHackerBot {
             this.showMainApp();
             this.updateUserInfo();
             this.loadUserSettings();
+            this.syncOllamaUrlToServer();
             this.initializeSystemStatus();
             this.startUptimeCounter();
             this.addIntelligenceMessage('🔓 Authentication successful! Welcome to Kali Hacker Bot.', 'green');
@@ -532,6 +534,13 @@ class KaliHackerBot {
         else if (key === 'localIP') this.localIP = value;
         else if (key === 'listeningPort') this.listeningPort = value;
         this.saveUserSettings();
+    }
+
+    syncOllamaUrlToServer() {
+        if (!this.ollamaUrl || this.ollamaUrl === 'http://localhost:11434') return;
+        this.apiCall('POST', '/api/ollama/config', { url: this.ollamaUrl }).catch(err => {
+            console.warn('Failed to sync Ollama URL to server on startup:', err.message);
+        });
     }
 
     // ============================================
@@ -853,7 +862,17 @@ Format: <one-liner command suggestion>`;
         this.settingsModal.classList.remove('active');
     }
 
-    loadSettings() {
+    async loadSettings() {
+        // Sync Ollama URL from server so the input reflects what the server is actually using
+        try {
+            const config = await this.apiCall('GET', '/api/ollama/config');
+            if (config.url) {
+                this.ollamaUrl = config.url;
+            }
+        } catch (err) {
+            console.warn('Could not fetch Ollama config from server:', err.message);
+        }
+
         this.ollamaUrlInput.value = this.ollamaUrl;
         this.ollamaModelInput.value = this.ollamaModel;
         this.ollmaTempInput.value = this.ollamaTemp * 100;
@@ -884,7 +903,7 @@ Format: <one-liner command suggestion>`;
     }
 
     saveSettings() {
-        this.ollamaUrl = this.ollamaUrlInput.value;
+        this.ollamaUrl = this.ollamaUrlInput.value.trim();
         this.ollamaModel = this.ollamaModelInput.value;
         this.ollamaTemp = parseInt(this.ollmaTempInput.value) / 100;
         this.targetIP = this.targetIPInput.value;
@@ -904,6 +923,11 @@ Format: <one-liner command suggestion>`;
 
         // Save proxy settings
         this.saveProxySettings();
+
+        // Sync Ollama URL to server so health checks and AI calls use the correct host
+        this.apiCall('POST', '/api/ollama/config', { url: this.ollamaUrl }).catch(err => {
+            console.warn('Failed to sync Ollama URL to server:', err.message);
+        });
 
         this.saveUserSettings();
         this.addIntelligenceMessage('✓ Settings saved', 'green');
