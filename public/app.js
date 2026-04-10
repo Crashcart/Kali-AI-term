@@ -18,6 +18,8 @@ class KaliHackerBot {
         this.ollamaUrl = 'http://localhost:11434';
         this.ollamaModel = 'dolphin-mixtral';
         this.ollamaTemp = 0.7;
+        this.aiProvider = 'auto';
+        this.aiTaskType = 'default';
         this.panelSplitRatio = 0.5;
         this.quickCmdsCollapsed = false;
 
@@ -117,12 +119,15 @@ class KaliHackerBot {
         this.ollmaTempInput = document.getElementById('ollama-temp');
         this.tempValueDisplay = document.getElementById('temp-value');
         this.ollamaStatusBox = document.getElementById('ollama-status');
+        this.geminiStatusBox = document.getElementById('gemini-status');
         this.refreshModelsBtn = document.getElementById('refresh-models');
         this.testOllamaBtn = document.getElementById('test-ollama');
         this.pullModelName = document.getElementById('pull-model-name');
         this.pullModelBtn = document.getElementById('pull-model-btn');
         this.pullProgress = document.getElementById('pull-progress');
         this.systemPromptInput = document.getElementById('system-prompt');
+        this.aiProviderSelect = document.getElementById('ai-provider');
+        this.aiTaskTypeSelect = document.getElementById('ai-task-type');
 
         this.targetIPInput = document.getElementById('target-ip-input');
         this.localIPInput = document.getElementById('local-ip-input');
@@ -480,6 +485,8 @@ class KaliHackerBot {
         this.ollamaUrl = saved.ollamaUrl || 'http://localhost:11434';
         this.ollamaModel = saved.ollamaModel || 'dolphin-mixtral';
         this.ollamaTemp = saved.ollamaTemp || 0.7;
+        this.aiProvider = saved.aiProvider || 'auto';
+        this.aiTaskType = saved.aiTaskType || 'default';
         this.showTimestamps = saved.showTimestamps !== false;
         this.soundEnabled = saved.soundEnabled !== false;
         this.panelSplitRatio = saved.panelSplitRatio || 0.5;
@@ -515,6 +522,8 @@ class KaliHackerBot {
             ollamaUrl: this.ollamaUrl,
             ollamaModel: this.ollamaModel,
             ollamaTemp: this.ollamaTemp,
+            aiProvider: this.aiProvider,
+            aiTaskType: this.aiTaskType,
             showTimestamps: this.showTimestamps,
             soundEnabled: this.soundEnabled,
             theme: this.themeSelect.value,
@@ -555,17 +564,25 @@ class KaliHackerBot {
                 this.dockerLED.classList.add('disconnected');
             }
 
-            if (response.ollama.connected) {
+            this.targetLED.classList.add('connected');
+        } catch (err) {
+            console.error('Status check error:', err);
+        }
+
+        // Update Ollama LED from /api/llm/health
+        try {
+            const health = await this.apiCall('GET', '/api/llm/health');
+            const ollamaOk = health.health?.ollama?.available;
+            if (ollamaOk) {
                 this.ollamaLED.classList.add('connected');
                 this.ollamaLED.classList.remove('disconnected');
             } else {
                 this.ollamaLED.classList.remove('connected');
                 this.ollamaLED.classList.add('disconnected');
             }
-
-            this.targetLED.classList.add('connected');
         } catch (err) {
-            console.error('Status check error:', err);
+            this.ollamaLED.classList.remove('connected');
+            this.ollamaLED.classList.add('disconnected');
         }
     }
 
@@ -618,38 +635,77 @@ class KaliHackerBot {
         this.addIntelligenceMessage('⏳ AI is thinking...', 'cyan');
         document.getElementById('main-container').classList.add('thinking');
 
-        try {
-            const response = await axios.post('/api/ollama/stream', {
+        const useOrchestrator = this.aiProvider === 'auto';
+        const endpoint = useOrchestrator ? '/api/ollama/stream' : '/api/llm/stream';
+        const body = useOrchestrator
+            ? {
                 prompt: query,
                 model: this.ollamaModel,
                 temperature: this.ollamaTemp,
                 systemPrompt: document.getElementById('system-prompt').value || undefined,
-            }, {
-                headers: { 'Authorization': `Bearer ${this.token}` },
-                responseType: 'stream',
+                useOrchestrator: true,
+                taskType: this.aiTaskType,
+            }
+            : {
+                prompt: query,
+                temperature: this.ollamaTemp,
+                systemPrompt: document.getElementById('system-prompt').value || undefined,
+                preferredProvider: this.aiProvider,
+                taskType: this.aiTaskType,
+            };
+
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+                },
+                body: JSON.stringify(body),
             });
 
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
             let fullResponse = '';
-            response.data.on('data', (chunk) => {
-                const lines = chunk.toString().split('\n').filter(l => l.trim());
-                lines.forEach(line => {
+            let lastProvider = null;
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
                     try {
-                        const data = JSON.parse(line);
-                        if (data.token) {
+                        const data = JSON.parse(line.slice(6));
+                        if (data.error) {
+                            this.addIntelligenceMessage(`❌ AI Error: ${data.error}`, 'red');
+                        } else if (data.done) {
+                            if (data.provider && data.provider !== lastProvider) {
+                                this.addIntelligenceMessage(`[${data.provider}]`, 'cyan', true);
+                            }
+                        } else if (data.token) {
+                            if (data.provider && data.provider !== lastProvider) {
+                                lastProvider = data.provider;
+                            }
                             fullResponse += data.token;
                             this.addIntelligenceMessage(data.token, 'green', true);
                         }
                     } catch (e) { }
-                });
-            });
-
-            response.data.on('end', () => {
-                document.getElementById('main-container').classList.remove('thinking');
-                this.addIntelligenceMessage('\n✓ Response complete', 'green');
-                if (this.autoPilot && fullResponse.length > 0) {
-                    this.suggestNextCommand(fullResponse);
                 }
-            });
+            }
+
+            document.getElementById('main-container').classList.remove('thinking');
+            this.addIntelligenceMessage('\n✓ Response complete', 'green');
+            if (this.autoPilot && fullResponse.length > 0) {
+                this.suggestNextCommand(fullResponse);
+            }
         } catch (err) {
             document.getElementById('main-container').classList.remove('thinking');
             this.addIntelligenceMessage(`❌ AI Error: ${err.message}`, 'red');
@@ -717,6 +773,8 @@ Provide: 1) Key findings 2) Security implications 3) Next recommended command`;
                 prompt: analysisPrompt,
                 model: this.ollamaModel,
                 temperature: this.ollamaTemp,
+                useOrchestrator: this.aiProvider === 'auto',
+                taskType: this.aiTaskType,
             });
 
             if (response.response) {
@@ -737,6 +795,8 @@ Format: <one-liner command suggestion>`;
             const response = await this.apiCall('POST', '/api/ollama/generate', {
                 prompt: prompt,
                 model: this.ollamaModel,
+                useOrchestrator: this.aiProvider === 'auto',
+                taskType: this.aiTaskType,
             });
 
             this.commandInput.placeholder = `Suggested: ${response.response.slice(0, 60)}...`;
@@ -864,6 +924,8 @@ Format: <one-liner command suggestion>`;
         this.themeSelect.value = document.body.className.replace('theme-', '') || 'default';
         this.timestampToggle.value = this.showTimestamps ? 'true' : 'false';
         this.soundToggle.value = this.soundEnabled ? 'true' : 'false';
+        if (this.aiProviderSelect) this.aiProviderSelect.value = this.aiProvider;
+        if (this.aiTaskTypeSelect) this.aiTaskTypeSelect.value = this.aiTaskType;
 
         // Load proxy settings
         this.loadProxySettings();
@@ -892,6 +954,8 @@ Format: <one-liner command suggestion>`;
         this.listeningPort = this.listeningPortInput.value;
         this.showTimestamps = this.timestampToggle.value === 'true';
         this.soundEnabled = this.soundToggle.value === 'true';
+        if (this.aiProviderSelect) this.aiProvider = this.aiProviderSelect.value;
+        if (this.aiTaskTypeSelect) this.aiTaskType = this.aiTaskTypeSelect.value;
 
         // Apply theme
         const theme = this.themeSelect.value;
@@ -1042,27 +1106,44 @@ Format: <one-liner command suggestion>`;
         if (!this.llmModelSelector) return;
 
         try {
-            const response = await this.apiCall('GET', '/api/ollama/models');
-            const models = response.models || [];
+            const response = await this.apiCall('GET', '/api/llm/models');
+            const allModels = response.models || {};
 
             this.llmModelSelector.innerHTML = '';
 
-            // Add default models first
-            this.defaultModels.forEach(model => {
-                const option = document.createElement('option');
-                option.value = model.id;
-                option.textContent = `${model.name}${model.recommended ? ' ⭐' : ''}`;
-                this.llmModelSelector.appendChild(option);
-            });
+            // Group models by provider
+            const providerGroups = {
+                ollama: allModels.ollama || [],
+                gemini: allModels.gemini || [],
+            };
 
-            // Add available models from Ollama
-            const uniqueModels = new Set(models.map(m => m.name));
-            uniqueModels.forEach(modelName => {
-                if (!this.defaultModels.find(m => m.id === modelName)) {
+            // Add default recommended models under Ollama if Ollama group is empty
+            const ollamaNames = new Set((providerGroups.ollama).map(m => (typeof m === 'string' ? m : m.name)));
+            const defaultsToAdd = this.defaultModels.filter(m => !ollamaNames.has(m.id));
+
+            Object.entries(providerGroups).forEach(([provider, models]) => {
+                const group = document.createElement('optgroup');
+                group.label = provider.charAt(0).toUpperCase() + provider.slice(1);
+
+                if (provider === 'ollama') {
+                    defaultsToAdd.forEach(m => {
+                        const option = document.createElement('option');
+                        option.value = m.id;
+                        option.textContent = `${m.name}${m.recommended ? ' ⭐' : ''}`;
+                        group.appendChild(option);
+                    });
+                }
+
+                models.forEach(m => {
+                    const modelId = typeof m === 'string' ? m : m.name;
                     const option = document.createElement('option');
-                    option.value = modelName;
-                    option.textContent = modelName;
-                    this.llmModelSelector.appendChild(option);
+                    option.value = modelId;
+                    option.textContent = modelId;
+                    group.appendChild(option);
+                });
+
+                if (group.children.length > 0) {
+                    this.llmModelSelector.appendChild(group);
                 }
             });
 
@@ -1081,29 +1162,52 @@ Format: <one-liner command suggestion>`;
     }
 
     async checkOllamaStatus() {
-        const url = this.ollamaUrlInput.value;
         try {
-            const response = await axios.get(`${url}/api/tags`, { timeout: 5000 });
-            this.ollamaStatusBox.textContent = `✓ Connected\n${response.data.models?.length || 0} models available`;
-            this.ollamaStatusBox.classList.add('connected');
-            this.ollamaStatusBox.classList.remove('disconnected');
+            const response = await this.apiCall('GET', '/api/llm/health');
+            const health = response.health || {};
+
+            const ollama = health.ollama;
+            if (ollama && ollama.available) {
+                const modelCount = (ollama.models || []).length;
+                this.ollamaStatusBox.textContent = `✓ Connected — ${modelCount} model${modelCount !== 1 ? 's' : ''} available`;
+                this.ollamaStatusBox.classList.add('connected');
+                this.ollamaStatusBox.classList.remove('disconnected');
+            } else {
+                this.ollamaStatusBox.textContent = `✗ Disconnected${ollama?.error ? ` — ${ollama.error}` : ''}`;
+                this.ollamaStatusBox.classList.remove('connected');
+                this.ollamaStatusBox.classList.add('disconnected');
+            }
+
+            if (this.geminiStatusBox) {
+                const gemini = health.gemini;
+                if (gemini && gemini.available) {
+                    const geminiModel = (gemini.models || [])[0] || 'gemini';
+                    this.geminiStatusBox.textContent = `✓ Connected — ${geminiModel}`;
+                    this.geminiStatusBox.classList.add('connected');
+                    this.geminiStatusBox.classList.remove('disconnected');
+                } else {
+                    this.geminiStatusBox.textContent = '✗ Not configured — add GEMINI_API_KEY to server environment';
+                    this.geminiStatusBox.classList.remove('connected');
+                    this.geminiStatusBox.classList.add('disconnected');
+                }
+            }
         } catch (err) {
-            this.ollamaStatusBox.textContent = `✗ Disconnected\n${err.message}`;
+            this.ollamaStatusBox.textContent = `✗ Error: ${err.message}`;
             this.ollamaStatusBox.classList.remove('connected');
             this.ollamaStatusBox.classList.add('disconnected');
         }
     }
 
     async refreshOllamaModels() {
-        const url = this.ollamaUrlInput.value;
         this.refreshModelsBtn.textContent = '⏳';
         this.refreshModelsBtn.disabled = true;
 
         try {
-            const response = await axios.get(`${url}/api/tags`);
-            if (response.data.models && response.data.models.length > 0) {
+            const response = await this.apiCall('GET', '/api/ollama/models');
+            const models = response.models || [];
+            if (models.length > 0) {
                 this.ollamaModelInput.innerHTML = '';
-                response.data.models.forEach(model => {
+                models.forEach(model => {
                     const option = document.createElement('option');
                     option.value = model.name;
                     option.textContent = model.name;
@@ -1127,29 +1231,43 @@ Format: <one-liner command suggestion>`;
         }
 
         this.pullProgress.textContent = `⏳ Pulling ${modelName}...`;
-        const url = this.ollamaUrlInput.value;
 
         try {
-            const response = await axios.post(`${url}/api/pull`, {
-                name: modelName,
-                stream: true,
-            }, {
-                responseType: 'stream',
+            const response = await fetch('/api/ollama/pull', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+                },
+                body: JSON.stringify({ model: modelName }),
             });
 
-            response.data.on('data', (chunk) => {
-                try {
-                    const lines = chunk.toString().split('\n').filter(l => l.trim());
-                    lines.forEach(line => {
-                        const json = JSON.parse(line);
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    try {
+                        const json = JSON.parse(line.slice(6));
                         if (json.status === 'success') {
                             this.pullProgress.textContent = `✓ ${modelName} pulled successfully`;
                             this.pullModelName.value = '';
                             this.refreshOllamaModels();
+                        } else if (json.error) {
+                            this.pullProgress.textContent = `❌ ${json.error}`;
+                        } else if (json.status) {
+                            this.pullProgress.textContent = `⏳ ${json.status}`;
                         }
-                    });
-                } catch (e) { }
-            });
+                    } catch (e) { }
+                }
+            }
         } catch (err) {
             this.pullProgress.textContent = `❌ ${err.message}`;
         }
