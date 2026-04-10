@@ -241,7 +241,7 @@
                 </div>
 
                 <div class="settings-tabs">
-                    <button class="tab-btn active" data-tab="ollama">OLLAMA</button>
+                    <button class="tab-btn active" data-tab="ollama">AI / LLM</button>
                     <button class="tab-btn" data-tab="target">TARGET</button>
                     <button class="tab-btn" data-tab="tools">TOOLS</button>
                     <button class="tab-btn" data-tab="general">GENERAL</button>
@@ -249,8 +249,29 @@
                     <button class="tab-btn" data-tab="proxy">PROXY</button>
                 </div>
 
-                <!-- Ollama Tab -->
+                <!-- AI / LLM Tab -->
                 <div class="tab-content active" id="tab-ollama">
+                    <div class="setting-group">
+                        <label>AI Provider</label>
+                        <select id="ai-provider" class="setting-input">
+                            <option value="auto">Auto (Orchestrator — smart routing)</option>
+                            <option value="ollama">Ollama (Local only)</option>
+                            <option value="gemini">Gemini (Google)</option>
+                        </select>
+                        <small>Auto uses the orchestrator with fallback routing</small>
+                    </div>
+
+                    <div class="setting-group">
+                        <label>Routing Strategy</label>
+                        <select id="ai-task-type" class="setting-input">
+                            <option value="default">Default</option>
+                            <option value="reasoning">Reasoning (Gemini → Ollama)</option>
+                            <option value="speed">Speed (Ollama → Gemini)</option>
+                            <option value="quality">Quality (Gemini → Ollama)</option>
+                        </select>
+                        <small>Controls which provider is tried first for each request type</small>
+                    </div>
+
                     <div class="setting-group">
                         <label>Ollama URL</label>
                         <div class="input-with-action">
@@ -297,8 +318,13 @@
                     </div>
 
                     <div class="setting-group">
-                        <label>Status</label>
+                        <label>Ollama Status</label>
                         <div id="ollama-status" class="status-box">Checking...</div>
+                    </div>
+
+                    <div class="setting-group">
+                        <label>Gemini Status</label>
+                        <div id="gemini-status" class="status-box">Checking...</div>
                     </div>
                 </div>
 
