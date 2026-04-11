@@ -2130,7 +2130,7 @@ Keep it under 150 words. Be educational and specific.`;
 document.addEventListener('DOMContentLoaded', () => {
     // Add axios for streaming
     const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.0/axios.min.js';
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/axios/1.9.0/axios.min.js';
     document.head.appendChild(script);
 
     script.onload = () => {

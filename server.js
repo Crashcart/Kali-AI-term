@@ -1477,6 +1477,17 @@ app.post('/api/reports/generate', authenticate, (req, res) => {
   }
 });
 
+// Escape user-controlled strings before embedding them in HTML output
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
 // Helper function to generate HTML report
 function generateHTMLReport(reportData) {
   const bySeverity = {};
@@ -1507,10 +1518,10 @@ function generateHTMLReport(reportData) {
         findingsHTML += `
           <div style="border-left: 4px solid ${severityColors[severity]}; padding: 10px; margin: 10px 0; background: rgba(0, 0, 0, 0.1);">
             <h4 style="margin: 0 0 5px 0;">Finding ${idx + 1}</h4>
-            <p><strong>Timestamp:</strong> ${finding.timestamp}</p>
-            <p><strong>Query:</strong> ${finding.query}</p>
-            <p><strong>Description:</strong> ${finding.description}</p>
-            ${finding.cves && finding.cves.length > 0 ? `<p><strong>Related CVEs:</strong> ${finding.cves.join(', ')}</p>` : ''}
+            <p><strong>Timestamp:</strong> ${escapeHtml(finding.timestamp)}</p>
+            <p><strong>Query:</strong> ${escapeHtml(finding.query)}</p>
+            <p><strong>Description:</strong> ${escapeHtml(finding.description)}</p>
+            ${finding.cves && finding.cves.length > 0 ? `<p><strong>Related CVEs:</strong> ${finding.cves.map(escapeHtml).join(', ')}</p>` : ''}
           </div>
         `;
       });
@@ -1532,8 +1543,8 @@ function generateHTMLReport(reportData) {
           ${reportData.commandHistory.map(cmd => `
             <tr style="border: 1px solid #0f0;">
               <td style="border: 1px solid #0f0; padding: 8px;">${new Date(cmd.timestamp).toLocaleString()}</td>
-              <td style="border: 1px solid #0f0; padding: 8px; font-family: monospace;">${cmd.command}</td>
-              <td style="border: 1px solid #0f0; padding: 8px;">${cmd.duration || 'N/A'}</td>
+              <td style="border: 1px solid #0f0; padding: 8px; font-family: monospace;">${escapeHtml(cmd.command)}</td>
+              <td style="border: 1px solid #0f0; padding: 8px;">${escapeHtml(cmd.duration) || 'N/A'}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -1545,7 +1556,7 @@ function generateHTMLReport(reportData) {
     <section>
       <h2>Session Notes</h2>
       <div style="background: rgba(0, 255, 0, 0.05); border: 1px dashed #0f0; padding: 10px; border-radius: 4px;">
-        ${reportData.sessionNotes.split('\n').map(line => `<p>${line || '<br>'}</p>`).join('')}
+        ${reportData.sessionNotes.split('\n').map(line => `<p>${escapeHtml(line) || '<br>'}</p>`).join('')}
       </div>
     </section>
   ` : '';
@@ -1849,15 +1860,12 @@ Include exactly these 6 phases in order (substitute the real target IP/host for 
 For each bestPractice write 2-3 sentences explaining WHY the technique is used, what to look for in the output, and one pitfall to avoid. Speak as an experienced mentor.`;
 
   try {
-    const response = await axios.post(`${OLLAMA_URL}/api/generate`, {
-      model: DEFAULT_MODEL,
-      system: SYSTEM_PROMPT,
-      prompt: planPrompt,
-      stream: false,
-      options: { temperature: 0.2 },
+    const result = await orchestrator.generate(planPrompt, {
+      systemPrompt: SYSTEM_PROMPT,
+      temperature: 0.2,
     });
 
-    const raw = response.data.response || '';
+    const raw = (result && result.response) || '';
 
     // Extract the first JSON object — models sometimes wrap in markdown
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
