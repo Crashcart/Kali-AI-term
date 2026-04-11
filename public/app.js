@@ -1,7 +1,5 @@
-// ============================================
-// KALI HACKER BOT - Frontend Application v2.0
-// ============================================
-
+// =====================================// KALI HACKER BOT - Frontend Application v2.0
+// =====================================
 class KaliHackerBot {
     constructor() {
         this.token = localStorage.getItem('auth_token');
@@ -444,10 +442,8 @@ class KaliHackerBot {
         }
     }
 
-    // ============================================
-    // BOOT SEQUENCE
-    // ============================================
-
+    // =====================================    // BOOT SEQUENCE
+    // =====================================
     async bootSequence() {
         this.drawBootLogo();
         const bootSteps = [
@@ -498,10 +494,8 @@ class KaliHackerBot {
         }, 1000);
     }
 
-    // ============================================
-    // AUTHENTICATION
-    // ============================================
-
+    // =====================================    // AUTHENTICATION
+    // =====================================
     checkAuthStatus() {
         if (this.token && this.sessionId) {
             this.showMainApp();
@@ -570,10 +564,8 @@ class KaliHackerBot {
         this.sessionIDDisplay.textContent = this.sessionId.slice(0, 8);
     }
 
-    // ============================================
-    // SETTINGS & PREFERENCES
-    // ============================================
-
+    // =====================================    // SETTINGS & PREFERENCES
+    // =====================================
     loadUserSettings() {
         const saved = JSON.parse(localStorage.getItem('userSettings')) || {};
 
@@ -651,10 +643,8 @@ class KaliHackerBot {
         });
     }
 
-    // ============================================
-    // SYSTEM STATUS
-    // ============================================
-
+    // =====================================    // SYSTEM STATUS
+    // =====================================
     initializeSystemStatus() {
         this.checkSystemStatus();
         setInterval(() => this.checkSystemStatus(), 5000);
@@ -694,10 +684,8 @@ class KaliHackerBot {
         }
     }
 
-    // ============================================
-    // COMMAND EXECUTION
-    // ============================================
-
+    // =====================================    // COMMAND EXECUTION
+    // =====================================
     // CMD row: always treated as a shell command
     executeCommand() {
         const input = this.commandInput.value.trim();
@@ -840,10 +828,8 @@ class KaliHackerBot {
         }
     }
 
-    // ============================================
-    // LLM DEBUG LOG
-    // ============================================
-
+    // =====================================    // LLM DEBUG LOG
+    // =====================================
     openLLMLog() {
         if (!this.llmLogModal) return;
         this.llmLogModal.style.display = 'flex';
@@ -1038,10 +1024,8 @@ Format: <one-liner command suggestion>`;
         } catch (err) { }
     }
 
-    // ============================================
-    // AUTONOMOUS ATTACK MODE
-    // ============================================
-
+    // =====================================    // AUTONOMOUS ATTACK MODE
+    // =====================================
     async startAutonomousAttack(target) {
         if (this.autonomousRunning) {
             this.addIntelligenceMessage('⚠️ Autonomous attack already running. Use KILL to stop.', 'yellow');
@@ -1198,10 +1182,8 @@ Keep it under 150 words. Be educational and specific.`;
         }
     }
 
-    // ============================================
-    // KILL & BURN
-    // ============================================
-
+    // =====================================    // KILL & BURN
+    // =====================================
     async killAllProcesses() {
         if (!confirm('Kill ALL processes in Kali container?')) return;
 
@@ -1253,10 +1235,8 @@ Keep it under 150 words. Be educational and specific.`;
         }
     }
 
-    // ============================================
-    // TOGGLES
-    // ============================================
-
+    // =====================================    // TOGGLES
+    // =====================================
     toggleAutoPilot() {
         this.autoPilot = !this.autoPilot;
         if (this.autoPilot) {
@@ -1288,10 +1268,8 @@ Keep it under 150 words. Be educational and specific.`;
         this.saveUserSettings();
     }
 
-    // ============================================
-    // MODALS
-    // ============================================
-
+    // =====================================    // MODALS
+    // =====================================
     showLoginModal() {
         this.loginModal.classList.add('active');
         this.passwordInput.focus();
@@ -1512,10 +1490,8 @@ Keep it under 150 words. Be educational and specific.`;
         }
     }
 
-    // ============================================
-    // PLUGIN MANAGEMENT
-    // ============================================
-
+    // =====================================    // PLUGIN MANAGEMENT
+    // =====================================
     async loadPlugins() {
         try {
             const response = await this.apiCall('GET', '/api/plugins');
@@ -1699,37 +1675,25 @@ Keep it under 150 words. Be educational and specific.`;
     }
 
     async refreshOllamaModels() {
-<<<<<<< HEAD
-=======
-        const url = this.ollamaUrl;
->>>>>>> origin/main
         this.refreshModelsBtn.textContent = '⏳';
         this.refreshModelsBtn.disabled = true;
 
         try {
-<<<<<<< HEAD
-            // Use our app's API endpoint instead of direct Ollama URL
-            const response = await axios.get('/api/ollama/models', {
-                headers: { 'Authorization': `Bearer ${this.sessionToken}` }
-            });
+            // Fetch available models from the Ollama service via our API
+            const response = await this.apiCall('GET', '/api/ollama/models');
+            const models = response.models || [];
 
-            if (response.data.models && response.data.models.length > 0) {
+            if (models.length > 0) {
                 // Sort models by name
-                const sortedModels = response.data.models.sort((a, b) => {
+                const sortedModels = models.sort((a, b) => {
                     const aName = typeof a === 'string' ? a : a.name;
                     const bName = typeof b === 'string' ? b : b.name;
                     return aName.localeCompare(bName);
                 });
 
+                // Populate dropdown with available models
                 this.ollamaModelInput.innerHTML = '';
                 sortedModels.forEach(model => {
-=======
-            const response = await this.apiCall('GET', `/api/ollama/models?url=${encodeURIComponent(url)}`);
-            const models = response.models || [];
-            if (models.length > 0) {
-                this.ollamaModelInput.innerHTML = '';
-                models.forEach(model => {
->>>>>>> origin/main
                     const option = document.createElement('option');
                     const modelName = typeof model === 'string' ? model : model.name;
                     const modelSize = typeof model === 'string' ? '' : ` (${this.formatBytes(model.size)})`;
@@ -1737,15 +1701,9 @@ Keep it under 150 words. Be educational and specific.`;
                     option.textContent = modelName + modelSize;
                     this.ollamaModelInput.appendChild(option);
                 });
-<<<<<<< HEAD
                 this.addIntelligenceMessage(`✓ Models refreshed - ${sortedModels.length} model(s) available`, 'green');
             } else {
                 this.addIntelligenceMessage('⚠️ No models available. Pull a model first: smollm2:135m recommended', 'yellow');
-=======
-                this.addIntelligenceMessage('✓ Models refreshed', 'green');
-            } else {
-                this.addIntelligenceMessage('⚠ No models found at that URL', 'yellow');
->>>>>>> origin/main
             }
         } catch (err) {
             this.addIntelligenceMessage(`❌ Failed to fetch models: ${err.message}`, 'red');
@@ -1755,7 +1713,6 @@ Keep it under 150 words. Be educational and specific.`;
         }
     }
 
-<<<<<<< HEAD
     // Helper function to format bytes
     formatBytes(bytes) {
         if (!bytes) return '0 B';
@@ -1763,11 +1720,11 @@ Keep it under 150 words. Be educational and specific.`;
         const sizes = ['B', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-=======
-    // ============================================
-    // OLLAMA INSTANCE MANAGEMENT
-    // ============================================
+    }
 
+    // =====================================
+    // OLLAMA INSTANCE MANAGEMENT
+    // =====================================
     async loadOllamaInstances() {
         if (!this.ollamaInstancesList) return;
         this.ollamaInstancesList.innerHTML = '<p class="loading">Loading instances...</p>';
@@ -1894,10 +1851,8 @@ Keep it under 150 words. Be educational and specific.`;
             });
     }
 
-    // ============================================
-    // NETWORK SCAN FOR OLLAMA
-    // ============================================
-
+    // =====================================    // NETWORK SCAN FOR OLLAMA
+    // =====================================
     async loadNetworkScanSetting() {
         try {
             const response = await this.apiCall('GET', '/api/ollama/scan/settings');
@@ -1975,7 +1930,6 @@ Keep it under 150 words. Be educational and specific.`;
         } catch (err) {
             this.addIntelligenceMessage(`❌ Failed to add instance: ${err.message}`, 'red');
         }
->>>>>>> origin/main
     }
 
     async pullModel() {
@@ -2107,10 +2061,8 @@ Keep it under 150 words. Be educational and specific.`;
         }
     }
 
-    // ============================================
-    // NOTEPAD
-    // ============================================
-
+    // =====================================    // NOTEPAD
+    // =====================================
     openNotepad() {
         this.notepadModal.classList.add('active');
         this.notepadText.focus();
@@ -2140,10 +2092,8 @@ Keep it under 150 words. Be educational and specific.`;
         }
     }
 
-    // ============================================
-    // SESSION MANAGEMENT
-    // ============================================
-
+    // =====================================    // SESSION MANAGEMENT
+    // =====================================
     async loadCommandHistory() {
         try {
             const response = await this.apiCall('GET', '/api/session/history');
@@ -2237,10 +2187,8 @@ Keep it under 150 words. Be educational and specific.`;
         });
     }
 
-    // ============================================
-    // UTILITIES
-    // ============================================
-
+    // =====================================    // UTILITIES
+    // =====================================
     toggleFullscreen() {
         if (!document.fullscreenElement) {
             document.documentElement.requestFullscreen().catch(err => {
@@ -2313,10 +2261,8 @@ Keep it under 150 words. Be educational and specific.`;
         }
     }
 
-    // ============================================
-    // OUTPUT STREAMS
-    // ============================================
-
+    // =====================================    // OUTPUT STREAMS
+    // =====================================
     addIntelligenceMessage(message, color = 'cyan', append = false) {
         // Handle null/undefined values
         if (!message) return;
@@ -2369,10 +2315,8 @@ Keep it under 150 words. Be educational and specific.`;
         this.wireStream.scrollTop = this.wireStream.scrollHeight;
     }
 
-    // ============================================
-    // API CALLS
-    // ============================================
-
+    // =====================================    // API CALLS
+    // =====================================
     async apiCall(methodOrEndpoint, endpointOrMethod, data = null) {
         let method = methodOrEndpoint;
         let endpoint = endpointOrMethod;
@@ -2427,10 +2371,8 @@ Keep it under 150 words. Be educational and specific.`;
     }
 }
 
-// ============================================
-// INITIALIZE
-// ============================================
-
+// =====================================// INITIALIZE
+// =====================================
 document.addEventListener('DOMContentLoaded', () => {
     // Add axios for streaming
     const script = document.createElement('script');
