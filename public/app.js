@@ -994,7 +994,7 @@ Format: <one-liner command suggestion>`;
 
     saveSettings() {
         this.ollamaModel = this.ollamaModelInput.value;
-        this.ollamaTemp = parseInt(this.ollmaTempInput.value) / 100;
+        this.ollamaTemp = parseInt(this.ollmaTempInput.value, 10) / 100;
         this.targetIP = this.targetIPInput.value;
         this.localIP = this.localIPInput.value;
         this.listeningPort = this.listeningPortInput.value;
@@ -1389,6 +1389,7 @@ Format: <one-liner command suggestion>`;
             .then(response => {
                 if (response.success) {
                     this.ollamaUrl = response.url;
+                    this.saveUserSettings();
                     this.addIntelligenceMessage(`✓ Primary Ollama URL updated: ${response.url}`, 'green');
                     this.loadOllamaInstances();
                     this.checkOllamaStatus();
