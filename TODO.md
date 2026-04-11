@@ -1,8 +1,8 @@
 # 📋 Kali-AI-term Active Task List
 
-**Last Updated**: 2026-04-11 03:13:00 UTC  
-**Current Session**: GitHub Copilot (Code Review Agent)  
-**Repository**: Kali-AI-term (copilot/fix-conflicts-in-pr-77 branch)
+**Last Updated**: 2026-04-11 03:34:40 UTC  
+**Current Session**: GitHub Copilot Task Agent (Code Review Agent mode)  
+**Repository**: Kali-AI-term (copilot/fix-conflicts-in-pr-77-again branch)
 
 ---
 
@@ -10,11 +10,11 @@
 
 | ID | Task Title | Status | Assigned | Priority | Notes |
 |:--:|-----------|--------|----------|----------|-------|
-| 0a | Fetch PR #77 branch (`git fetch origin pull/77/head:pr-77`) | 🔵 **not-started** | — | 🔴CRITICAL | Requires bash |
+| 0a | Fetch PR #77 branch (`git fetch origin pull/77/head:pr-77`) | 🔵 **not-started** | — | 🔴CRITICAL | Requires bash; not yet done on `copilot/fix-conflicts-in-pr-77-again` |
 | 0b | Merge PR #77 into branch (`git merge pr-77`) | 🔵 **not-started** | — | 🔴CRITICAL | Depends on 0a |
-| 0c | Resolve merge conflicts in conflicting files | 🔵 **not-started** | — | 🔴CRITICAL | Depends on 0b |
+| 0c | Resolve merge conflicts in conflicting files | 🔵 **not-started** | — | 🔴CRITICAL | Depends on 0b; per-file guidelines in PLANNING.md |
 | 0d | Run `npm test` to verify no regressions | 🔵 **not-started** | — | 🔴CRITICAL | Depends on 0c |
-| 0e | Push resolved branch | 🔵 **not-started** | — | 🔴CRITICAL | Depends on 0d |
+| 0e | Push resolved branch (`copilot/fix-conflicts-in-pr-77-again`) | 🔵 **not-started** | — | 🔴CRITICAL | Depends on 0d |
 
 ---
 
