@@ -19,6 +19,15 @@
 
 ---
 
+## UX Engineer Agent Tasks (2026-04-11)
+
+| ID | Task Title | Status | Assigned | Priority | Notes |
+|:--:|-----------|--------|----------|----------|-------|
+| UX-1 | Create `.github/agents/ux-engineer.agent.md` | ✅ **completed** | Copilot | 🟡MEDIUM | Done — hacker/cyberpunk UX agent with PR review gate |
+| UX-2 | Perform UX review of current UI | ✅ **completed** | Copilot | 🟡MEDIUM | See PLANNING.md for full review findings |
+
+---
+
 ## Current Tasks
 
 | ID | Task Title | Status | Assigned | Priority | Notes |
