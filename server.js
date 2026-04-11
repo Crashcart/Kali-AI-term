@@ -637,12 +637,26 @@ let PROXY_CONFIG = {
 // Allow frontend to update Ollama URL
 app.post('/api/ollama/config', authenticate, (req, res) => {
   const { url } = req.body;
-  if (url) {
-    OLLAMA_URL = url;
-    res.json({ success: true, url: OLLAMA_URL });
-  } else {
-    res.status(400).json({ error: 'URL required' });
+  if (!url) {
+    return res.status(400).json({ error: 'URL required' });
   }
+
+  // Basic URL validation
+  try {
+    const parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return res.status(400).json({ error: 'URL must use http or https protocol' });
+    }
+  } catch (e) {
+    return res.status(400).json({ error: 'Invalid URL format' });
+  }
+
+  OLLAMA_URL = url;
+  // Keep the provider in sync so health checks and model fetches use the new URL
+  ollamaProvider.url = url;
+  ollamaProvider.clearCache();
+
+  res.json({ success: true, url: OLLAMA_URL });
 });
 
 app.get('/api/ollama/config', authenticate, (req, res) => {

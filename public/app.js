@@ -548,6 +548,8 @@ class KaliHackerBot {
     // ============================================
 
     initializeSystemStatus() {
+        // Sync the user's saved Ollama URL to the server so health checks use the right endpoint
+        this.apiCall('POST', '/api/ollama/config', { url: this.ollamaUrl }).catch(() => {});
         this.checkSystemStatus();
         setInterval(() => this.checkSystemStatus(), 5000);
     }
@@ -946,6 +948,7 @@ Format: <one-liner command suggestion>`;
     }
 
     saveSettings() {
+        const prevOllamaUrl = this.ollamaUrl;
         this.ollamaUrl = this.ollamaUrlInput.value;
         this.ollamaModel = this.ollamaModelInput.value;
         this.ollamaTemp = parseInt(this.ollmaTempInput.value) / 100;
@@ -965,6 +968,13 @@ Format: <one-liner command suggestion>`;
         this.localIPDisplay.value = this.localIP;
         this.listeningPortDisplay.value = this.listeningPort;
         this.activeModelDisplay.textContent = this.ollamaModel;
+
+        // Sync Ollama URL to server if it changed
+        if (this.ollamaUrl !== prevOllamaUrl) {
+            this.apiCall('POST', '/api/ollama/config', { url: this.ollamaUrl }).catch(err => {
+                console.warn('Failed to sync Ollama URL to server:', err);
+            });
+        }
 
         // Save proxy settings
         this.saveProxySettings();
@@ -1162,6 +1172,15 @@ Format: <one-liner command suggestion>`;
     }
 
     async checkOllamaStatus() {
+        // Sync whichever URL is currently shown in the input (unsaved edits should be tested too)
+        const urlToTest = this.ollamaUrlInput?.value?.trim() || this.ollamaUrl;
+        try {
+            await this.apiCall('POST', '/api/ollama/config', { url: urlToTest });
+        } catch (err) {
+            // Non-fatal: proceed with whatever URL the server currently has
+            console.warn('Failed to sync Ollama URL before health check:', err);
+        }
+
         try {
             const response = await this.apiCall('GET', '/api/llm/health');
             const health = response.health || {};
