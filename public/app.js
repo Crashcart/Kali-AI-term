@@ -1015,6 +1015,11 @@ Format: <one-liner command suggestion>`;
         // Save proxy settings
         this.saveProxySettings();
 
+        // Sync Ollama URL to server so health checks and AI calls use the correct host
+        this.apiCall('POST', '/api/ollama/config', { url: this.ollamaUrl }).catch(err => {
+            console.warn('Failed to sync Ollama URL to server:', err.message);
+        });
+
         this.saveUserSettings();
         this.addIntelligenceMessage('✓ Settings saved', 'green');
         this.closeSettings();
