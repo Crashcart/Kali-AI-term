@@ -901,11 +901,87 @@ app.post('/api/ollama/stream', authenticate, async (req, res) => {
 });
 
 app.get('/api/ollama/models', authenticate, async (req, res) => {
+  // Allow callers to specify a URL so the Settings panel can list models from the
+  // URL currently shown in the input field (even before it has been saved).
+  const targetUrl = (req.query.url && typeof req.query.url === 'string')
+    ? req.query.url.trim()
+    : OLLAMA_URL;
   try {
-    const response = await axios.get(`${OLLAMA_URL}/api/tags`);
+    const response = await axios.get(`${targetUrl}/api/tags`);
     res.json({ models: response.data.models || [] });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch models', details: err.message });
+  }
+});
+
+// Detailed Ollama connectivity status with actionable diagnostics
+app.get('/api/ollama/status', authenticate, async (req, res) => {
+  const testUrl = (req.query.url && typeof req.query.url === 'string')
+    ? req.query.url.trim()
+    : OLLAMA_URL;
+
+  // Basic URL validation to prevent SSRF against non-HTTP targets
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(testUrl);
+  } catch (_) {
+    return res.status(400).json({ error: 'Invalid URL provided' });
+  }
+  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+    return res.status(400).json({ error: 'URL must use http or https' });
+  }
+
+  try {
+    const response = await axios.get(`${testUrl}/api/tags`, { timeout: 5000 });
+    const models = response.data.models || [];
+    return res.json({
+      connected: true,
+      url: testUrl,
+      httpStatus: response.status,
+      modelCount: models.length,
+      models: models.map(m => m.name)
+    });
+  } catch (err) {
+    const isLocalhost = ['localhost', '127.0.0.1', '::1'].includes(parsedUrl.hostname);
+    const httpStatus = err.response ? err.response.status : null;
+    let errorType = 'unknown';
+    let suggestion = '';
+
+    if (err.code === 'ECONNREFUSED') {
+      errorType = 'connection_refused';
+      suggestion = isLocalhost
+        ? 'Ollama is not running on this machine. Start it with: ollama serve'
+        : 'Ollama refused the connection. It is likely running but bound to localhost only. ' +
+          'To allow remote access, restart Ollama with: OLLAMA_HOST=0.0.0.0 ollama serve';
+    } else if (err.code === 'ENOTFOUND' || err.code === 'EAI_AGAIN') {
+      errorType = 'dns_error';
+      suggestion = 'Hostname could not be resolved. Try using the IP address directly instead of a hostname.';
+    } else if (err.code === 'ETIMEDOUT' || (err.message && err.message.includes('timeout'))) {
+      errorType = 'timeout';
+      suggestion = isLocalhost
+        ? 'Connection timed out reaching localhost. Ollama may be starting up or unresponsive.'
+        : 'Connection timed out. Check that port 11434 is open in any firewall between this server and the Ollama host. ' +
+          'Also ensure Ollama is bound to 0.0.0.0: OLLAMA_HOST=0.0.0.0 ollama serve';
+    } else if (httpStatus) {
+      errorType = 'http_error';
+      suggestion = `Ollama returned HTTP ${httpStatus}. Check Ollama logs for details.`;
+    } else if (err.code === 'ECONNRESET' || err.code === 'EPIPE') {
+      errorType = 'connection_reset';
+      suggestion = 'Connection was reset. Ollama may have rejected the request or restarted.';
+    } else if (err.code === 'EHOSTUNREACH' || err.code === 'ENETUNREACH') {
+      errorType = 'network_unreachable';
+      suggestion = 'Network path to the Ollama host does not exist. Verify the IP address and that the host is on a reachable network segment.';
+    }
+
+    return res.json({
+      connected: false,
+      url: testUrl,
+      error: err.message,
+      errorCode: err.code || null,
+      errorType,
+      httpStatus,
+      suggestion
+    });
   }
 });
 
