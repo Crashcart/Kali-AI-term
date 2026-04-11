@@ -1,23 +1,22 @@
 # 📋 Kali-AI-term Active Task List
 
-**Last Updated**: 2026-04-11 04:30:51 UTC  
-**Current Session**: GitHub Copilot Task Agent (Code Review Agent mode)  
-**Repository**: Kali-AI-term (copilot/resolve-pull-request-conflicts branch)
+**Last Updated**: 2026-04-11 05:30:05 UTC  
+**Current Session**: GitHub Copilot Task Agent (Planning Agent implementation)  
+**Repository**: Kali-AI-term (copilot/add-planning-agent-to-github branch)
 
 ---
 
-## PR #77 Conflict Resolution Tasks
+## Current Session Tasks
 
 | ID | Task Title | Status | Assigned | Priority | Notes |
 |:--:|-----------|--------|----------|----------|-------|
-| 0a | Fetch PR #77 branch (`git fetch --unshallow origin && git fetch origin pull/77/head:pr-77`) | 🔵 **not-started** | — | 🔴CRITICAL | Requires bash; `.git/config` already has PR fetch refspec |
-| 0b | Merge PR #77 into branch (`git merge pr-77 --no-commit`) | 🔵 **not-started** | — | 🔴CRITICAL | Depends on 0a |
-| 0c | Resolve `.github/copilot-instructions.md` conflict (`git checkout --ours`) | 🔵 **not-started** | — | 🔴CRITICAL | Keep main's ~40KB version; PR #77 has older ~2.3KB version |
-| 0d | Resolve any other conflicted files | 🔵 **not-started** | — | 🔴CRITICAL | Depends on 0b; inspect with `git diff pr-77 HEAD -- <file>` |
-| 0e | Run `npm test` to verify no regressions | 🔵 **not-started** | — | 🔴CRITICAL | Depends on 0c+0d |
-| 0f | Push resolved branch (`copilot/resolve-pull-request-conflicts`) | 🔵 **not-started** | — | 🔴CRITICAL | Depends on 0e |
+| P1 | Create `.github/agents/planning.agent.md` | ✅ **completed** | Copilot | 🔴 HIGH | Well-rounded planning agent with triage, decomposition, risk, conflict pre-detection |
+| P2 | Create `.github/workflows/code-review-gate.yml` | ✅ **completed** | Copilot | 🔴 HIGH | 4-job workflow: conflict check, static review, test suite, planning docs check |
+| P3 | Update `.github/pull_request_template.md` | ✅ **completed** | Copilot | 🟡 MEDIUM | Added Planning Agent sign-off + End-of-Code Review sections |
+| P4 | Update `.github/copilot-instructions.md` | ✅ **completed** | Copilot | 🟡 MEDIUM | Added PLANNING PHASE section + updated FULL WORKFLOW steps |
+| P5 | Update `TODO.md` + `PLANNING.md` | ✅ **completed** | Copilot | 🟡 MEDIUM | This file + PLANNING.md updated per project standards |
 
----
+
 
 ## Current Tasks
 
