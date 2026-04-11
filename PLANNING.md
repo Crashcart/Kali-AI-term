@@ -1,11 +1,30 @@
 # 📊 Kali-AI-term Strategic Planning & Coordination
 
-**Last Updated**: 2026-04-11 05:30:05 UTC  
+**Last Updated**: 2026-04-11 05:39:00 UTC  
 **Document Purpose**: Centralized planning for multi-agent coordination, architectural decisions, and project context
 
 ---
 
 ## 🎯 Active Initiatives
+
+### Conflict Review Agent (copilot/add-review-conflicts-to-github)
+
+**Status**: ✅ **Complete** — PR ready for human review  
+**Branch**: `copilot/add-review-conflicts-to-github`  
+**Assigned To**: GitHub Copilot Task Agent  
+
+**Summary**: Added a dedicated Conflict Review Agent to `.github/agents/` to codify the mandatory post-push conflict detection (Rule 4a) as a first-class, invocable agent. Updated `copilot-instructions.md` to reference the new agent in the agent invocation order and Quick Reference Checklist.
+
+**Changes Made**:
+- `.github/agents/conflict-review.agent.md` — New agent: post-push conflict detection and full A→B→C→D resolution loop
+- `.github/copilot-instructions.md` — Added Conflict Review Agent to agent invocation order, Quick Reference Checklist, and Related Documents
+
+**Decisions Log**:
+- [2026-04-11 05:39] Created `conflict-review.agent.md` consistent with existing agent format (frontmatter + structured markdown)
+- [2026-04-11 05:39] Agent references Rule 4a from copilot-instructions.md to avoid content duplication
+- [2026-04-11 05:39] copilot-instructions.md Quick Reference Checklist updated to require running the Conflict Review Agent after every push
+
+---
 
 ### Planning Agent + Code Review Gate (copilot/add-planning-agent-to-github)
 

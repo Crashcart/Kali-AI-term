@@ -333,6 +333,10 @@ Planning Agent
     ├─► Code Review Agent          — end-of-code review after every session
     │       └─► triggered automatically by code-review-gate.yml on every PR
     │
+    ├─► Conflict Review Agent      — **run after every git push** (Rule 4a)
+    │       └─► `.github/agents/conflict-review.agent.md`
+    │       └─► detects conflicts with main, executes resolution loop if needed
+    │
     └─► Debug Agent                — fixes failures surfaced by Code Review
             └─► reads PLANNING.md risk section for context
 ```
@@ -1148,6 +1152,7 @@ Before starting EVERY work session, print this checklist:
 - [ ] Mark task complete - Are blockers resolved, or should I flag them?
 - [ ] Commit properly - Did I use correct prefix and issue reference?
 - [ ] 🔴 Push immediately - Did I push to origin?
+- [ ] 🔴 Run Conflict Review Agent - Did I invoke `.github/agents/conflict-review.agent.md` (Rule 4a)?
 - [ ] 🔴 Check for conflicts - Did I run `git pull --no-commit origin main`? (Rule 4a)
 - [ ] 🔴 Conflict-safe? - No conflicts detected, or escalation initiated?
 - [ ] 🔴 Comment on ticket - Did I post update with all details?
@@ -1160,6 +1165,7 @@ Before starting EVERY work session, print this checklist:
 - `TODO.md` - Current task tracking (root directory)
 - `PLANNING.md` - Strategic planning (root directory)
 - `.github/agents/` - Custom CI/CD agent definitions
+- `.github/agents/conflict-review.agent.md` - **Mandatory post-push conflict review (Rule 4a)**
 - `IMPLEMENTATION_COMPLETION_REPORT.md` - Project history
 
 ---
