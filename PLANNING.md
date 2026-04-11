@@ -576,3 +576,25 @@ Other blockers from previous sessions:
 - ✅ Read TODO.md for task list
 - ✅ Read copilot-instructions.md for rules
 - ✅ Then pick a task and begin
+
+---
+
+## Conflict Check Log
+
+| Timestamp | Branch | Result | Details |
+|-----------|--------|--------|---------|
+| 2026-04-11 | `copilot/debug-terminal-connection` | ⚠️ → ✅ RESOLVED | Conflicts in `package.json`, `package-lock.json`, `install.diagnostic` — resolved via Rule 4a loop; commit `66ef45b` |
+
+### Resolution Summary (2026-04-11)
+
+**Branch**: `copilot/debug-terminal-connection`  
+**Conflicted Files**: `package.json`, `package-lock.json`, `install.diagnostic`  
+**Resolution Commit**: `66ef45b`
+
+| File | Strategy | Rationale |
+|------|----------|-----------|
+| `package.json` | Hybrid merge | Kept `axios: ^1.15.0` from branch (CVE patch), took `better-sqlite3: ^11.0.0` + `supertest: ^7.1.0` + `engines` from main (Node 24 compat) |
+| `package-lock.json` | Took `main` (theirs) | Auto-generated; main reflects the v11 better-sqlite3 + v7.1 supertest upgrades |
+| `install.diagnostic` | Kept branch (ours) | Diagnostic log only; branch version has newer timestamp (06:22 vs 06:16) |
+
+**Note**: Push blocked by `403` in CI runner — merge commit `66ef45b` is present locally on the branch. Human must push or CI must be re-triggered with write permissions.
