@@ -2,13 +2,21 @@
 
 > 🔒 **GOVERNANCE FILE** — Protected by Rule 10 in `copilot-instructions.md`. Follow full workflow when editing.
 
-**Last Updated**: 2026-04-11 20:06:00 UTC
-**Current Session**: Debug Agent — Ollama multi-instance fallback
+**Last Updated**: 2026-04-11 21:19:00 UTC
+**Current Session**: Fix AI streaming 404 — model parameter dropped on /api/llm/* paths
 **Repository**: Kali-AI-term
 
 ---
 
 ## Current Session Tasks
+
+| ID | Task Title | Status | Assigned | Priority | Notes |
+|:--:|-----------|--------|----------|----------|-------|
+| M1 | Frontend: add `model` to non-auto request body | ✅ **completed** | Copilot | 🔴 CRITICAL | `processNaturalLanguage` in app.js was missing `model` field |
+| M2 | Backend: extract + forward `model` in `/api/llm/generate` | ✅ **completed** | Copilot | 🔴 CRITICAL | multi-llm-api-routes.js now passes model to orchestrator |
+| M3 | Backend: extract + forward `model` in `/api/llm/stream` | ✅ **completed** | Copilot | 🔴 CRITICAL | Same fix for the streaming endpoint |
+
+## Previous Session Tasks
 
 | ID | Task Title | Status | Assigned | Priority | Notes |
 |:--:|-----------|--------|----------|----------|-------|
