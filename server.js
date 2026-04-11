@@ -321,19 +321,38 @@ function registerOllamaInstance(url, id) {
 }
 
 /**
- * Unregister an Ollama instance.  The primary 'ollama' instance cannot be
- * removed — its URL can only be updated via /api/ollama/config.
+ * Unregister an Ollama instance.  Any instance can be removed.
+ * When the primary 'ollama' instance is removed the next registered instance
+ * is promoted to primary so that OLLAMA_URL and the orchestrator stay in sync.
  */
 function unregisterOllamaInstance(id) {
-  if (id === 'ollama') {
-    appLogger.warn('Cannot remove the primary Ollama instance');
-    return false;
-  }
   if (!ollamaInstances.has(id)) return false;
   orchestrator.providers.delete(id);
   delete orchestrator.stats.requestsByProvider[id];
   delete orchestrator.stats.errorsByProvider[id];
   ollamaInstances.delete(id);
+
+  // If the primary was removed, promote the next instance
+  if (id === 'ollama' && ollamaInstances.size > 0) {
+    const [nextId, nextInst] = ollamaInstances.entries().next().value;
+    // Re-register under the canonical 'ollama' id
+    const provider = orchestrator.providers.get(nextId);
+    if (provider) {
+      orchestrator.providers.delete(nextId);
+      delete orchestrator.stats.requestsByProvider[nextId];
+      delete orchestrator.stats.errorsByProvider[nextId];
+      orchestrator.registerProvider('ollama', provider);
+    }
+    ollamaInstances.delete(nextId);
+    ollamaInstances.set('ollama', { url: nextInst.url });
+    OLLAMA_URL = nextInst.url;
+    appLogger.info(`Primary Ollama promoted: ollama -> ${nextInst.url} (was ${nextId})`);
+  } else if (id === 'ollama') {
+    // No instances left — reset to a placeholder so future registrations work
+    OLLAMA_URL = 'http://localhost:11434';
+    appLogger.warn('All Ollama instances removed. Primary reset to http://localhost:11434');
+  }
+
   appLogger.info(`Ollama instance removed: ${id}`);
   return true;
 }
@@ -1052,17 +1071,17 @@ app.post('/api/ollama/instances', authenticate, (req, res) => {
 
 /**
  * DELETE /api/ollama/instances/:id
- * Remove a non-primary Ollama instance.
+ * Remove any Ollama instance.  When the primary is removed the next instance
+ * is automatically promoted.
  */
 app.delete('/api/ollama/instances/:id', authenticate, (req, res) => {
   const { id } = req.params;
-  if (id === 'ollama') {
-    return res.status(400).json({ error: 'Cannot remove the primary Ollama instance. Update its URL via /api/ollama/config instead.' });
-  }
   if (!unregisterOllamaInstance(id)) {
     return res.status(404).json({ error: `Instance "${id}" not found` });
   }
-  res.json({ success: true, removed: id });
+  // Return the new primary URL so the frontend can update
+  const newPrimary = ollamaInstances.get('ollama');
+  res.json({ success: true, removed: id, primaryUrl: newPrimary ? newPrimary.url : null });
 });
 
 // ---- Network scan settings ----
@@ -1335,27 +1354,46 @@ app.post('/api/ollama/generate', authenticate, async (req, res) => {
       });
     }
 
-    // Otherwise, use direct Ollama (backward compatibility)
-    const response = await axios.post(`${OLLAMA_URL}/api/generate`, {
-      model: model,
-      system: systemPrompt || SYSTEM_PROMPT,
-      prompt: prompt,
-      stream: false,
-      options: { temperature },
-    });
+    // Otherwise, try each registered Ollama instance until one succeeds.
+    // This handles the common case where the primary (localhost) is down but a
+    // remote instance on the same network is healthy.
+    const urlsToTry = [OLLAMA_URL, ...Array.from(ollamaInstances.values()).map(i => i.url).filter(u => u !== OLLAMA_URL)];
+    let lastErr;
+    for (const url of urlsToTry) {
+      try {
+        const response = await axios.post(`${url}/api/generate`, {
+          model: model,
+          system: systemPrompt || SYSTEM_PROMPT,
+          prompt: prompt,
+          stream: false,
+          options: { temperature },
+        });
 
-    logEntry.status = 'ok';
+        logEntry.status = 'ok';
+        logEntry.durationMs = Date.now() - t0;
+        logEntry.responseSnippet = String(response.data.response || '').slice(0, 300);
+        logEntry.provider = url === OLLAMA_URL ? 'ollama' : url;
+        addLLMLogEntry(logEntry);
+
+        return res.json({
+          success: true,
+          model: model,
+          response: response.data.response,
+          context: response.data.context,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err) {
+        lastErr = err;
+        appLogger.warn(`Ollama generate failed on ${url}: ${err.message}`);
+      }
+    }
+
+    logEntry.status = 'error';
     logEntry.durationMs = Date.now() - t0;
-    logEntry.responseSnippet = String(response.data.response || '').slice(0, 300);
+    logEntry.error = lastErr ? lastErr.message : 'No Ollama instances available';
     addLLMLogEntry(logEntry);
-
-    res.json({
-      success: true,
-      model: model,
-      response: response.data.response,
-      context: response.data.context,
-      timestamp: new Date().toISOString(),
-    });
+    console.error('Ollama error:', lastErr ? lastErr.message : 'No instances');
+    res.status(500).json({ error: 'LLM generation failed', details: lastErr ? lastErr.message : 'No Ollama instances available' });
   } catch (err) {
     logEntry.status = 'error';
     logEntry.durationMs = Date.now() - t0;
@@ -1410,57 +1448,78 @@ app.post('/api/ollama/stream', authenticate, async (req, res) => {
       return;
     }
 
-    // Otherwise, use direct Ollama (backward compatibility)
-    const response = await axios.post(`${OLLAMA_URL}/api/generate`, {
-      model: model,
-      system: systemPrompt || SYSTEM_PROMPT,
-      prompt: prompt,
-      stream: true,
-      options: { temperature },
-    }, {
-      responseType: 'stream',
-    });
-
-    let tokenCount = 0;
-    response.data.on('data', (chunk) => {
+    // Otherwise, try each registered Ollama instance until one connects.
+    const urlsToTry = [OLLAMA_URL, ...Array.from(ollamaInstances.values()).map(i => i.url).filter(u => u !== OLLAMA_URL)];
+    let lastErr;
+    let connected = false;
+    for (const url of urlsToTry) {
       try {
-        const lines = chunk.toString().split('\n').filter(l => l.trim());
-        lines.forEach(line => {
-          const json = JSON.parse(line);
-          if (json.done) {
-            res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-          } else {
-            tokenCount++;
-            res.write(`data: ${JSON.stringify({ token: json.response })}\n\n`);
+        const response = await axios.post(`${url}/api/generate`, {
+          model: model,
+          system: systemPrompt || SYSTEM_PROMPT,
+          prompt: prompt,
+          stream: true,
+          options: { temperature },
+        }, {
+          responseType: 'stream',
+        });
+
+        connected = true;
+        let tokenCount = 0;
+        response.data.on('data', (chunk) => {
+          try {
+            const lines = chunk.toString().split('\n').filter(l => l.trim());
+            lines.forEach(line => {
+              const json = JSON.parse(line);
+              if (json.done) {
+                res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+              } else {
+                tokenCount++;
+                res.write(`data: ${JSON.stringify({ token: json.response })}\n\n`);
+              }
+            });
+          } catch (e) {
+            // ignore parse errors on partial chunks
           }
         });
-      } catch (e) {
-        // ignore parse errors on partial chunks
+
+        response.data.on('end', () => {
+          logEntry.status = 'ok';
+          logEntry.durationMs = Date.now() - t0;
+          logEntry.tokenCount = tokenCount;
+          logEntry.provider = url === OLLAMA_URL ? 'ollama' : url;
+          addLLMLogEntry(logEntry);
+          res.write('data: {"done": true}\n\n');
+          res.end();
+        });
+
+        response.data.on('error', (err) => {
+          logEntry.status = 'error';
+          logEntry.durationMs = Date.now() - t0;
+          logEntry.error = err.message;
+          addLLMLogEntry(logEntry);
+          res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+          res.end();
+        });
+
+        req.on('close', () => {
+          response.data.destroy();
+        });
+
+        return; // connected — stop trying other instances
+      } catch (err) {
+        lastErr = err;
+        appLogger.warn(`Ollama stream failed on ${url}: ${err.message}`);
       }
-    });
+    }
 
-    response.data.on('end', () => {
-      logEntry.status = 'ok';
-      logEntry.durationMs = Date.now() - t0;
-      logEntry.tokenCount = tokenCount;
-      addLLMLogEntry(logEntry);
-      res.write('data: {"done": true}\n\n');
-      res.end();
-    });
-
-    response.data.on('error', (err) => {
-      logEntry.status = 'error';
-      logEntry.durationMs = Date.now() - t0;
-      logEntry.error = err.message;
-      addLLMLogEntry(logEntry);
-      res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
-      res.end();
-    });
-
-    req.on('close', () => {
-      response.data.destroy();
-    });
-
+    // All instances failed
+    logEntry.status = 'error';
+    logEntry.durationMs = Date.now() - t0;
+    logEntry.error = lastErr ? lastErr.message : 'No Ollama instances available';
+    addLLMLogEntry(logEntry);
+    res.write(`data: ${JSON.stringify({ error: logEntry.error })}\n\n`);
+    res.end();
   } catch (err) {
     logEntry.status = 'error';
     logEntry.durationMs = Date.now() - t0;
@@ -2081,9 +2140,13 @@ async function checkOllamaHealth() {
       results[id] = { connected: false, url: instance.url, error: err.message };
     }
   }
-  // Return the primary instance status for backward compat, plus all instances
+  // Return the primary instance status for backward compat, plus all instances.
+  // If no primary exists, report the first healthy instance (or disconnected).
+  const primary = results['ollama']
+    || Object.values(results).find(r => r.connected)
+    || { connected: false, url: OLLAMA_URL };
   return {
-    ...(results['ollama'] || { connected: false, url: OLLAMA_URL }),
+    ...primary,
     instances: results,
   };
 }

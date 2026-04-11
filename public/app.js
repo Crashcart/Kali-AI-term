@@ -1761,8 +1761,8 @@ Keep it under 150 words. Be educational and specific.`;
                 <span class="instance-url">${inst.url}${modelInfo}</span>
                 ${isPrimary
                     ? `<button class="btn btn-small" onclick="app.editPrimaryOllamaUrl()">EDIT</button>`
-                    : `<button class="btn btn-small btn-danger-small" onclick="app.removeOllamaInstance('${inst.id}')">✕</button>`
-                }
+                    : ''}
+                <button class="btn btn-small btn-danger-small" onclick="app.removeOllamaInstance('${inst.id}')" title="Remove this instance">✕</button>
             `;
             this.ollamaInstancesList.appendChild(row);
         });
@@ -1807,12 +1807,25 @@ Keep it under 150 words. Be educational and specific.`;
     }
 
     async removeOllamaInstance(id) {
-        if (!confirm(`Remove Ollama instance "${id}"?`)) return;
+        const isPrimary = id === 'ollama';
+        const msg = isPrimary
+            ? `Remove the primary Ollama instance? The next registered instance will be promoted automatically.`
+            : `Remove Ollama instance "${id}"?`;
+        if (!confirm(msg)) return;
         try {
             const response = await this.apiCall('DELETE', `/api/ollama/instances/${id}`);
             if (response.success) {
                 this.addIntelligenceMessage(`✓ Removed instance: ${id}`, 'green');
+                // If primary was removed and a new one was promoted, sync the URL
+                if (isPrimary && response.primaryUrl) {
+                    this.ollamaUrl = response.primaryUrl;
+                    this.saveUserSettings();
+                    this.addIntelligenceMessage(`↑ New primary: ${response.primaryUrl}`, 'cyan');
+                } else if (isPrimary && !response.primaryUrl) {
+                    this.addIntelligenceMessage('⚠ No Ollama instances left. Add one to continue.', 'yellow');
+                }
                 await this.loadOllamaInstances();
+                this.checkOllamaStatus();
             }
         } catch (err) {
             this.addIntelligenceMessage(`❌ Failed to remove instance: ${err.message}`, 'red');
