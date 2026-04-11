@@ -6,6 +6,7 @@ labels: bug
 assignees: ''
 
 ---
+<!-- 🔒 GOVERNANCE FILE — Protected by Rule 10 in .github/copilot-instructions.md -->
 
 ## Description
 <!-- Clear and concise description of the bug -->

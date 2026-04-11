@@ -14,7 +14,7 @@ Branch protection rules ensure:
 
 ### Step 1: Go to Repository Settings
 
-1. Go to your GitHub repository: `https://github.com/Crashcart/tipistore`
+1. Go to your GitHub repository: `https://github.com/Crashcart/Kali-AI-term`
 2. Click **Settings** tab
 3. Click **Branches** in the left sidebar (under "Code and automation")
 
