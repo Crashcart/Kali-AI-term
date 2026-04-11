@@ -994,7 +994,7 @@ Format: <one-liner command suggestion>`;
 
     saveSettings() {
         this.ollamaModel = this.ollamaModelInput.value;
-        this.ollamaTemp = parseInt(this.ollmaTempInput.value) / 100;
+        this.ollamaTemp = parseInt(this.ollmaTempInput.value, 10) / 100;
         this.targetIP = this.targetIPInput.value;
         this.localIP = this.localIPInput.value;
         this.listeningPort = this.listeningPortInput.value;
@@ -1014,6 +1014,11 @@ Format: <one-liner command suggestion>`;
 
         // Save proxy settings
         this.saveProxySettings();
+
+        // Sync Ollama URL to server so health checks and AI calls use the correct host
+        this.apiCall('POST', '/api/ollama/config', { url: this.ollamaUrl }).catch(err => {
+            console.warn('Failed to sync Ollama URL to server:', err.message);
+        });
 
         this.saveUserSettings();
         this.addIntelligenceMessage('✓ Settings saved', 'green');
@@ -1384,6 +1389,7 @@ Format: <one-liner command suggestion>`;
             .then(response => {
                 if (response.success) {
                     this.ollamaUrl = response.url;
+                    this.saveUserSettings();
                     this.addIntelligenceMessage(`✓ Primary Ollama URL updated: ${response.url}`, 'green');
                     this.loadOllamaInstances();
                     this.checkOllamaStatus();

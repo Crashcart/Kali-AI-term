@@ -506,10 +506,17 @@ function authenticate(req, res, next) {
 // ============================================
 
 app.post('/api/docker/exec', authenticate, async (req, res) => {
-  const { command, timeout = 30000 } = req.body;
+  const { command } = req.body;
+  let { timeout = 30000 } = req.body;
 
   if (!command) {
     return res.status(400).json({ error: 'Command required' });
+  }
+
+  // Validate timeout: must be a positive integer, capped at 5 minutes
+  timeout = parseInt(timeout, 10);
+  if (!Number.isFinite(timeout) || timeout < 1000 || timeout > 300000) {
+    timeout = 30000;
   }
 
   try {
@@ -1155,6 +1162,17 @@ app.get('/api/ollama/models', authenticate, async (req, res) => {
   const targetUrl = (req.query.url && typeof req.query.url === 'string')
     ? req.query.url.trim()
     : OLLAMA_URL;
+
+  // Validate URL to prevent SSRF against non-HTTP targets
+  try {
+    const parsed = new URL(targetUrl);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return res.status(400).json({ error: 'URL must use http or https' });
+    }
+  } catch (_) {
+    return res.status(400).json({ error: 'Invalid URL provided' });
+  }
+
   try {
     const response = await axios.get(`${targetUrl}/api/tags`);
     res.json({ models: response.data.models || [] });
