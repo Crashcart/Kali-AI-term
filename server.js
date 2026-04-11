@@ -567,6 +567,7 @@ app.post('/api/docker/exec', authenticate, async (req, res) => {
       AttachStdout: true,
       AttachStderr: true,
       Tty: true,
+      User: 'root',
     });
 
     const execId = exec.id;
@@ -1797,6 +1798,93 @@ async function checkOllamaHealth() {
     instances: results,
   };
 }
+
+// ============================================
+// AUTONOMOUS ATTACK PLANNING
+// ============================================
+
+app.post('/api/autonomous/plan', authenticate, async (req, res) => {
+  const { target } = req.body;
+
+  if (!target || typeof target !== 'string') {
+    return res.status(400).json({ error: 'Target required' });
+  }
+
+  // Allow IPs, hostnames, and CIDR ranges only
+  if (!/^[a-zA-Z0-9.\-_/]+$/.test(target) || target.length > 253) {
+    return res.status(400).json({ error: 'Invalid target format' });
+  }
+
+  if (LLM_FROZEN) {
+    return res.status(503).json({
+      error: 'LLM processing is currently frozen',
+      reason: llmState.reason,
+    });
+  }
+
+  const planPrompt = `You are an elite penetration testing mentor teaching a student. Generate a methodical attack plan for target: ${target}
+
+Respond with ONLY valid JSON (no markdown fences, no text outside the JSON object). Use exactly this structure:
+{
+  "target": "${target}",
+  "phases": [
+    {
+      "name": "Host Discovery",
+      "command": "nmap -sn ${target}",
+      "purpose": "Confirm the target is alive before scanning",
+      "bestPractice": "Always begin with a ping sweep. The -sn flag skips port scanning and only checks reachability, keeping noise low. If the host does not respond it may be blocking ICMP — try a TCP ping next.",
+      "continueOnFail": true
+    }
+  ]
+}
+
+Include exactly these 6 phases in order (substitute the real target IP/host for every placeholder):
+1. Host Discovery — nmap ping sweep
+2. Fast TCP Port Scan — nmap top 1000 TCP ports
+3. Service & Version Detection — nmap -sV on discovered open ports
+4. Default Script Scan — nmap -sC to run common NSE scripts
+5. OS Detection — nmap -O
+6. Web Service Fingerprint — whatweb or curl -I on port 80/443 if applicable
+
+For each bestPractice write 2-3 sentences explaining WHY the technique is used, what to look for in the output, and one pitfall to avoid. Speak as an experienced mentor.`;
+
+  try {
+    const response = await axios.post(`${OLLAMA_URL}/api/generate`, {
+      model: DEFAULT_MODEL,
+      system: SYSTEM_PROMPT,
+      prompt: planPrompt,
+      stream: false,
+      options: { temperature: 0.2 },
+    });
+
+    const raw = response.data.response || '';
+
+    // Extract the first JSON object — models sometimes wrap in markdown
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return res.status(500).json({ error: 'AI did not return a valid JSON plan' });
+    }
+
+    let plan;
+    try {
+      plan = JSON.parse(jsonMatch[0]);
+    } catch (parseErr) {
+      return res.status(500).json({ error: 'Failed to parse AI plan', details: parseErr.message });
+    }
+
+    if (!plan.phases || !Array.isArray(plan.phases) || plan.phases.length === 0) {
+      return res.status(500).json({ error: 'AI plan missing phases array' });
+    }
+
+    // Cap phases for safety
+    plan.phases = plan.phases.slice(0, 10);
+
+    res.json({ success: true, plan });
+  } catch (err) {
+    appLogger.error('Autonomous plan generation error:', err.message);
+    res.status(500).json({ error: 'Failed to generate attack plan', details: err.message });
+  }
+});
 
 // ============================================
 // START SERVER

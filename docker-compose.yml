@@ -43,6 +43,9 @@ services:
     container_name: kali-ai-term-kali
     stdin_open: true
     tty: true
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
     networks:
       - kali-ai-term-net
     command: /bin/bash
