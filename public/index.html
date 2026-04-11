@@ -341,6 +341,21 @@
                     </div>
 
                     <div class="setting-group">
+                        <label>Gemini API Key</label>
+                        <div class="input-with-action">
+                            <input type="password" id="gemini-api-key" placeholder="Paste API key (leave blank to keep existing)" class="setting-input" autocomplete="off" />
+                            <button class="btn btn-small" id="save-gemini-btn">SAVE</button>
+                        </div>
+                        <small>Get a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:#0f0;">aistudio.google.com</a>. Stored in server memory only — re-enter after restart or set <code>GEMINI_API_KEY</code> in your <code>.env</code>.</small>
+                    </div>
+
+                    <div class="setting-group">
+                        <label>Gemini Model</label>
+                        <input type="text" id="gemini-model" placeholder="gemini-pro" class="setting-input" />
+                        <small>e.g. gemini-pro, gemini-1.5-pro, gemini-1.5-flash</small>
+                    </div>
+
+                    <div class="setting-group">
                         <label>Gemini Status</label>
                         <div id="gemini-status" class="status-box">Checking...</div>
                     </div>

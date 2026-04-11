@@ -358,3 +358,101 @@ jobs:
                 body,
               });
             }
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 5: UX Review gate — request UX agent review when UI files change
+  # Soft gate (warning only). Fires whenever public/ files are modified.
+  # ─────────────────────────────────────────────────────────────────────────────
+  ux-review:
+    name: UX Review
+    runs-on: ubuntu-latest
+    needs: conflict-check
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect UI file changes
+        id: ui_changes
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          UI_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '^public/' || true)
+          if [ -n "${UI_FILES}" ]; then
+            echo "ui_changed=true" >> "$GITHUB_OUTPUT"
+            echo "ui_files<<EOF" >> "$GITHUB_OUTPUT"
+            echo "${UI_FILES}" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+          else
+            echo "ui_changed=false" >> "$GITHUB_OUTPUT"
+            echo "ui_files=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post UX review request
+        if: steps.ui_changes.outputs.ui_changed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const uiFiles = `${{ steps.ui_changes.outputs.ui_files }}`;
+            const fileList = uiFiles.trim()
+              .split('\n')
+              .filter(Boolean)
+              .map(f => `- \`${f}\``)
+              .join('\n');
+
+            const body = [
+              '## 🎨 UX Review Required',
+              '',
+              'This PR modifies UI files. A **UX Engineer review** is required before merging.',
+              '',
+              '### Changed UI Files',
+              fileList,
+              '',
+              '### How to trigger the UX review',
+              'Open Copilot Chat in VS Code and run:',
+              '```',
+              '@UXEngineer Review this PR — does it maintain the hacker aesthetic? Score each changed component and provide APPROVE or REQUEST-CHANGES.',
+              '```',
+              '',
+              '### UX Review Checklist',
+              'The UX Engineer will verify:',
+              '- [ ] Color palette compliance (no off-palette colors)',
+              '- [ ] Monospace fonts used throughout',
+              '- [ ] New inputs/buttons have neon glow focus states',
+              '- [ ] Hover states defined and animated',
+              '- [ ] No accidental light backgrounds or white fills',
+              '- [ ] New components score ≥ 7/10 on the Hacker Glitz Scale',
+              '- [ ] ASCII/Unicode decorations used where applicable',
+              '- [ ] Buttons use existing `.btn` classes',
+              '',
+              '> **This is a warning gate, not a hard block.** Human reviewer decides whether to waive it.',
+              '> See `.github/agents/ux-engineer.agent.md` for the full UX review process.',
+            ].join('\n');
+
+            // Upsert: update existing UX review comment or create new
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('UX Review Required')
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
