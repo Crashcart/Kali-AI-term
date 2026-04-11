@@ -588,8 +588,28 @@ app.post('/api/settings/bind-host', authenticate, (req, res) => {
   });
 });
 
+// Ollama status check
+app.get('/api/ollama/status', authenticate, async (req, res) => {
+  try {
+    const response = await axios.get(`${OLLAMA_URL}/api/tags`, { timeout: 5000 });
+    res.json({
+      available: true,
+      models: response.data.models || [],
+      url: OLLAMA_URL
+    });
+  } catch (err) {
+    res.status(503).json({
+      available: false,
+      error: 'Ollama service unavailable',
+      url: OLLAMA_URL,
+      details: err.message
+    });
+  }
+});
+
 app.post('/api/ollama/generate', authenticate, async (req, res) => {
-  const { prompt, model = 'dolphin-mixtral', temperature = 0.7, systemPrompt } = req.body;
+  const defaultModel = process.env.DEFAULT_OLLAMA_MODEL || 'smollm2:135m';
+  const { prompt, model = defaultModel, temperature = 0.7, systemPrompt } = req.body;
 
   if (!prompt) {
     return res.status(400).json({ error: 'Prompt required' });
@@ -618,7 +638,8 @@ app.post('/api/ollama/generate', authenticate, async (req, res) => {
 });
 
 app.post('/api/ollama/stream', authenticate, async (req, res) => {
-  const { prompt, model = 'dolphin-mixtral', temperature = 0.7, systemPrompt } = req.body;
+  const defaultModel = process.env.DEFAULT_OLLAMA_MODEL || 'smollm2:135m';
+  const { prompt, model = defaultModel, temperature = 0.7, systemPrompt } = req.body;
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
