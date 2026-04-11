@@ -1,11 +1,87 @@
 # 📊 Kali-AI-term Strategic Planning & Coordination
 
-**Last Updated**: 2026-04-05 04:35:00 UTC  
+**Last Updated**: 2026-04-11 03:13:00 UTC  
 **Document Purpose**: Centralized planning for multi-agent coordination, architectural decisions, and project context
 
 ---
 
 ## 🎯 Active Initiatives
+
+### PR #77: Merge Conflict Resolution
+
+**Status**: 🔴 **In Progress** — Branch `copilot/fix-conflicts-in-pr-77`  
+**Assigned To**: GitHub Copilot  
+**Progress**: 0% — Fetch + merge required
+
+**Background**:
+- PR #77 has merge conflicts with `main` (https://github.com/Crashcart/Kali-AI-term/pull/77/conflicts)
+- Branch `copilot/fix-conflicts-in-pr-77` was created at `main`'s HEAD to produce the resolved state
+- The conflict resolution requires fetching the PR branch and merging it with main
+
+**Resolution Steps** (requires bash):
+```bash
+# 1. Unshallow the clone to get full history
+git fetch --unshallow origin
+
+# 2. Fetch the PR #77 branch
+git fetch origin pull/77/head:pr-77
+
+# 3. Attempt merge to expose conflicts
+git merge pr-77
+
+# 4. If conflicts arise, resolve each file:
+#    - Keep both sets of changes where appropriate
+#    - Follow project conventions (camelCase, async/await, etc.)
+#    - Verify no test regressions
+
+# 5. Commit and push resolved state
+git add .
+git commit -m "fix: resolve merge conflicts between PR #77 and main"
+git push origin copilot/fix-conflicts-in-pr-77
+```
+
+**High-Risk Conflict Files** (based on project history):
+| File | Risk | Why |
+|------|------|-----|
+| `.github/copilot-instructions.md` | 🔴 HIGH | Multiple agents update this |
+| `server.js` | 🟡 MEDIUM | Route/middleware changes common |
+| `install.sh` | 🟡 MEDIUM | Installer frequently updated |
+| `install-full.sh` | 🟡 MEDIUM | Installer frequently updated |
+| `package.json` | 🟡 MEDIUM | Dependency conflicts possible |
+
+**Conflict Resolution Guidelines per File**:
+
+*`.github/copilot-instructions.md`*: Merge both versions. This file has been added by multiple agents. Keep all rules from both versions. Main's version takes precedence for policy rules; PR's additions should be appended in new sections if they don't overlap.
+
+*`server.js`*: Follow these priorities when resolving conflicts:
+  - Preserve the `createLoginErrorReport()` function and error report infrastructure added in main
+  - Preserve authentication middleware that validates tokens via DB sessions
+  - If the PR adds security features (bcrypt, JWT), keep them but also keep the error reporting added by main
+  - The auth login route at `app.post('/api/auth/login', ...)` is critical — both sides' changes should be preserved
+
+*`install.sh`*: Keep these features from main:
+  - `set -e`, `export PS4`, `set -x` debug mode (lines 3-5)
+  - Streamed install detection and bootstrapping (lines 12-27)
+  - CWD stabilization block (lines 8-10)
+
+*`install-full.sh`*: Keep these features from main:
+  - `set -e`, `export PS4`, `set -x` debug mode (lines 7-9)
+  - CWD stabilization block (lines 11-14)
+  - `/dev/fd` transient path detection (lines 16-22)
+  - `/dev/tty`-based password prompting via `can_prompt_user()` and `prompt_line()` (lines 59-73)
+  - Password confirmation logic (lines 217-228)
+
+*`package.json`*: Keep the existing dependency versions unless PR adds new required packages. If both sides modified the same dependency version, use the newer version.
+
+*`TODO.md` / `PLANNING.md`*: Merge both versions. Keep all existing task entries from main; add new entries from the PR as additional rows.
+
+**Next Agent Actions**:
+1. Run the bash commands above to fetch and merge the PR branch
+2. Resolve any conflicts using the guidelines above and project conventions in copilot-instructions.md
+3. Run `npm test` to verify no regressions
+4. Push the resolved branch
+
+---
 
 ### Issue #52: Login Failures After Installation
 
@@ -138,9 +214,22 @@
 
 ## 🚧 Current Blockers
 
-**🟢 NONE** as of 2026-04-04
+**🔴 BLOCKED**: PR #77 Conflict Resolution (as of 2026-04-11)
 
-All identified blockers from issue #52 have been resolved:
+The `copilot/fix-conflicts-in-pr-77` branch was created to resolve merge conflicts in PR #77, but the Code Review Agent does not have bash access to run `git fetch` and `git merge`. A bash-capable agent must complete the actual merge.
+
+**Commands to unblock**:
+```bash
+git fetch --unshallow origin
+git fetch origin pull/77/head:pr-77
+git merge pr-77
+# resolve any conflict markers in files
+git add .
+git commit -m "fix: resolve merge conflicts between PR #77 and main"
+git push origin copilot/fix-conflicts-in-pr-77
+```
+
+Other blockers from previous sessions:
 - ✅ Invalid CWD issue → documented (user guidance to run from repo directory)
 - ✅ Missing debug output → fixed (set -x added to install.sh)
 - ✅ No error reporting → fixed (login error reports implemented)
@@ -155,6 +244,38 @@ All identified blockers from issue #52 have been resolved:
 ---
 
 ## 📝 Handoff Notes (For Next Agent)
+
+### From: GitHub Copilot Code Review Agent (Session 2026-04-11)
+**Task**: Resolve merge conflicts in PR #77  
+**Session Duration**: ~1 hour  
+**Progress This Session**: Documentation only — git fetch/merge requires bash
+
+**✅ What I Completed**:
+1. Thoroughly reviewed the entire repository codebase (server.js, install.sh, install-full.sh, db/init.js, all lib/ modules, tests, docs, config)
+2. Identified the PR #77 conflict resolution plan and documented it in PLANNING.md
+3. Added detailed per-file conflict resolution guidance for the most likely conflict-prone files
+4. Updated TODO.md with PR #77 resolution tasks (IDs 0a-0e)
+5. Updated `.git/config` to add a PR fetch refspec for convenience
+
+**⛔ What I Could NOT Complete** (bash access required):
+1. `git fetch --unshallow origin` — shallow clone must be unshallowed
+2. `git fetch origin pull/77/head:pr-77` — need to fetch the PR branch
+3. `git merge pr-77` — merge to expose and resolve conflicts
+4. Actually resolving conflict markers (can't see what the PR changed)
+
+**⏭️ What's Next** (for next agent with bash):
+1. Run the bash commands in the "Current Blockers" section above
+2. If conflicts appear, follow the per-file resolution guidelines in the PR #77 section
+3. Run `npm test` after resolving to verify no regressions
+4. Push the resolved branch
+
+**🔍 Gotchas & Lessons**:
+- The Code Review Agent intentionally has no bash access (it's a static analysis agent)
+- The task was designed for the main Copilot Task Agent which has bash
+- The `.git/config` has been updated with a PR fetch refspec: `+refs/pull/77/head:refs/remotes/origin/pr-77`
+- The most likely conflict file based on project history: `.github/copilot-instructions.md`
+
+---
 
 ### From: GitHub Copilot (Session 2026-04-04)
 **Session Duration**: ~2 hours  
