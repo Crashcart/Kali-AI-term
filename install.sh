@@ -119,6 +119,27 @@ echo "✓ Waiting for startup..."
 sleep 3
 echo "  ✓ Ready"
 
+# Auto-pull a lightweight default model if Ollama has none installed
+OLLAMA_INSTALL_URL="${OLLAMA_URL:-http://localhost:11434}"
+DEFAULT_LLM="phi3:mini"
+echo "✓ Checking Ollama for installed models..."
+OLLAMA_MODELS=$(curl -sf "${OLLAMA_INSTALL_URL}/api/tags" 2>/dev/null || echo "")
+if [ -n "$OLLAMA_MODELS" ]; then
+  MODEL_COUNT=$(echo "$OLLAMA_MODELS" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{console.log((JSON.parse(d).models||[]).length)}catch(e){console.log(0)}})" 2>/dev/null || echo "0")
+  if [ "$MODEL_COUNT" = "0" ]; then
+    echo "  ℹ  No models found — pulling default lightweight model: $DEFAULT_LLM"
+    echo "  ℹ  This may take a few minutes depending on your connection..."
+    curl -sf "${OLLAMA_INSTALL_URL}/api/pull" -d "{\"name\":\"${DEFAULT_LLM}\",\"stream\":false}" -H "Content-Type: application/json" --max-time 600 >/dev/null 2>&1 \
+      && echo "  ✓ Model $DEFAULT_LLM pulled successfully" \
+      || echo "  ⚠ Could not pull model (Ollama may not be running). Pull manually: ollama pull $DEFAULT_LLM"
+  else
+    echo "  ✓ Ollama already has $MODEL_COUNT model(s) installed"
+  fi
+else
+  echo "  ⚠ Ollama not reachable at $OLLAMA_INSTALL_URL — skipping model pull"
+  echo "  ℹ  After starting Ollama, pull a model: ollama pull $DEFAULT_LLM"
+fi
+
 # Success
 echo ""
 echo "💉 ═══════════════════════════════════════════════════════════════════ 💉"

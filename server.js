@@ -406,33 +406,6 @@ app.use(multiLLMRoutes);
 appLogger.info(`✓ Multi-LLM Orchestrator initialized with ${orchestrator.getAllProviders().length} provider(s)`);
 
 // ============================================
-// AUTO-PULL DEFAULT MODEL ON FIRST RUN
-// If Ollama is reachable but has zero models, pull the default lightweight model.
-// This runs in the background and does not block server startup.
-// ============================================
-(async () => {
-  if (LLM_FROZEN) return;
-  try {
-    const tagsRes = await axios.get(`${OLLAMA_URL}/api/tags`, { timeout: 5000 });
-    const models = tagsRes.data.models || [];
-    if (models.length === 0) {
-      const modelToPull = DEFAULT_MODEL || 'phi3:mini';
-      appLogger.info(`No models found in Ollama — auto-pulling default model: ${modelToPull}`);
-      const pullRes = await axios.post(`${OLLAMA_URL}/api/pull`, { name: modelToPull, stream: false }, { timeout: 600000 });
-      if (pullRes.data && pullRes.data.status === 'success') {
-        appLogger.info(`✓ Auto-pull complete: ${modelToPull} is now available`);
-      } else {
-        appLogger.info(`Auto-pull finished for ${modelToPull}: ${JSON.stringify(pullRes.data)}`);
-      }
-    } else {
-      appLogger.debug(`Ollama already has ${models.length} model(s) — skipping auto-pull`);
-    }
-  } catch (err) {
-    appLogger.debug(`Auto-pull check skipped (Ollama not reachable or pull failed): ${err.message}`);
-  }
-})();
-
-// ============================================
 // PLUGIN SYSTEM
 // ============================================
 
