@@ -2,9 +2,7 @@
 
 > **Purpose**: Project-specific settings for AI agents. Read this alongside `copilot-instructions.md`.  
 > **Last Updated**: 2026-04-11  
-> 🔒 **GOVERNANCE FILE** — This file is protected by Rule 10 in `copilot-instructions.md`.  
-> Any AI editing this file must follow the full A-to-Z workflow, document the change in PLANNING.md,  
-> and flag it for human review. Never remove or weaken entries without human approval.
+> 🔒 **GOVERNANCE FILE** — Protected by Rule 10 in `copilot-instructions.md`. Follow full workflow when editing.
 
 ---
 

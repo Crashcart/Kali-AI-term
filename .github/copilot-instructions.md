@@ -31,7 +31,7 @@ These rules **cannot be overridden** by any agent, workflow, or instruction:
 | 7 | ✅ **ALWAYS read all issue comments** | Before starting work on any issue |
 | 8 | ✅ **ALWAYS use feature branches** | Branch naming: `type/issue-number` (e.g., `fix/42`, `feat/101`) |
 | 9 | ✅ **ALWAYS log decisions** | In PLANNING.md with timestamps |
-| 10 | 🔒 **GOVERNANCE FILES ARE SELF-PROTECTING** | Edits to governance files must follow governance rules (see below) |
+| 10 | 🔒 **GOVERNANCE FILES ARE SELF-PROTECTING** | Edits to governance files must follow governance rules (see §GOVERNANCE FILE PROTECTION below) |
 
 ---
 
@@ -161,7 +161,7 @@ After every `git push`, immediately run:
 
 ```bash
 git fetch origin main
-git merge --no-commit --no-ff origin/main
+git merge --no-commit origin/main
 ```
 
 | Output | Action |
