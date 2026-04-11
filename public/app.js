@@ -114,20 +114,28 @@ class KaliHackerBot {
         this.cancelBtn = document.getElementById('cancel-btn');
 
         // Settings
-        this.ollamaUrlInput = document.getElementById('ollama-url');
         this.ollamaModelInput = document.getElementById('ollama-model');
         this.ollmaTempInput = document.getElementById('ollama-temp');
         this.tempValueDisplay = document.getElementById('temp-value');
         this.ollamaStatusBox = document.getElementById('ollama-status');
         this.geminiStatusBox = document.getElementById('gemini-status');
         this.refreshModelsBtn = document.getElementById('refresh-models');
-        this.testOllamaBtn = document.getElementById('test-ollama');
         this.pullModelName = document.getElementById('pull-model-name');
         this.pullModelBtn = document.getElementById('pull-model-btn');
         this.pullProgress = document.getElementById('pull-progress');
         this.systemPromptInput = document.getElementById('system-prompt');
         this.aiProviderSelect = document.getElementById('ai-provider');
         this.aiTaskTypeSelect = document.getElementById('ai-task-type');
+
+        // Multi-instance Ollama
+        this.ollamaInstancesList = document.getElementById('ollama-instances-list');
+        this.newOllamaUrlInput = document.getElementById('new-ollama-url');
+        this.addOllamaInstanceBtn = document.getElementById('add-ollama-instance-btn');
+
+        // Network scan
+        this.networkScanToggle = document.getElementById('network-scan-toggle');
+        this.scanOllamaBtn = document.getElementById('scan-ollama-btn');
+        this.scanResults = document.getElementById('scan-results');
 
         this.targetIPInput = document.getElementById('target-ip-input');
         this.localIPInput = document.getElementById('local-ip-input');
@@ -226,11 +234,27 @@ class KaliHackerBot {
 
         // Settings
         this.refreshModelsBtn.addEventListener('click', () => this.refreshOllamaModels());
-        this.testOllamaBtn.addEventListener('click', () => this.checkOllamaStatus());
         this.pullModelBtn.addEventListener('click', () => this.pullModel());
         this.ollmaTempInput.addEventListener('input', (e) => {
             this.tempValueDisplay.textContent = (e.target.value / 100).toFixed(2);
         });
+
+        if (this.addOllamaInstanceBtn) {
+            this.addOllamaInstanceBtn.addEventListener('click', () => this.addOllamaInstance());
+        }
+        if (this.newOllamaUrlInput) {
+            this.newOllamaUrlInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') this.addOllamaInstance();
+            });
+        }
+        if (this.scanOllamaBtn) {
+            this.scanOllamaBtn.addEventListener('click', () => this.scanForOllamaInstances());
+        }
+        if (this.networkScanToggle) {
+            this.networkScanToggle.addEventListener('change', (e) => {
+                this.saveNetworkScanSetting(e.target.value === 'true');
+            });
+        }
 
         this.pingTargetBtn.addEventListener('click', () => this.pingTarget());
         this.installBtn.addEventListener('click', () => this.installPackages());
@@ -546,7 +570,7 @@ class KaliHackerBot {
     }
 
     syncOllamaUrlToServer() {
-        // Only push a non-default URL — localhost:11434 is already the server default
+        // Sync primary URL to server on startup only if it differs from default
         if (!this.ollamaUrl || this.ollamaUrl === 'http://localhost:11434') return;
         this.apiCall('POST', '/api/ollama/config', { url: this.ollamaUrl }).catch(err => {
             console.warn('Failed to sync Ollama URL to server on startup:', err.message);
@@ -924,7 +948,7 @@ Format: <one-liner command suggestion>`;
     }
 
     async loadSettings() {
-        // Sync Ollama URL from server so the input reflects what the server is actually using
+        // Load current Ollama config from server
         try {
             const config = await this.apiCall('GET', '/api/ollama/config');
             if (config.url) {
@@ -934,7 +958,6 @@ Format: <one-liner command suggestion>`;
             console.warn('Could not fetch Ollama config from server:', err.message);
         }
 
-        this.ollamaUrlInput.value = this.ollamaUrl;
         this.ollamaModelInput.value = this.ollamaModel;
         this.ollmaTempInput.value = this.ollamaTemp * 100;
         this.tempValueDisplay.textContent = this.ollamaTemp.toFixed(2);
@@ -949,6 +972,10 @@ Format: <one-liner command suggestion>`;
 
         // Load proxy settings
         this.loadProxySettings();
+
+        // Load Ollama instances and network scan state
+        this.loadOllamaInstances();
+        this.loadNetworkScanSetting();
 
         this.checkOllamaStatus();
         this.loadContainerInfo();
@@ -966,7 +993,6 @@ Format: <one-liner command suggestion>`;
     }
 
     saveSettings() {
-        this.ollamaUrl = this.ollamaUrlInput.value.trim();
         this.ollamaModel = this.ollamaModelInput.value;
         this.ollamaTemp = parseInt(this.ollmaTempInput.value) / 100;
         this.targetIP = this.targetIPInput.value;
@@ -985,11 +1011,6 @@ Format: <one-liner command suggestion>`;
         this.localIPDisplay.value = this.localIP;
         this.listeningPortDisplay.value = this.listeningPort;
         this.activeModelDisplay.textContent = this.ollamaModel;
-
-        // Sync Ollama URL to server so health checks and AI calls use the correct host
-        this.apiCall('POST', '/api/ollama/config', { url: this.ollamaUrl }).catch(err => {
-            console.warn('Failed to sync Ollama URL to server:', err.message);
-        });
 
         // Save proxy settings
         this.saveProxySettings();
@@ -1187,12 +1208,12 @@ Format: <one-liner command suggestion>`;
     }
 
     async checkOllamaStatus() {
-        const url = this.ollamaUrlInput?.value?.trim() || this.ollamaUrl;
+        if (!this.ollamaStatusBox) return;
         this.ollamaStatusBox.textContent = '⏳ Testing connection...';
         this.ollamaStatusBox.classList.remove('connected', 'disconnected');
 
         try {
-            const result = await this.apiCall('GET', `/api/ollama/status?url=${encodeURIComponent(url)}`);
+            const result = await this.apiCall('GET', `/api/ollama/status?url=${encodeURIComponent(this.ollamaUrl)}`);
 
             if (result.connected) {
                 const modelList = result.models && result.models.length > 0
@@ -1249,7 +1270,7 @@ Format: <one-liner command suggestion>`;
     }
 
     async refreshOllamaModels() {
-        const url = this.ollamaUrlInput?.value?.trim() || this.ollamaUrl;
+        const url = this.ollamaUrl;
         this.refreshModelsBtn.textContent = '⏳';
         this.refreshModelsBtn.disabled = true;
 
@@ -1273,6 +1294,186 @@ Format: <one-liner command suggestion>`;
         } finally {
             this.refreshModelsBtn.textContent = '🔄';
             this.refreshModelsBtn.disabled = false;
+        }
+    }
+
+    // ============================================
+    // OLLAMA INSTANCE MANAGEMENT
+    // ============================================
+
+    async loadOllamaInstances() {
+        if (!this.ollamaInstancesList) return;
+        this.ollamaInstancesList.innerHTML = '<p class="loading">Loading instances...</p>';
+        try {
+            const response = await this.apiCall('GET', '/api/ollama/instances');
+            const instances = response.instances || [];
+            this.renderOllamaInstances(instances);
+        } catch (err) {
+            this.ollamaInstancesList.innerHTML = `<p class="error">Failed to load instances: ${err.message}</p>`;
+        }
+    }
+
+    renderOllamaInstances(instances) {
+        if (!this.ollamaInstancesList) return;
+        this.ollamaInstancesList.innerHTML = '';
+
+        if (instances.length === 0) {
+            this.ollamaInstancesList.innerHTML = '<p class="loading">No instances registered.</p>';
+            return;
+        }
+
+        instances.forEach(inst => {
+            const row = document.createElement('div');
+            row.className = 'instance-row';
+            row.dataset.id = inst.id;
+
+            const statusDot = inst.available ? '🟢' : '🔴';
+            const isPrimary = inst.id === 'ollama';
+            const modelInfo = inst.models && inst.models.length > 0 ? ` (${inst.models.length} model${inst.models.length !== 1 ? 's' : ''})` : '';
+
+            row.innerHTML = `
+                <span class="instance-status">${statusDot}</span>
+                <span class="instance-id">${inst.id}</span>
+                <span class="instance-url">${inst.url}${modelInfo}</span>
+                ${isPrimary
+                    ? `<button class="btn btn-small" onclick="app.editPrimaryOllamaUrl()">EDIT</button>`
+                    : `<button class="btn btn-small btn-danger-small" onclick="app.removeOllamaInstance('${inst.id}')">✕</button>`
+                }
+            `;
+            this.ollamaInstancesList.appendChild(row);
+        });
+    }
+
+    async addOllamaInstance() {
+        if (!this.newOllamaUrlInput) return;
+        const url = this.newOllamaUrlInput.value.trim();
+        if (!url) {
+            this.addIntelligenceMessage('⚠ Enter a URL first', 'yellow');
+            return;
+        }
+        try {
+            const response = await this.apiCall('POST', '/api/ollama/instances', { url });
+            if (response.success) {
+                this.addIntelligenceMessage(`✓ Ollama instance added: ${response.id} → ${url}`, 'green');
+                this.newOllamaUrlInput.value = '';
+                await this.loadOllamaInstances();
+            }
+        } catch (err) {
+            this.addIntelligenceMessage(`❌ Failed to add instance: ${err.message}`, 'red');
+        }
+    }
+
+    async removeOllamaInstance(id) {
+        if (!confirm(`Remove Ollama instance "${id}"?`)) return;
+        try {
+            const response = await this.apiCall('DELETE', `/api/ollama/instances/${id}`);
+            if (response.success) {
+                this.addIntelligenceMessage(`✓ Removed instance: ${id}`, 'green');
+                await this.loadOllamaInstances();
+            }
+        } catch (err) {
+            this.addIntelligenceMessage(`❌ Failed to remove instance: ${err.message}`, 'red');
+        }
+    }
+
+    editPrimaryOllamaUrl() {
+        const current = this.ollamaUrl || 'http://localhost:11434';
+        const newUrl = prompt('Enter new primary Ollama URL:', current);
+        if (!newUrl || newUrl.trim() === current) return;
+        this.apiCall('POST', '/api/ollama/config', { url: newUrl.trim() })
+            .then(response => {
+                if (response.success) {
+                    this.ollamaUrl = response.url;
+                    this.addIntelligenceMessage(`✓ Primary Ollama URL updated: ${response.url}`, 'green');
+                    this.loadOllamaInstances();
+                    this.checkOllamaStatus();
+                }
+            })
+            .catch(err => {
+                this.addIntelligenceMessage(`❌ Failed to update URL: ${err.message}`, 'red');
+            });
+    }
+
+    // ============================================
+    // NETWORK SCAN FOR OLLAMA
+    // ============================================
+
+    async loadNetworkScanSetting() {
+        try {
+            const response = await this.apiCall('GET', '/api/ollama/scan/settings');
+            if (this.networkScanToggle) {
+                this.networkScanToggle.value = response.enabled ? 'true' : 'false';
+            }
+        } catch (err) {
+            console.warn('Could not load network scan setting:', err.message);
+        }
+    }
+
+    async saveNetworkScanSetting(enabled) {
+        try {
+            await this.apiCall('POST', '/api/ollama/scan/settings', { enabled });
+            this.addIntelligenceMessage(`✓ Network scanning ${enabled ? 'enabled' : 'disabled'}`, 'green');
+        } catch (err) {
+            this.addIntelligenceMessage(`❌ Failed to update scan setting: ${err.message}`, 'red');
+        }
+    }
+
+    async scanForOllamaInstances() {
+        if (!this.scanResults) return;
+
+        // Check if scanning is enabled
+        const scanEnabled = this.networkScanToggle ? this.networkScanToggle.value === 'true' : false;
+        if (!scanEnabled) {
+            this.scanResults.style.display = 'block';
+            this.scanResults.textContent = '⚠ Enable Network Discovery first, then click SCAN.';
+            return;
+        }
+
+        this.scanResults.style.display = 'block';
+        this.scanResults.textContent = '⏳ Scanning network for Ollama instances...';
+        if (this.scanOllamaBtn) this.scanOllamaBtn.disabled = true;
+
+        try {
+            const response = await this.apiCall('POST', '/api/ollama/scan', {});
+
+            if (!response.success) {
+                this.scanResults.textContent = `✗ ${response.error || 'Scan failed'}`;
+                return;
+            }
+
+            const found = response.discovered || [];
+            if (found.length === 0) {
+                this.scanResults.textContent = `No Ollama instances found on ${response.subnet}.0/24`;
+                return;
+            }
+
+            this.scanResults.innerHTML = `Found ${found.length} Ollama instance(s) on ${response.subnet}.0/24:<br>`;
+            found.forEach(host => {
+                const modelInfo = host.models && host.models.length > 0 ? ` — ${host.models.join(', ')}` : '';
+                const line = document.createElement('div');
+                line.className = 'scan-result-row';
+                line.innerHTML = `
+                    <span>🟢 ${host.url}${modelInfo}</span>
+                    <button class="btn btn-small" onclick="app.addDiscoveredOllamaInstance('${host.url}')">ADD</button>
+                `;
+                this.scanResults.appendChild(line);
+            });
+        } catch (err) {
+            this.scanResults.textContent = `✗ Scan error: ${err.message}`;
+        } finally {
+            if (this.scanOllamaBtn) this.scanOllamaBtn.disabled = false;
+        }
+    }
+
+    async addDiscoveredOllamaInstance(url) {
+        try {
+            const response = await this.apiCall('POST', '/api/ollama/instances', { url });
+            if (response.success) {
+                this.addIntelligenceMessage(`✓ Added discovered instance: ${response.id} → ${url}`, 'green');
+                await this.loadOllamaInstances();
+            }
+        } catch (err) {
+            this.addIntelligenceMessage(`❌ Failed to add instance: ${err.message}`, 'red');
         }
     }
 
@@ -1729,6 +1930,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     script.onload = () => {
         window.bot = new KaliHackerBot();
+        // Also expose as `app` so inline onclick handlers in the instances list work
+        window.app = window.bot;
         window.bot.checkAuthStatus();
     };
 });

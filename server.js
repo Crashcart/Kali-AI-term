@@ -6,6 +6,8 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const fs = require('fs');
 const path = require('path');
+const net = require('net');
+const os = require('os');
 const { v4: uuidv4 } = require('uuid');
 const Docker = require('dockerode');
 const axios = require('axios');
@@ -27,6 +29,8 @@ const PORT = process.env.PORT || 31337;
 const BIND_HOST = process.env.BIND_HOST || '0.0.0.0';
 let OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const KALI_CONTAINER = process.env.KALI_CONTAINER || 'kali-ai-term-kali';
+// Network scan for Ollama instances: disable by default (opt-in)
+let ollamaNetworkScanEnabled = (process.env.OLLAMA_NETWORK_SCAN || 'false').toLowerCase() === 'true';
 
 // Initialize application logger
 const appLogger = new InstallLogger({
@@ -145,9 +149,78 @@ app.use(sandboxRoutes);
 
 const orchestrator = new LLMOrchestrator(appLogger);
 
-// Register Ollama provider (always available locally)
-const ollamaProvider = new OllamaProvider(OLLAMA_URL, appLogger);
-orchestrator.registerProvider('ollama', ollamaProvider);
+// ---- Multi-Ollama instance registry ----
+// Map<providerId, { url }>  — the primary instance always uses id 'ollama'
+const ollamaInstances = new Map();
+
+/**
+ * Register a new Ollama instance with the orchestrator.
+ * Returns the assigned provider id, or null on validation failure.
+ * If the URL is already registered the existing id is returned.
+ */
+function registerOllamaInstance(url, id) {
+  // Validate URL
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch (_) {
+    appLogger.warn(`registerOllamaInstance: invalid URL "${url}"`);
+    return null;
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    appLogger.warn(`registerOllamaInstance: URL must use http/https`);
+    return null;
+  }
+
+  // Prevent duplicate URLs
+  for (const [existingId, instance] of ollamaInstances) {
+    if (instance.url === url) return existingId;
+  }
+
+  // Auto-assign id when not provided
+  if (!id) {
+    const count = ollamaInstances.size;
+    id = count === 0 ? 'ollama' : `ollama-${count + 1}`;
+  }
+
+  const provider = new OllamaProvider(url, appLogger);
+  orchestrator.registerProvider(id, provider);
+  ollamaInstances.set(id, { url });
+  appLogger.info(`✓ Ollama instance registered: ${id} -> ${url}`);
+  return id;
+}
+
+/**
+ * Unregister an Ollama instance.  The primary 'ollama' instance cannot be
+ * removed — its URL can only be updated via /api/ollama/config.
+ */
+function unregisterOllamaInstance(id) {
+  if (id === 'ollama') {
+    appLogger.warn('Cannot remove the primary Ollama instance');
+    return false;
+  }
+  if (!ollamaInstances.has(id)) return false;
+  orchestrator.providers.delete(id);
+  delete orchestrator.stats.requestsByProvider[id];
+  delete orchestrator.stats.errorsByProvider[id];
+  ollamaInstances.delete(id);
+  appLogger.info(`Ollama instance removed: ${id}`);
+  return true;
+}
+
+// Initialise instances from environment.
+// OLLAMA_URLS is a comma-separated list; it takes precedence over OLLAMA_URL.
+const _initialUrls = process.env.OLLAMA_URLS
+  ? process.env.OLLAMA_URLS.split(',').map(u => u.trim()).filter(Boolean)
+  : [OLLAMA_URL];
+
+_initialUrls.forEach((url, idx) => {
+  const id = idx === 0 ? 'ollama' : `ollama-${idx + 1}`;
+  registerOllamaInstance(url, id);
+});
+
+// Keep OLLAMA_URL in sync with the primary instance URL
+OLLAMA_URL = ollamaInstances.get('ollama')?.url || OLLAMA_URL;
 
 // Register Gemini provider (if API key is configured)
 const geminiApiKey = process.env.GEMINI_API_KEY;
@@ -652,15 +725,191 @@ app.post('/api/ollama/config', authenticate, (req, res) => {
   }
 
   OLLAMA_URL = url;
-  // Keep the provider in sync so health checks and model fetches use the new URL
-  ollamaProvider.url = url;
-  ollamaProvider.clearCache();
+  // Keep the primary provider in sync so health checks and model fetches use the new URL
+  const primaryProvider = orchestrator.getProvider('ollama');
+  if (primaryProvider) {
+    primaryProvider.url = url;
+    primaryProvider.clearCache();
+  }
+  // Also update the instances registry
+  if (ollamaInstances.has('ollama')) {
+    ollamaInstances.get('ollama').url = url;
+  }
 
   res.json({ success: true, url: OLLAMA_URL });
 });
 
 app.get('/api/ollama/config', authenticate, (req, res) => {
   res.json({ url: OLLAMA_URL });
+});
+
+// ---- Ollama multi-instance management ----
+
+/**
+ * GET /api/ollama/instances
+ * List all registered Ollama instances with their health status.
+ */
+app.get('/api/ollama/instances', authenticate, async (req, res) => {
+  const results = [];
+  for (const [id, instance] of ollamaInstances) {
+    const provider = orchestrator.getProvider(id);
+    let available = false;
+    let models = [];
+    try {
+      if (provider) {
+        const status = await provider.getStatus();
+        available = status.available;
+        models = (status.models || []).map(m => m.name || m);
+      }
+    } catch (_) {}
+    results.push({ id, url: instance.url, available, models });
+  }
+  res.json({ success: true, instances: results });
+});
+
+/**
+ * POST /api/ollama/instances
+ * Add a new Ollama instance.  Body: { url }
+ */
+app.post('/api/ollama/instances', authenticate, (req, res) => {
+  const { url } = req.body;
+  if (!url) {
+    return res.status(400).json({ error: 'url is required' });
+  }
+
+  const id = registerOllamaInstance(url);
+  if (!id) {
+    return res.status(400).json({ error: 'Invalid URL or unsupported protocol' });
+  }
+
+  res.json({ success: true, id, url });
+});
+
+/**
+ * DELETE /api/ollama/instances/:id
+ * Remove a non-primary Ollama instance.
+ */
+app.delete('/api/ollama/instances/:id', authenticate, (req, res) => {
+  const { id } = req.params;
+  if (id === 'ollama') {
+    return res.status(400).json({ error: 'Cannot remove the primary Ollama instance. Update its URL via /api/ollama/config instead.' });
+  }
+  if (!unregisterOllamaInstance(id)) {
+    return res.status(404).json({ error: `Instance "${id}" not found` });
+  }
+  res.json({ success: true, removed: id });
+});
+
+// ---- Network scan settings ----
+
+/**
+ * GET /api/ollama/scan/settings
+ * Return whether network scanning is enabled.
+ */
+app.get('/api/ollama/scan/settings', authenticate, (req, res) => {
+  res.json({ success: true, enabled: ollamaNetworkScanEnabled });
+});
+
+/**
+ * POST /api/ollama/scan/settings
+ * Enable or disable network scanning.  Body: { enabled: true|false }
+ */
+app.post('/api/ollama/scan/settings', authenticate, (req, res) => {
+  const { enabled } = req.body;
+  if (typeof enabled !== 'boolean') {
+    return res.status(400).json({ error: 'enabled (boolean) is required' });
+  }
+  ollamaNetworkScanEnabled = enabled;
+  appLogger.info(`Ollama network scan ${enabled ? 'enabled' : 'disabled'}`);
+  res.json({ success: true, enabled: ollamaNetworkScanEnabled });
+});
+
+/**
+ * POST /api/ollama/scan
+ * Scan the local network for Ollama instances on the given port.
+ * Body (optional): { subnet: '192.168.1', port: 11434 }
+ * The scan probes all 254 hosts in the /24 block.
+ */
+app.post('/api/ollama/scan', authenticate, async (req, res) => {
+  if (!ollamaNetworkScanEnabled) {
+    return res.status(403).json({ success: false, error: 'Network scanning is disabled. Enable it in Settings → AI/LLM → Network Discovery.' });
+  }
+
+  // Detect the best local subnet if none provided
+  let subnet = typeof req.body.subnet === 'string' ? req.body.subnet.trim() : null;
+  const port = Number.isInteger(req.body.port) ? req.body.port : 11434;
+
+  if (port < 1 || port > 65535) {
+    return res.status(400).json({ error: 'port must be 1-65535' });
+  }
+
+  if (!subnet) {
+    // Auto-detect from the first non-loopback IPv4 interface
+    const ifaces = os.networkInterfaces();
+    outer: for (const name of Object.keys(ifaces)) {
+      for (const iface of ifaces[name]) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          const parts = iface.address.split('.');
+          if (parts.length === 4) {
+            subnet = `${parts[0]}.${parts[1]}.${parts[2]}`;
+            break outer;
+          }
+        }
+      }
+    }
+  }
+
+  if (!subnet || !/^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(subnet)) {
+    return res.status(400).json({ error: 'Could not determine subnet. Provide subnet in body, e.g. { "subnet": "192.168.1" }' });
+  }
+
+  appLogger.info(`Ollama network scan starting on ${subnet}.0/24 port ${port}`);
+
+  const CONCURRENCY = 30;
+  const PROBE_TIMEOUT_MS = 1200;
+  const hosts = Array.from({ length: 254 }, (_, i) => `${subnet}.${i + 1}`);
+  const discovered = [];
+
+  // TCP probe helper
+  function tcpProbe(ip, p) {
+    return new Promise(resolve => {
+      const socket = new net.Socket();
+      let done = false;
+      const finish = (result) => {
+        if (done) return;
+        done = true;
+        socket.destroy();
+        resolve(result);
+      };
+      socket.setTimeout(PROBE_TIMEOUT_MS);
+      socket.once('connect', () => finish(true));
+      socket.once('error', () => finish(false));
+      socket.once('timeout', () => finish(false));
+      socket.connect(p, ip);
+    });
+  }
+
+  for (let i = 0; i < hosts.length; i += CONCURRENCY) {
+    const batch = hosts.slice(i, i + CONCURRENCY);
+    const batchResults = await Promise.all(
+      batch.map(async (ip) => {
+        const open = await tcpProbe(ip, port);
+        if (!open) return null;
+        // Verify it's actually Ollama
+        try {
+          const resp = await axios.get(`http://${ip}:${port}/api/tags`, { timeout: 2000 });
+          const models = (resp.data.models || []).map(m => m.name);
+          return { ip, port, url: `http://${ip}:${port}`, models };
+        } catch (_) {
+          return null;
+        }
+      })
+    );
+    discovered.push(...batchResults.filter(Boolean));
+  }
+
+  appLogger.info(`Ollama network scan complete. Found ${discovered.length} instance(s)`);
+  res.json({ success: true, subnet, port, discovered });
 });
 
 // Proxy configuration endpoints
@@ -1458,16 +1707,24 @@ async function checkDockerHealth() {
 }
 
 async function checkOllamaHealth() {
-  try {
-    const response = await axios.get(`${OLLAMA_URL}/api/tags`, { timeout: 3000 });
-    return {
-      connected: true,
-      url: OLLAMA_URL,
-      modelCount: (response.data.models || []).length,
-    };
-  } catch (err) {
-    return { connected: false, url: OLLAMA_URL, error: err.message };
+  const results = {};
+  for (const [id, instance] of ollamaInstances) {
+    try {
+      const response = await axios.get(`${instance.url}/api/tags`, { timeout: 3000 });
+      results[id] = {
+        connected: true,
+        url: instance.url,
+        modelCount: (response.data.models || []).length,
+      };
+    } catch (err) {
+      results[id] = { connected: false, url: instance.url, error: err.message };
+    }
   }
+  // Return the primary instance status for backward compat, plus all instances
+  return {
+    ...(results['ollama'] || { connected: false, url: OLLAMA_URL }),
+    instances: results,
+  };
 }
 
 // ============================================

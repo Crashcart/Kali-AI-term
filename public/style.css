@@ -1192,6 +1192,99 @@ body {
 }
 
 /* ============================================
+   OLLAMA INSTANCES LIST
+   ============================================ */
+
+.instances-list {
+    background: var(--bg-darker);
+    border: 1px solid var(--border-color);
+    padding: 8px;
+    border-radius: 4px;
+    max-height: 180px;
+    overflow-y: auto;
+    font-size: 11px;
+}
+
+.instances-list .loading,
+.instances-list .error {
+    color: var(--grey);
+    padding: 8px;
+    text-align: center;
+}
+
+.instances-list .error { color: var(--danger); }
+
+.instance-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.instance-row:last-child { border-bottom: none; }
+
+.instance-status { flex-shrink: 0; font-size: 10px; }
+
+.instance-id {
+    color: var(--cyan);
+    font-weight: bold;
+    flex-shrink: 0;
+    min-width: 70px;
+}
+
+.instance-url {
+    color: var(--text-secondary);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.btn-danger-small {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid var(--danger);
+    padding: 2px 6px;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.btn-danger-small:hover {
+    background: rgba(255,51,51,0.15);
+}
+
+/* ============================================
+   NETWORK SCAN RESULTS
+   ============================================ */
+
+.scan-results {
+    background: var(--bg-darker);
+    border: 1px solid var(--border-color);
+    padding: 8px;
+    border-radius: 4px;
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    max-height: 160px;
+    overflow-y: auto;
+}
+
+.scan-result-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 2px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.scan-result-row:last-child { border-bottom: none; }
+
+.scan-result-row span { color: var(--green); flex: 1; }
+
+/* ============================================
    RESPONSIVE
    ============================================ */
 
