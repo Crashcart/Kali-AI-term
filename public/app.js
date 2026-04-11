@@ -848,6 +848,7 @@ Provide: 1) Key findings 2) Security implications 3) Next recommended command`;
                 model: this.ollamaModel,
                 temperature: this.ollamaTemp,
                 useOrchestrator: this.aiProvider === 'auto',
+                preferredProvider: this.aiProvider !== 'auto' ? this.aiProvider : undefined,
                 taskType: this.aiTaskType,
             });
 
@@ -870,6 +871,7 @@ Format: <one-liner command suggestion>`;
                 prompt: prompt,
                 model: this.ollamaModel,
                 useOrchestrator: this.aiProvider === 'auto',
+                preferredProvider: this.aiProvider !== 'auto' ? this.aiProvider : undefined,
                 taskType: this.aiTaskType,
             });
 
@@ -1021,6 +1023,7 @@ Keep it under 150 words. Be educational and specific.`;
                 model: this.ollamaModel,
                 temperature: 0.4,
                 useOrchestrator: this.aiProvider === 'auto',
+                preferredProvider: this.aiProvider !== 'auto' ? this.aiProvider : undefined,
                 taskType: 'reasoning',
             });
 
