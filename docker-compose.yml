@@ -37,7 +37,9 @@ services:
       start_period: 30s
 
   kali:
-    image: kalilinux/kali-rolling:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.kali
     container_name: kali-ai-term-kali
     stdin_open: true
     tty: true
@@ -50,7 +52,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 30s
 
 networks:
   kali-ai-term-net:

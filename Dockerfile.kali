@@ -1,0 +1,78 @@
+FROM kalilinux/kali-rolling:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Update package lists and install basic text-based security tools
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends \
+        # Shells, editors, core utils
+        bash \
+        vim \
+        nano \
+        less \
+        curl \
+        wget \
+        git \
+        file \
+        unzip \
+        zip \
+        xxd \
+        binutils \
+        procps \
+        # Networking / recon
+        nmap \
+        masscan \
+        netdiscover \
+        arp-scan \
+        nbtscan \
+        net-tools \
+        iproute2 \
+        iputils-ping \
+        # DNS
+        dnsutils \
+        whois \
+        dnsrecon \
+        dnsenum \
+        # Netcat, tcpdump, traceroute
+        netcat-traditional \
+        tcpdump \
+        traceroute \
+        # Web scanning
+        nikto \
+        gobuster \
+        whatweb \
+        wafw00f \
+        wfuzz \
+        # SQL injection
+        sqlmap \
+        # Exploit search
+        exploitdb \
+        # Password attacks
+        hydra \
+        john \
+        hashcat \
+        crunch \
+        cewl \
+        # SMB / Windows enumeration
+        smbclient \
+        enum4linux \
+        # Wordlists (includes rockyou.txt and dirb lists)
+        wordlists \
+        dirb \
+        # Scripting
+        python3 \
+        python3-pip \
+        # Forensics / steganography
+        binwalk \
+        libimage-exiftool-perl \
+        steghide \
+        foremost \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Decompress rockyou.txt if it's still gzipped
+RUN if [ -f /usr/share/wordlists/rockyou.txt.gz ]; then \
+        gunzip /usr/share/wordlists/rockyou.txt.gz; \
+    fi
+
+CMD ["/bin/bash"]
