@@ -273,12 +273,13 @@
                     </div>
 
                     <div class="setting-group">
-                        <label>Ollama URL</label>
-                        <div class="input-with-action">
-                            <input type="text" id="ollama-url" placeholder="http://localhost:11434" class="setting-input" />
-                            <button class="btn btn-small" id="test-ollama">TEST</button>
+                        <label>Ollama Servers</label>
+                        <div id="ollama-servers-list"></div>
+                        <div style="display:flex;gap:6px;margin-top:6px">
+                            <button class="btn btn-small" id="add-ollama-server">+ ADD SERVER</button>
+                            <button class="btn btn-small" id="test-ollama">TEST ALL</button>
                         </div>
-                        <small>Base URL for Ollama API</small>
+                        <small>Add multiple servers for automatic failover — the first reachable one is used</small>
                     </div>
 
                     <div class="setting-group">

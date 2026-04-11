@@ -15,7 +15,7 @@ class KaliHackerBot {
         this.historyIndex = -1;
         this.showTimestamps = true;
         this.soundEnabled = true;
-        this.ollamaUrl = 'http://localhost:11434';
+        this.ollamaUrls = ['http://localhost:11434']; // primary + optional fallback servers
         this.ollamaModel = 'dolphin-mixtral';
         this.ollamaTemp = 0.7;
         this.aiProvider = 'auto';
@@ -114,7 +114,8 @@ class KaliHackerBot {
         this.cancelBtn = document.getElementById('cancel-btn');
 
         // Settings
-        this.ollamaUrlInput = document.getElementById('ollama-url');
+        this.ollamaServersList = document.getElementById('ollama-servers-list');
+        this.addOllamaServerBtn = document.getElementById('add-ollama-server');
         this.ollamaModelInput = document.getElementById('ollama-model');
         this.ollmaTempInput = document.getElementById('ollama-temp');
         this.tempValueDisplay = document.getElementById('temp-value');
@@ -227,6 +228,9 @@ class KaliHackerBot {
         // Settings
         this.refreshModelsBtn.addEventListener('click', () => this.refreshOllamaModels());
         this.testOllamaBtn.addEventListener('click', () => this.checkOllamaStatus());
+        if (this.addOllamaServerBtn) {
+            this.addOllamaServerBtn.addEventListener('click', () => this._addOllamaServer());
+        }
         this.pullModelBtn.addEventListener('click', () => this.pullModel());
         this.ollmaTempInput.addEventListener('input', (e) => {
             this.tempValueDisplay.textContent = (e.target.value / 100).toFixed(2);
@@ -484,7 +488,14 @@ class KaliHackerBot {
         this.targetIP = saved.targetIP || '192.168.1.100';
         this.localIP = saved.localIP || '192.168.1.50';
         this.listeningPort = saved.listeningPort || '4444';
-        this.ollamaUrl = saved.ollamaUrl || 'http://localhost:11434';
+        // Support both new ollamaUrls (array) and legacy ollamaUrl (string)
+        if (Array.isArray(saved.ollamaUrls) && saved.ollamaUrls.length > 0) {
+            this.ollamaUrls = saved.ollamaUrls;
+        } else if (saved.ollamaUrl) {
+            this.ollamaUrls = [saved.ollamaUrl];
+        } else {
+            this.ollamaUrls = ['http://localhost:11434'];
+        }
         this.ollamaModel = saved.ollamaModel || 'dolphin-mixtral';
         this.ollamaTemp = saved.ollamaTemp || 0.7;
         this.aiProvider = saved.aiProvider || 'auto';
@@ -521,7 +532,8 @@ class KaliHackerBot {
             targetIP: this.targetIP,
             localIP: this.localIP,
             listeningPort: this.listeningPort,
-            ollamaUrl: this.ollamaUrl,
+            ollamaUrls: this.ollamaUrls,
+            ollamaUrl: this.ollamaUrls[0], // backward compat
             ollamaModel: this.ollamaModel,
             ollamaTemp: this.ollamaTemp,
             aiProvider: this.aiProvider,
@@ -546,10 +558,11 @@ class KaliHackerBot {
     }
 
     syncOllamaUrlToServer() {
-        // Only push a non-default URL — localhost:11434 is already the server default
-        if (!this.ollamaUrl || this.ollamaUrl === 'http://localhost:11434') return;
-        this.apiCall('POST', '/api/ollama/config', { url: this.ollamaUrl }).catch(err => {
-            console.warn('Failed to sync Ollama URL to server on startup:', err.message);
+        // Only push when the URL list is non-trivial (avoids a redundant call on first load)
+        const nonDefault = this.ollamaUrls.filter(u => u && u !== 'http://localhost:11434');
+        if (nonDefault.length === 0 && this.ollamaUrls.length <= 1) return;
+        this.apiCall('POST', '/api/ollama/config', { urls: this.ollamaUrls }).catch(err => {
+            console.warn('Failed to sync Ollama URLs to server on startup:', err.message);
         });
     }
 
@@ -924,17 +937,19 @@ Format: <one-liner command suggestion>`;
     }
 
     async loadSettings() {
-        // Sync Ollama URL from server so the input reflects what the server is actually using
+        // Sync Ollama URLs from server so the list reflects what the server is actually using
         try {
             const config = await this.apiCall('GET', '/api/ollama/config');
-            if (config.url) {
-                this.ollamaUrl = config.url;
+            if (Array.isArray(config.urls) && config.urls.length > 0) {
+                this.ollamaUrls = config.urls;
+            } else if (config.url) {
+                this.ollamaUrls = [config.url];
             }
         } catch (err) {
             console.warn('Could not fetch Ollama config from server:', err.message);
         }
 
-        this.ollamaUrlInput.value = this.ollamaUrl;
+        this.renderOllamaServers();
         this.ollamaModelInput.value = this.ollamaModel;
         this.ollmaTempInput.value = this.ollamaTemp * 100;
         this.tempValueDisplay.textContent = this.ollamaTemp.toFixed(2);
@@ -966,18 +981,34 @@ Format: <one-liner command suggestion>`;
     }
 
     saveSettings() {
-        const rawUrl = this.ollamaUrlInput.value.trim();
-        const urlError = this._validateOllamaUrlInput(rawUrl);
-        if (urlError) {
-            // Show the validation error in the Ollama status box so the user
-            // sees it immediately without leaving the settings modal.
-            this.ollamaStatusBox.textContent = `✗ ${urlError}`;
-            this.ollamaStatusBox.classList.add('disconnected');
-            this.ollamaStatusBox.classList.remove('connected');
-            this.ollamaUrlInput.focus();
+        // Collect all server URLs from the dynamic list
+        const serverInputs = this.ollamaServersList
+            ? Array.from(this.ollamaServersList.querySelectorAll('.ollama-server-url'))
+            : [];
+        const newUrls = serverInputs.map(el => el.value.trim()).filter(Boolean);
+
+        if (newUrls.length === 0) {
+            if (this.ollamaStatusBox) {
+                this.ollamaStatusBox.textContent = '✗ At least one Ollama server URL is required';
+                this.ollamaStatusBox.classList.add('disconnected');
+                this.ollamaStatusBox.classList.remove('connected');
+            }
             return;
         }
-        this.ollamaUrl = rawUrl;
+
+        for (const url of newUrls) {
+            const urlError = this._validateOllamaUrlInput(url);
+            if (urlError) {
+                if (this.ollamaStatusBox) {
+                    this.ollamaStatusBox.textContent = `✗ ${urlError}`;
+                    this.ollamaStatusBox.classList.add('disconnected');
+                    this.ollamaStatusBox.classList.remove('connected');
+                }
+                return;
+            }
+        }
+
+        this.ollamaUrls = newUrls;
         this.ollamaModel = this.ollamaModelInput.value;
         this.ollamaTemp = parseInt(this.ollmaTempInput.value) / 100;
         this.targetIP = this.targetIPInput.value;
@@ -997,9 +1028,9 @@ Format: <one-liner command suggestion>`;
         this.listeningPortDisplay.value = this.listeningPort;
         this.activeModelDisplay.textContent = this.ollamaModel;
 
-        // Sync Ollama URL to server so health checks and AI calls use the correct host
-        this.apiCall('POST', '/api/ollama/config', { url: this.ollamaUrl }).catch(err => {
-            console.warn('Failed to sync Ollama URL to server:', err.message);
+        // Sync Ollama URLs to server so health checks and AI calls use the correct hosts
+        this.apiCall('POST', '/api/ollama/config', { urls: this.ollamaUrls }).catch(err => {
+            console.warn('Failed to sync Ollama URLs to server:', err.message);
         });
 
         // Save proxy settings
@@ -1197,62 +1228,129 @@ Format: <one-liner command suggestion>`;
         this.addIntelligenceMessage(`✓ Switched to ${modelId}`, 'green');
     }
 
-    async checkOllamaStatus() {
-        const url = this.ollamaUrlInput?.value?.trim() || this.ollamaUrl;
-        this.ollamaStatusBox.textContent = '⏳ Testing connection...';
-        this.ollamaStatusBox.classList.remove('connected', 'disconnected');
+    // Render the list of Ollama server rows inside the settings panel.
+    // Called every time the list changes (load, add, remove).
+    renderOllamaServers() {
+        if (!this.ollamaServersList) return;
+        this.ollamaServersList.innerHTML = '';
+        this.ollamaUrls.forEach((url, index) => {
+            this.ollamaServersList.appendChild(this._buildServerRow(url, index));
+        });
+    }
 
-        // Validate URL locally before hitting the server
-        const urlError = this._validateOllamaUrlInput(url);
-        if (urlError) {
-            this.ollamaStatusBox.textContent = `✗ ${urlError}`;
-            this.ollamaStatusBox.classList.add('disconnected');
-            return;
-        }
+    // Build one server row: [URL input] [TEST] [×]
+    _buildServerRow(url, index) {
+        const row = document.createElement('div');
+        row.className = 'ollama-server-row';
+        row.style.cssText = 'display:flex;flex-direction:column;gap:2px;margin-bottom:6px';
 
-        // Kick off Gemini status independently so it always resolves
-        // regardless of whether the Ollama check succeeds or fails.
-        this._updateGeminiStatus();
+        const inputRow = document.createElement('div');
+        inputRow.className = 'input-with-action';
 
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'setting-input ollama-server-url';
+        input.value = url;
+        input.placeholder = 'http://192.168.1.x:11434';
+        if (index === 0) input.placeholder = 'http://localhost:11434 (primary)';
+
+        const testBtn = document.createElement('button');
+        testBtn.className = 'btn btn-small';
+        testBtn.textContent = 'TEST';
+        testBtn.title = 'Test this server';
+        testBtn.addEventListener('click', () => {
+            const urlError = this._validateOllamaUrlInput(input.value.trim());
+            if (urlError) { statusEl.textContent = `✗ ${urlError}`; statusEl.className = 'ollama-server-status disconnected'; return; }
+            this._checkSingleServerStatus(input.value.trim(), statusEl);
+        });
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'btn btn-small';
+        removeBtn.textContent = '×';
+        removeBtn.title = 'Remove this server';
+        removeBtn.disabled = index === 0; // keep at least one entry
+        removeBtn.style.opacity = index === 0 ? '0.4' : '1';
+        removeBtn.addEventListener('click', () => {
+            this.ollamaUrls.splice(index, 1);
+            this.renderOllamaServers();
+        });
+
+        const statusEl = document.createElement('div');
+        statusEl.className = 'ollama-server-status';
+        statusEl.style.cssText = 'font-size:0.75rem;padding:2px 0;min-height:1rem';
+
+        inputRow.appendChild(input);
+        inputRow.appendChild(testBtn);
+        inputRow.appendChild(removeBtn);
+        row.appendChild(inputRow);
+        row.appendChild(statusEl);
+        return row;
+    }
+
+    // Add a blank server row and focus its input
+    _addOllamaServer() {
+        this.ollamaUrls.push('');
+        this.renderOllamaServers();
+        const inputs = this.ollamaServersList.querySelectorAll('.ollama-server-url');
+        if (inputs.length > 0) inputs[inputs.length - 1].focus();
+    }
+
+    // Test a single Ollama server URL and update its status element
+    async _checkSingleServerStatus(url, statusEl) {
+        statusEl.textContent = '⏳ Testing...';
+        statusEl.className = 'ollama-server-status';
         try {
             const result = await this.apiCall('GET', `/api/ollama/status?url=${encodeURIComponent(url)}`);
-
             if (result.connected) {
-                const modelList = result.models && result.models.length > 0
-                    ? `Models: ${result.models.join(', ')}`
-                    : 'No models installed';
-                this.ollamaStatusBox.textContent = [
-                    `✓ Connected`,
-                    `URL: ${result.url}`,
-                    `${result.modelCount} model(s) available`,
-                    modelList
-                ].join('\n');
-                this.ollamaStatusBox.classList.add('connected');
-                this.ollamaStatusBox.classList.remove('disconnected');
+                const modelInfo = result.modelCount > 0 ? `${result.modelCount} model(s)` : 'no models installed';
+                statusEl.textContent = `✓ Connected — ${modelInfo}`;
+                statusEl.className = 'ollama-server-status connected';
             } else {
-                const lines = [
-                    `✗ Disconnected`,
-                    `URL: ${result.url}`,
-                    `Error: ${result.error}`
-                ];
-                if (result.errorCode) lines.push(`Code: ${result.errorCode}`);
-                if (result.httpStatus) lines.push(`HTTP Status: ${result.httpStatus}`);
-                if (result.suggestion) lines.push(`Tip: ${result.suggestion}`);
-                this.ollamaStatusBox.textContent = lines.join('\n');
-                this.ollamaStatusBox.classList.remove('connected');
-                this.ollamaStatusBox.classList.add('disconnected');
+                statusEl.textContent = `✗ ${result.error || 'Unreachable'}${result.suggestion ? ' — ' + result.suggestion : ''}`;
+                statusEl.className = 'ollama-server-status disconnected';
             }
         } catch (err) {
-            this.ollamaStatusBox.textContent = [
-                `✗ Status check failed`,
-                `Error: ${err.message}`,
-                err.status === 401
-                    ? `Tip: Your session expired — please log in again.`
-                    : `Tip: Ensure the server is running and you are authenticated.`
-            ].join('\n');
-            this.ollamaStatusBox.classList.remove('connected');
-            this.ollamaStatusBox.classList.add('disconnected');
+            statusEl.textContent = `✗ ${err.message}`;
+            statusEl.className = 'ollama-server-status disconnected';
         }
+    }
+
+    async checkOllamaStatus() {
+        // Test every configured server and update its per-row status indicator
+        if (this.ollamaServersList) {
+            const rows = Array.from(this.ollamaServersList.querySelectorAll('.ollama-server-row'));
+            await Promise.allSettled(rows.map(row => {
+                const url = row.querySelector('.ollama-server-url')?.value?.trim() || '';
+                const statusEl = row.querySelector('.ollama-server-status');
+                if (!url || !statusEl) return Promise.resolve();
+                const urlError = this._validateOllamaUrlInput(url);
+                if (urlError) {
+                    statusEl.textContent = `✗ ${urlError}`;
+                    statusEl.className = 'ollama-server-status disconnected';
+                    return Promise.resolve();
+                }
+                return this._checkSingleServerStatus(url, statusEl);
+            }));
+
+            // Show aggregate summary in the main status box
+            if (this.ollamaStatusBox) {
+                const allStatus = Array.from(this.ollamaServersList.querySelectorAll('.ollama-server-status'));
+                const connectedCount = allStatus.filter(el => el.className.includes('connected')).length;
+                const total = allStatus.length;
+                if (connectedCount > 0) {
+                    this.ollamaStatusBox.textContent = `✓ ${connectedCount} of ${total} server(s) reachable`;
+                    this.ollamaStatusBox.classList.add('connected');
+                    this.ollamaStatusBox.classList.remove('disconnected');
+                } else {
+                    this.ollamaStatusBox.textContent = '✗ No Ollama servers reachable';
+                    this.ollamaStatusBox.classList.remove('connected');
+                    this.ollamaStatusBox.classList.add('disconnected');
+                }
+            }
+        }
+
+        // Always update Gemini status independently
+        this._updateGeminiStatus();
     }
 
     // Validate the Ollama URL input value before sending it to the server.
@@ -1304,7 +1402,9 @@ Format: <one-liner command suggestion>`;
     }
 
     async refreshOllamaModels() {
-        const url = this.ollamaUrlInput?.value?.trim() || this.ollamaUrl;
+        // Use the primary (first) server URL
+        const firstInput = this.ollamaServersList?.querySelector('.ollama-server-url');
+        const url = firstInput?.value?.trim() || this.ollamaUrls[0] || 'http://localhost:11434';
         this.refreshModelsBtn.textContent = '⏳';
         this.refreshModelsBtn.disabled = true;
 

@@ -27,6 +27,12 @@ const PORT = process.env.PORT || 31337;
 const BIND_HOST = process.env.BIND_HOST || '0.0.0.0';
 let OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const KALI_CONTAINER = process.env.KALI_CONTAINER || 'kali-ai-term-kali';
+// Support multiple Ollama servers via comma-separated OLLAMA_URLS env var.
+// OLLAMA_URL (single) is kept for backward compatibility.
+const OLLAMA_URLS_RAW = process.env.OLLAMA_URLS || OLLAMA_URL;
+let ollamaUrls = OLLAMA_URLS_RAW.split(',').map(u => u.trim()).filter(Boolean);
+if (ollamaUrls.length === 0) ollamaUrls = ['http://localhost:11434'];
+OLLAMA_URL = ollamaUrls[0];
 
 // Initialize application logger
 const appLogger = new InstallLogger({
@@ -38,7 +44,7 @@ const appLogger = new InstallLogger({
 appLogger.info(`Starting Kali Hacker Bot`);
 appLogger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
 appLogger.info(`Port: ${PORT}`);
-appLogger.info(`Ollama URL: ${OLLAMA_URL}`);
+appLogger.info(`Ollama URLs: ${ollamaUrls.join(', ')}`);
 appLogger.info(`Kali Container: ${KALI_CONTAINER}`);
 
 // Pentesting system prompt for Ollama
@@ -145,9 +151,17 @@ app.use(sandboxRoutes);
 
 const orchestrator = new LLMOrchestrator(appLogger);
 
-// Register Ollama provider (always available locally)
-const ollamaProvider = new OllamaProvider(OLLAMA_URL, appLogger);
-orchestrator.registerProvider('ollama', ollamaProvider);
+// Register one OllamaProvider per configured URL.
+// Names: 'ollama' (primary), 'ollama-2', 'ollama-3', …
+// The orchestrator will try them in order, falling back automatically.
+const ollamaProviderInstances = [];
+ollamaUrls.forEach((url, index) => {
+  const providerName = index === 0 ? 'ollama' : `ollama-${index + 1}`;
+  const p = new OllamaProvider(url, appLogger);
+  orchestrator.registerProvider(providerName, p);
+  ollamaProviderInstances.push({ name: providerName, provider: p });
+  appLogger.info(`✓ Ollama provider "${providerName}" registered at ${url}`);
+});
 
 // Register Gemini provider (if API key is configured)
 const geminiApiKey = process.env.GEMINI_API_KEY;
@@ -159,27 +173,41 @@ if (geminiApiKey) {
   appLogger.warn(`⚠ GEMINI_API_KEY not set. Gemini provider unavailable. Set it to enable hybrid reasoning.`);
 }
 
-// Set up routing strategies for different task types
-orchestrator.setRoutingStrategy('reasoning', {
-  primary: 'gemini',      // Use Gemini for complex reasoning
-  fallback: 'ollama',
-  timeout: 60000,
-  retries: 1
-});
+// Helper: build the full Ollama failover chain (all registered ollama-* names)
+function getOllamaProviderNames() {
+  return ollamaProviderInstances.map(p => p.name);
+}
 
-orchestrator.setRoutingStrategy('speed', {
-  primary: 'ollama',      // Use Ollama for speed
-  fallback: 'gemini',
-  timeout: 30000,
-  retries: 0
-});
+// Set up routing strategies.
+// Each strategy uses Ollama servers as a chain so any standby server is tried
+// automatically before the request is considered failed.
+function applyRoutingStrategies() {
+  const allOllama = getOllamaProviderNames();
+  const ollamaFallback = allOllama.length > 1 ? allOllama.slice(1) : [];
+  const hasGemini = !!geminiApiKey;
 
-orchestrator.setRoutingStrategy('quality', {
-  primary: 'gemini',      // Use Gemini for quality
-  fallback: 'ollama',
-  timeout: 120000,
-  retries: 2
-});
+  orchestrator.setRoutingStrategy('reasoning', {
+    primary: hasGemini ? 'gemini' : allOllama[0],
+    fallback: hasGemini ? allOllama : ollamaFallback,
+    timeout: 60000,
+    retries: 1
+  });
+
+  orchestrator.setRoutingStrategy('speed', {
+    primary: allOllama[0],
+    fallback: [...ollamaFallback, ...(hasGemini ? ['gemini'] : [])],
+    timeout: 30000,
+    retries: 0
+  });
+
+  orchestrator.setRoutingStrategy('quality', {
+    primary: hasGemini ? 'gemini' : allOllama[0],
+    fallback: hasGemini ? allOllama : ollamaFallback,
+    timeout: 120000,
+    retries: 2
+  });
+}
+applyRoutingStrategies();
 
 // Initialize multi-LLM routes
 const multiLLMRoutes = createMultiLLMRoutes(orchestrator, appLogger);
@@ -634,33 +662,52 @@ let PROXY_CONFIG = {
   bypass: ''
 };
 
-// Allow frontend to update Ollama URL
+// Allow frontend to update Ollama URL(s)
 app.post('/api/ollama/config', authenticate, (req, res) => {
-  const { url } = req.body;
-  if (!url) {
-    return res.status(400).json({ error: 'URL required' });
+  const { url, urls } = req.body;
+  // Accept either a single URL (backward compat) or an array of URLs
+  const newUrls = Array.isArray(urls) ? urls : (url ? [url] : null);
+
+  if (!newUrls || newUrls.length === 0) {
+    return res.status(400).json({ error: 'url or urls required' });
   }
 
-  // Basic URL validation
-  try {
-    const parsed = new URL(url);
-    if (!['http:', 'https:'].includes(parsed.protocol)) {
-      return res.status(400).json({ error: 'URL must use http or https protocol' });
+  // Validate every URL
+  for (const u of newUrls) {
+    try {
+      const parsed = new URL(u);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        return res.status(400).json({ error: `URL must use http or https: ${u}` });
+      }
+    } catch (e) {
+      return res.status(400).json({ error: `Invalid URL format: ${u}` });
     }
-  } catch (e) {
-    return res.status(400).json({ error: 'Invalid URL format' });
   }
 
-  OLLAMA_URL = url;
-  // Keep the provider in sync so health checks and model fetches use the new URL
-  ollamaProvider.url = url;
-  ollamaProvider.clearCache();
+  // Remove all current ollama-* providers then re-register with the new URLs
+  Array.from(orchestrator.providers.keys())
+    .filter(n => n === 'ollama' || /^ollama-\d+$/.test(n))
+    .forEach(n => orchestrator.unregisterProvider(n));
 
-  res.json({ success: true, url: OLLAMA_URL });
+  ollamaUrls = newUrls;
+  OLLAMA_URL = ollamaUrls[0];
+  ollamaProviderInstances.length = 0;
+
+  ollamaUrls.forEach((u, index) => {
+    const providerName = index === 0 ? 'ollama' : `ollama-${index + 1}`;
+    const p = new OllamaProvider(u, appLogger);
+    orchestrator.registerProvider(providerName, p);
+    ollamaProviderInstances.push({ name: providerName, provider: p });
+  });
+
+  // Refresh routing strategies to reflect the new set of servers
+  applyRoutingStrategies();
+
+  res.json({ success: true, url: ollamaUrls[0], urls: ollamaUrls });
 });
 
 app.get('/api/ollama/config', authenticate, (req, res) => {
-  res.json({ url: OLLAMA_URL });
+  res.json({ url: ollamaUrls[0], urls: ollamaUrls });
 });
 
 // Proxy configuration endpoints
