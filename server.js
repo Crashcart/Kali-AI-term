@@ -821,16 +821,16 @@ app.get('/api/gemini/config', authenticate, (req, res) => {
 app.post('/api/gemini/config', authenticate, (req, res) => {
   const { apiKey, model } = req.body;
 
-  if (!apiKey && !model) {
-    return res.status(400).json({ error: 'apiKey or model is required' });
-  }
-
   if (apiKey !== undefined && (typeof apiKey !== 'string' || apiKey.trim() === '')) {
     return res.status(400).json({ error: 'apiKey must be a non-empty string' });
   }
 
   if (model !== undefined && (typeof model !== 'string' || model.trim() === '')) {
     return res.status(400).json({ error: 'model must be a non-empty string' });
+  }
+
+  if (!apiKey && !model) {
+    return res.status(400).json({ error: 'apiKey or model is required' });
   }
 
   let geminiProvider = orchestrator.getProvider('gemini');
@@ -1929,6 +1929,57 @@ Include exactly these 6 phases in order (substitute the real target IP/host for 
 
 For each bestPractice write 2-3 sentences explaining WHY the technique is used, what to look for in the output, and one pitfall to avoid. Speak as an experienced mentor.`;
 
+  // Template plan used when AI generation fails or no provider is available
+  const templatePlan = {
+    target,
+    phases: [
+      {
+        name: 'Host Discovery',
+        command: `nmap -sn ${target}`,
+        purpose: 'Confirm the target is alive before scanning',
+        bestPractice: 'Always begin with a ping sweep. The -sn flag skips port scanning and only checks reachability, keeping noise low. If the host does not respond it may be blocking ICMP — try a TCP ping next.',
+        continueOnFail: true
+      },
+      {
+        name: 'Fast TCP Port Scan',
+        command: `nmap -T4 --top-ports 1000 ${target}`,
+        purpose: 'Identify open TCP ports quickly',
+        bestPractice: 'The top 1000 ports cover ~95% of common services. Use -T4 for speed on local networks; drop to -T3 on slow or monitored links to avoid detection.',
+        continueOnFail: false
+      },
+      {
+        name: 'Service & Version Detection',
+        command: `nmap -sV -p- ${target}`,
+        purpose: 'Identify exact services and versions on all ports',
+        bestPractice: 'Version detection (-sV) reveals exact software versions which can be cross-referenced with CVE databases. Scanning all ports (-p-) is slower but catches non-standard port assignments.',
+        continueOnFail: false
+      },
+      {
+        name: 'Default Script Scan',
+        command: `nmap -sC ${target}`,
+        purpose: 'Run default NSE scripts to detect common misconfigurations',
+        bestPractice: 'NSE default scripts check for anonymous FTP, open SMTP relays, and other common issues automatically. Review each script result carefully — false positives are possible.',
+        continueOnFail: true
+      },
+      {
+        name: 'OS Detection',
+        command: `nmap -O ${target}`,
+        purpose: 'Fingerprint the operating system',
+        bestPractice: 'OS detection requires raw socket access (run as root). Use the result to narrow exploit selection. A confident match above 90% is reliable; below that, treat the result as a hint only.',
+        continueOnFail: true
+      },
+      {
+        name: 'Web Service Fingerprint',
+        command: `curl -sI http://${target} 2>/dev/null || curl -sI https://${target} 2>/dev/null || echo "No web service on port 80/443"`,
+        purpose: 'Check for web services and fingerprint the server',
+        bestPractice: 'Response headers often reveal the server type, framework, and version. Look for Server:, X-Powered-By:, and Set-Cookie: headers. Missing security headers (CSP, HSTS) are findings in themselves.',
+        continueOnFail: true
+      }
+    ]
+  };
+
+  let aiPlanUsed = false;
+
   try {
     const result = await orchestrator.generate(planPrompt, {
       systemPrompt: SYSTEM_PROMPT,
@@ -1940,29 +1991,25 @@ For each bestPractice write 2-3 sentences explaining WHY the technique is used, 
 
     // Extract the first JSON object — models sometimes wrap in markdown
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return res.status(500).json({ error: 'AI did not return a valid JSON plan' });
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.phases && Array.isArray(parsed.phases) && parsed.phases.length > 0) {
+          parsed.phases = parsed.phases.slice(0, 10);
+          aiPlanUsed = true;
+          return res.json({ success: true, plan: parsed });
+        }
+      } catch (_) {
+        // JSON parse failed — fall through to template
+      }
     }
-
-    let plan;
-    try {
-      plan = JSON.parse(jsonMatch[0]);
-    } catch (parseErr) {
-      return res.status(500).json({ error: 'Failed to parse AI plan', details: parseErr.message });
-    }
-
-    if (!plan.phases || !Array.isArray(plan.phases) || plan.phases.length === 0) {
-      return res.status(500).json({ error: 'AI plan missing phases array' });
-    }
-
-    // Cap phases for safety
-    plan.phases = plan.phases.slice(0, 10);
-
-    res.json({ success: true, plan });
   } catch (err) {
-    appLogger.error('Autonomous plan generation error:', err.message);
-    res.status(500).json({ error: 'Failed to generate attack plan', details: err.message });
+    appLogger.warn(`Autonomous plan AI generation failed (using template): ${err.message}`);
   }
+
+  // AI unavailable or returned unusable output — use the deterministic template plan
+  appLogger.info(`Autonomous plan: using template plan for target ${target} (aiPlanUsed=${aiPlanUsed})`);
+  res.json({ success: true, plan: templatePlan, template: true });
 });
 
 // ============================================

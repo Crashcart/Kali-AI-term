@@ -916,8 +916,12 @@ Format: <one-liner command suggestion>`;
                 model: this.ollamaModel,
             });
             plan = response.plan;
+            if (response.template) {
+                this.addIntelligenceMessage('⚠️  AI unavailable — using standard recon template', 'yellow');
+            }
         } catch (err) {
-            this.addIntelligenceMessage(`❌ Failed to generate plan: ${err.message}`, 'red');
+            const detail = err.payload?.details ? ` — ${err.payload.details}` : '';
+            this.addIntelligenceMessage(`❌ Failed to generate plan: ${err.message}${detail}`, 'red');
             this.autonomousRunning = false;
             this.autoPilotBtn.classList.remove('active');
             if (this.attackBtn) this.attackBtn.classList.remove('active');
