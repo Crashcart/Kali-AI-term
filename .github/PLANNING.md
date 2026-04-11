@@ -7,7 +7,44 @@
 
 ## 🎯 Active Initiatives
 
-### Attack Plan Overhaul + Gemini Persistence (current session)
+### LLM Low-End System Optimisation + Ollama Intel GPU Integration (current session)
+
+**Status**: 🟠 **In Progress**
+**Branch**: `copilot/add-llms-to-app`
+**Assigned To**: GitHub Copilot Task Agent
+
+**Summary**: Replace hardcoded large-model references (dolphin-mixtral ~24.8 GiB) with a curated list of lightweight models suitable for low-to-mid range systems (4–8 GB RAM). Add Ollama Intel GPU quick-connect to the settings UI.
+
+**Changes Made**:
+- `public/index.html` — HUD default model: `dolphin-mixtral` → `phi3:mini`
+- `public/index.html` — Plugins tab model selector: replaced large models with 6 lightweight options
+- `public/index.html` — Pull Model placeholder: updated to lightweight model examples
+- `public/index.html` — Added "OLLAMA INTEL GPU" quick-connect section in AI/LLM settings
+- `public/app.js` — `defaultModels`: replaced with phi4-mini, phi3:mini, gemma3:4b, qwen2.5:3b, llama3.2:3b, tinyllama
+- `public/app.js` — Added `useIntelGpuOllama()` method and wired USE button
+- `.env.example` — Updated model list with RAM requirements; added Intel GPU URL notes
+- `lib/ollama-provider.js` — Added doc comments linking to recommended model list
+- `.github/TODO.md` — Added L1/L2/L3 tasks
+- `.github/PLANNING.md` — This entry
+
+**Curated Model List (low-end safe)**:
+| Model | Size | Vendor | Strength |
+|-------|------|--------|----------|
+| phi4-mini:3.8b | ~2.5 GiB | Microsoft | Great reasoning |
+| phi3:mini | ~2.2 GiB | Microsoft | Proven lightweight default |
+| gemma3:4b | ~3 GiB | Google | Excellent quality for size |
+| qwen2.5:3b | ~2 GiB | Alibaba | Strong coding/scripting |
+| llama3.2:3b | ~2 GiB | Meta | Well-rounded |
+| tinyllama | ~637 MiB | Community | Ultra-lightweight fallback |
+
+**Decisions Log**:
+- [2026-04-11] dolphin-mixtral (24.8 GiB) and neural-chat:7b removed — won't run on target low-end hardware
+- [2026-04-11] phi3:mini kept as server-side default (OLLAMA_MODEL env var) — already proven
+- [2026-04-11] Intel GPU section uses existing `/api/ollama/config` endpoint — no new backend routes needed
+
+---
+
+### Attack Plan Overhaul + Gemini Persistence
 
 **Status**: ✅ **Complete** — PR ready for human review
 **Branch**: `copilot/fix-autonomous-attack-error`

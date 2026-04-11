@@ -15,6 +15,9 @@
 | B3 | Add GET /api/llm/log + DELETE /api/llm/log endpoints | ✅ **completed** | Copilot | 🔴 CRITICAL | Authenticated; returns last 100 entries by default |
 | B4 | Add LLM Debug Log viewer modal (🪵 button) | ✅ **completed** | Copilot | 🟠 HIGH | Auto-refresh every 4 s; shows prompt, response snippet, error, duration |
 | B5 | Add Ctrl+G shortcut to open log | ✅ **completed** | Copilot | 🟡 MEDIUM | Maps to openLLMLog() |
+| L1 | Replace large-model defaults with lightweight curated list | 🟠 **in-progress** | Copilot | 🟠 HIGH | Remove dolphin-mixtral/neural-chat; add phi4-mini, gemma3:4b, qwen2.5:3b etc. |
+| L2 | Add Ollama Intel GPU quick-connect to settings UI | 🟠 **in-progress** | Copilot | 🟠 HIGH | Links to Crashcart/Ollama-intelgpu |
+| L3 | Update .env.example with curated models + Intel GPU notes | 🟠 **in-progress** | Copilot | 🟡 MEDIUM | Low-end system optimisation |
 
 ---
 

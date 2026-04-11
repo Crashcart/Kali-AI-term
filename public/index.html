@@ -114,7 +114,7 @@
             </div>
             <div class="hud-variable">
                 <span class="label">MODEL:</span>
-                <span class="value" id="active-model">dolphin-mixtral</span>
+                <span class="value" id="active-model">phi3:mini</span>
             </div>
         </div>
 
@@ -285,7 +285,7 @@
                     <div class="setting-group">
                         <label>Pull New Model</label>
                         <div class="input-with-action">
-                            <input type="text" id="pull-model-name" placeholder="e.g. dolphin-mixtral, llama3, mistral" class="setting-input" />
+                            <input type="text" id="pull-model-name" placeholder="e.g. phi4-mini:3.8b, gemma3:4b, qwen2.5:3b" class="setting-input" />
                             <button class="btn btn-small" id="pull-model-btn">PULL</button>
                         </div>
                         <div id="pull-progress" class="pull-progress"></div>
@@ -323,6 +323,18 @@
                     <div class="setting-group">
                         <label>Ollama Status</label>
                         <div id="ollama-status" class="status-box">Checking...</div>
+                    </div>
+
+                    <div class="settings-section-divider">── OLLAMA INTEL GPU ──</div>
+
+                    <div class="setting-group">
+                        <label>Intel GPU Quick-Connect</label>
+                        <small>Connect to <a href="https://github.com/Crashcart/Ollama-intelgpu" target="_blank" rel="noopener" style="color:#0f0;">Crashcart/Ollama-intelgpu</a> running on this machine or another host (Intel Arc, Iris Xe, integrated graphics).</small>
+                        <div class="input-with-action" style="margin-top:6px;">
+                            <input type="text" id="intelgpu-ollama-url" placeholder="http://localhost:11434" value="http://localhost:11434" class="setting-input" style="flex:3;" />
+                            <button class="btn btn-small" id="intelgpu-use-btn">USE</button>
+                        </div>
+                        <small>Clicking USE sets this as the primary Ollama instance. Default port is 11434.</small>
                     </div>
 
                     <div class="settings-section-divider">── GEMINI ──</div>
@@ -454,10 +466,14 @@
                     <div class="setting-group">
                         <label>LLM Model Selection</label>
                         <select id="llm-model-selector" class="setting-input">
-                            <option value="dolphin-mixtral">Dolphin Mixtral ⭐</option>
-                            <option value="neural-chat:7b">Neural Chat 7B ⭐</option>
+                            <option value="phi4-mini:3.8b">Phi-4 Mini 3.8B (~2.5 GiB) ⭐</option>
+                            <option value="phi3:mini">Phi-3 Mini (~2.2 GiB) ⭐</option>
+                            <option value="gemma3:4b">Gemma 3 4B (~3 GiB) ⭐</option>
+                            <option value="qwen2.5:3b">Qwen 2.5 3B (~2 GiB)</option>
+                            <option value="llama3.2:3b">Llama 3.2 3B (~2 GiB)</option>
+                            <option value="tinyllama">TinyLlama (~637 MiB)</option>
                         </select>
-                        <small>Choose the AI model for processing queries</small>
+                        <small>Choose the AI model for processing queries (optimised for low-end systems)</small>
                     </div>
 
                     <div class="setting-group">

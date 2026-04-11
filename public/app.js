@@ -29,11 +29,12 @@ class KaliHackerBot {
         this.plugins = new Map();
         this.enabledPlugins = [];
         this.defaultModels = [
-            { id: 'phi3:mini', name: 'Phi-3 Mini (lightweight, ~2.2 GiB)', recommended: true },
-            { id: 'tinyllama', name: 'TinyLlama (~637 MiB)', recommended: true },
-            { id: 'llama3.2:3b', name: 'Llama 3.2 3B (~2 GiB)', recommended: true },
-            { id: 'dolphin-mixtral', name: 'Dolphin Mixtral (requires ~24.8 GiB RAM)', recommended: false },
-            { id: 'neural-chat:7b', name: 'Neural Chat 7B', recommended: false }
+            { id: 'phi4-mini:3.8b', name: 'Phi-4 Mini 3.8B (~2.5 GiB, great reasoning)', recommended: true },
+            { id: 'phi3:mini', name: 'Phi-3 Mini (~2.2 GiB, proven lightweight)', recommended: true },
+            { id: 'gemma3:4b', name: 'Gemma 3 4B (~3 GiB, excellent quality)', recommended: true },
+            { id: 'qwen2.5:3b', name: 'Qwen 2.5 3B (~2 GiB, strong coding)', recommended: true },
+            { id: 'llama3.2:3b', name: 'Llama 3.2 3B (~2 GiB, well-rounded)', recommended: true },
+            { id: 'tinyllama', name: 'TinyLlama (~637 MiB, ultra-lightweight)', recommended: true }
         ];
 
         this.initializeElements();
@@ -162,6 +163,8 @@ class KaliHackerBot {
         this.newOllamaHostInput = document.getElementById('new-ollama-host');
         this.newOllamaPortInput = document.getElementById('new-ollama-port');
         this.addOllamaInstanceBtn = document.getElementById('add-ollama-instance-btn');
+        this.intelGpuUrlInput = document.getElementById('intelgpu-ollama-url');
+        this.intelGpuUseBtn = document.getElementById('intelgpu-use-btn');
 
         // Network scan
         this.networkScanToggle = document.getElementById('network-scan-toggle');
@@ -296,6 +299,9 @@ class KaliHackerBot {
 
         if (this.addOllamaInstanceBtn) {
             this.addOllamaInstanceBtn.addEventListener('click', () => this.addOllamaInstance());
+        }
+        if (this.intelGpuUseBtn) {
+            this.intelGpuUseBtn.addEventListener('click', () => this.useIntelGpuOllama());
         }
         if (this.newOllamaHostInput) {
             this.newOllamaHostInput.addEventListener('keydown', (e) => {
@@ -1760,6 +1766,22 @@ Keep it under 150 words. Be educational and specific.`;
             `;
             this.ollamaInstancesList.appendChild(row);
         });
+    }
+
+    async useIntelGpuOllama() {
+        const url = (this.intelGpuUrlInput && this.intelGpuUrlInput.value.trim()) || 'http://localhost:11434';
+        try {
+            const response = await this.apiCall('POST', '/api/ollama/config', { url });
+            if (response.success) {
+                this.ollamaUrl = response.url;
+                this.saveUserSettings();
+                this.addIntelligenceMessage(`✓ Intel GPU Ollama set as primary: ${response.url}`, 'green');
+                this.loadOllamaInstances();
+                this.checkOllamaStatus();
+            }
+        } catch (err) {
+            this.addIntelligenceMessage(`❌ Failed to set Intel GPU Ollama: ${err.message}`, 'red');
+        }
     }
 
     async addOllamaInstance() {
