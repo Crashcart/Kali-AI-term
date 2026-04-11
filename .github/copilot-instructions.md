@@ -14,12 +14,14 @@ You are an **Enterprise Autonomous AI Software Engineer**. Your mission: methodi
 
 ### FULL WORKFLOW (Run to completion, no pauses)
 
+0. **PLANNING** — Planning Agent triages issue, writes `TODO.md` + `PLANNING.md`, defines acceptance criteria, flags conflict-risk files
 1. **DISCOVERY** — Read ALL issue comments, identify CRITICAL tickets, detect duplicates, post clarifications
 2. **PHASE 0** — Repository verification
 3. **PHASE 1** — Environment prep (feature branch, pull latest, scan, build)
 4. **PHASE 2** — Documentation sync (commit + push + request PR)
 5. **PHASE 3** — Implementation (push-on-edit, request PR after every push)
 6. **PHASE 4** — Final PR & human merge request (**NEVER auto-merge**)
+7. **END-OF-CODE REVIEW** — Code Review Gate workflow runs automatically on every PR; Code Review Agent validates against acceptance criteria in `PLANNING.md`
 
 ---
 
@@ -298,6 +300,57 @@ Before starting any implementation work:
 8. **Update `PLANNING.md`** with approach
 
 **Why:** Ensures no wasted work on duplicates, prioritizes impact, maintains visibility
+
+---
+
+## 🗺️ PLANNING PHASE — Planning Agent
+
+**Applies to:** Before any implementation begins
+
+The **Planning Agent** (`.github/agents/planning.agent.md`) is the **first agent invoked** on every issue. It produces the structured plan that all other agents execute against.
+
+### Planning Agent Responsibilities
+
+1. **Triage** the selected issue: assign tier, read all comments, document assumptions
+2. **Decompose** into ordered subtasks with complexity estimates and acceptance criteria
+3. **Assess risk**: flag conflict-prone files, security impact, regression risk, breaking changes
+4. **Pre-detect conflicts**: check for divergence between the feature branch and `main` before code is written
+5. **Write `PLANNING.md`**: approach, subtask table, risk assessment, decisions log, open questions
+6. **Write `TODO.md`**: all subtasks with status `not-started`, agent assignments, and priorities
+7. **Post handoff package** to the issue so all agents share the same plan
+
+### Agent Invocation Order
+
+```
+Planning Agent
+    │
+    ├─► Enterprise Workflow Agent  — executes full 4-phase workflow
+    │       └─► reads TODO.md + PLANNING.md at session start
+    │
+    ├─► Program Agent              — implements subtasks
+    │       └─► reads acceptance criteria before coding
+    │
+    ├─► Code Review Agent          — end-of-code review after every session
+    │       └─► triggered automatically by code-review-gate.yml on every PR
+    │
+    └─► Debug Agent                — fixes failures surfaced by Code Review
+            └─► reads PLANNING.md risk section for context
+```
+
+### End-of-Code Review (Automated)
+
+The `code-review-gate.yml` GitHub Actions workflow runs **automatically on every PR** against `main` or `test`. It performs:
+
+| Job | What It Does |
+|-----|-------------|
+| **Conflict Detection** | Dry-run merge against target branch; posts conflict details + fails PR if conflicts exist |
+| **Static Code Review** | ESLint, Prettier, `npm audit`, secret scan; posts summary comment on PR |
+| **Test Suite** | Unit + integration tests with coverage upload |
+| **Planning Docs Check** | Warns if `TODO.md` or `PLANNING.md` were not updated in the PR |
+
+**No PR may be merged if the Conflict Detection or Static Code Review jobs fail.**
+
+**Why:** Planning before coding eliminates wasted effort, surfaces conflicts early, and ensures every agent has clear acceptance criteria to validate against.
 
 ---
 

@@ -1,17 +1,35 @@
 # 📊 Kali-AI-term Strategic Planning & Coordination
 
-**Last Updated**: 2026-04-11 04:30:51 UTC  
+**Last Updated**: 2026-04-11 05:30:05 UTC  
 **Document Purpose**: Centralized planning for multi-agent coordination, architectural decisions, and project context
 
 ---
 
 ## 🎯 Active Initiatives
 
-### PR #77: Merge Conflict Resolution
+### Planning Agent + Code Review Gate (copilot/add-planning-agent-to-github)
 
-**Status**: 🔴 **In Progress** — Branch `copilot/resolve-pull-request-conflicts`  
-**Assigned To**: GitHub Copilot  
-**Progress**: 0% — Fetch + merge still required (bash access required)
+**Status**: ✅ **Complete** — PR ready for human review  
+**Branch**: `copilot/add-planning-agent-to-github`  
+**Assigned To**: GitHub Copilot Task Agent  
+
+**Summary**: Added a well-rounded Planning Agent and an automated Code Review Gate workflow to make planning and end-of-code review a structured part of every development session.
+
+**Changes Made**:
+- `.github/agents/planning.agent.md` — New Planning Agent: triage, decomposition, risk assessment, conflict pre-detection, handoff packages
+- `.github/workflows/code-review-gate.yml` — New 4-job CI workflow: conflict detection, static code review (ESLint + Prettier + audit + secrets), test suite, planning docs check
+- `.github/pull_request_template.md` — Added Planning Agent sign-off + End-of-Code Review sections
+- `.github/copilot-instructions.md` — Added `🗺️ PLANNING PHASE` section; updated FULL WORKFLOW to include step 0 (Planning) and step 7 (End-of-Code Review)
+- `TODO.md` / `PLANNING.md` — Updated this session
+
+**Decisions Log**:
+- [2026-04-11 05:30] Planning Agent created as a dedicated `.github/agents/` file (consistent with existing agent pattern: enterprise-workflow, program, debug, code-review)
+- [2026-04-11 05:30] `code-review-gate.yml` uses 4 jobs (conflict-check → static-review + test-suite + planning-docs-check) so conflict check gates the other jobs via `needs:`
+- [2026-04-11 05:30] Conflict detection uses `git worktree` dry-run merge to avoid polluting the working checkout
+- [2026-04-11 05:30] ESLint failure is a hard gate; Prettier and audit failures post warnings but static-review job fails on ESLint only (matching existing project stance in lint.yml)
+- [2026-04-11 05:30] Planning docs check is a warning (not a hard gate) to avoid blocking pure hotfix PRs that don't need planning updates
+
+
 
 **Background**:
 - PR #77 has merge conflicts with `main` (https://github.com/Crashcart/Kali-AI-term/pull/77/conflicts)
