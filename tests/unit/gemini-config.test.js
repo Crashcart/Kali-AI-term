@@ -96,16 +96,16 @@ function createTestApp({ withGeminiProvider = true } = {}) {
   app.post('/api/gemini/config', authenticate, (req, res) => {
     const { apiKey, model } = req.body;
 
-    if (!apiKey && !model) {
-      return res.status(400).json({ error: 'apiKey or model is required' });
-    }
-
     if (apiKey !== undefined && (typeof apiKey !== 'string' || apiKey.trim() === '')) {
       return res.status(400).json({ error: 'apiKey must be a non-empty string' });
     }
 
     if (model !== undefined && (typeof model !== 'string' || model.trim() === '')) {
       return res.status(400).json({ error: 'model must be a non-empty string' });
+    }
+
+    if (!apiKey && !model) {
+      return res.status(400).json({ error: 'apiKey or model is required' });
     }
 
     let geminiProvider = orchestrator.getProvider('gemini');
