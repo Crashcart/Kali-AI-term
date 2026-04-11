@@ -1888,7 +1888,7 @@ async function checkOllamaHealth() {
 // ============================================
 
 app.post('/api/autonomous/plan', authenticate, async (req, res) => {
-  const { target } = req.body;
+  const { target, model } = req.body;
 
   if (!target || typeof target !== 'string') {
     return res.status(400).json({ error: 'Target required' });
@@ -1936,6 +1936,7 @@ For each bestPractice write 2-3 sentences explaining WHY the technique is used, 
     const result = await orchestrator.generate(planPrompt, {
       systemPrompt: SYSTEM_PROMPT,
       temperature: 0.2,
+      model: (typeof model === 'string' && model.trim()) ? model.trim() : DEFAULT_MODEL,
     });
 
     const raw = (result && result.response) || '';
