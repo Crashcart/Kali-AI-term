@@ -134,8 +134,104 @@ const docker = new Docker(dockerOptions);
 // Initialize database
 db.initializeDatabase();
 
+// Run 3-day retention cleanup on startup, then every 6 hours
+db.cleanupStaleHosts();
+db.cleanupExpiredSessions();
+setInterval(() => { db.cleanupStaleHosts(); db.cleanupExpiredSessions(); }, 6 * 60 * 60 * 1000);
+
 // Active exec processes (for kill switch)
 const activeProcesses = new Map();
+
+// ============================================
+// HOST DB API ENDPOINTS (core feature)
+// ============================================
+
+// GET /api/hosts — list all saved hosts
+app.get('/api/hosts', authenticate, (req, res) => {
+  try {
+    const hosts = db.getAllHosts();
+    res.json({ success: true, hosts });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/hosts/:ip — full host details + ports
+app.get('/api/hosts/:ip', authenticate, (req, res) => {
+  const ip = req.params.ip;
+  if (!/^[a-zA-Z0-9.\-_]+$/.test(ip) || ip.length > 253) {
+    return res.status(400).json({ error: 'Invalid IP/hostname' });
+  }
+  try {
+    const host = db.getHost(ip);
+    if (!host) return res.status(404).json({ error: 'Host not found' });
+    res.json({ success: true, host });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/hosts — manually add/update a host
+app.post('/api/hosts', authenticate, (req, res) => {
+  const { ip, hostname, os, status, notes } = req.body;
+  if (!ip || typeof ip !== 'string' || !/^[a-zA-Z0-9.\-_]+$/.test(ip) || ip.length > 253) {
+    return res.status(400).json({ error: 'Valid IP or hostname required' });
+  }
+  try {
+    db.upsertHost(ip, { hostname, os, status: status || 'up' });
+    if (notes !== undefined) db.updateHostNotes(ip, notes);
+    res.json({ success: true, host: db.getHost(ip) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/hosts/:ip — update notes for a host
+app.put('/api/hosts/:ip', authenticate, (req, res) => {
+  const ip = req.params.ip;
+  if (!/^[a-zA-Z0-9.\-_]+$/.test(ip) || ip.length > 253) {
+    return res.status(400).json({ error: 'Invalid IP/hostname' });
+  }
+  const { notes, hostname, os, status } = req.body;
+  try {
+    db.upsertHost(ip, { hostname, os, status });
+    if (notes !== undefined) db.updateHostNotes(ip, notes);
+    const host = db.getHost(ip);
+    if (!host) return res.status(404).json({ error: 'Host not found' });
+    res.json({ success: true, host });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/hosts/:ip — delete a host record
+app.delete('/api/hosts/:ip', authenticate, (req, res) => {
+  const ip = req.params.ip;
+  if (!/^[a-zA-Z0-9.\-_]+$/.test(ip) || ip.length > 253) {
+    return res.status(400).json({ error: 'Invalid IP/hostname' });
+  }
+  try {
+    const result = db.deleteHost(ip);
+    if (result.changes === 0) return res.status(404).json({ error: 'Host not found' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/hosts/parse-nmap — parse raw nmap output and auto-save hosts
+app.post('/api/hosts/parse-nmap', authenticate, (req, res) => {
+  const { output } = req.body;
+  if (!output || typeof output !== 'string') {
+    return res.status(400).json({ error: 'output required' });
+  }
+  try {
+    const saved = db.parseAndSaveNmapOutput(output);
+    res.json({ success: true, saved });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ============================================
 // SANDBOX INFRASTRUCTURE (Issue #44)
@@ -481,7 +577,7 @@ app.post('/api/auth/login', (req, res) => {
 
   const sessionId = uuidv4();
   const token = Buffer.from(`${sessionId}:${AUTH_SECRET}`).toString('base64');
-  const expiresAt = new Date(Date.now() + (24 * 60 * 60 * 1000));
+  const expiresAt = new Date(Date.now() + (3 * 24 * 60 * 60 * 1000)); // 3-day rule
 
   // Save session to database
   db.createSession(sessionId, token, AUTH_SECRET, expiresAt.toISOString());
@@ -594,6 +690,11 @@ app.post('/api/docker/exec', authenticate, async (req, res) => {
 
       // Store command in database
       db.addCommand(req.sessionId, command, durationSeconds, output, '', !timedOut);
+
+      // Auto-save discovered hosts if this looks like an nmap command
+      if (/^\s*nmap\b/i.test(command) && output.includes('Nmap scan report')) {
+        try { db.parseAndSaveNmapOutput(output); } catch (_) {}
+      }
 
       res.json({
         success: true,

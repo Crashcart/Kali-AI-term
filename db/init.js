@@ -545,6 +545,16 @@ module.exports = {
   cleanupExpiredSessions,
   healthCheck,
 
+  // Host functions (core — 3-day retention rule)
+  upsertHost,
+  upsertHostPort,
+  getHost,
+  getAllHosts,
+  updateHostNotes,
+  deleteHost,
+  cleanupStaleHosts,
+  parseAndSaveNmapOutput,
+
   // Session functions
   createSession,
   getSession,

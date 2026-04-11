@@ -287,9 +287,6 @@ class KaliHackerBot {
             btn.addEventListener('click', (e) => this.switchSettingsTab(e.target.dataset.tab));
         });
 
-        // Panel resizer
-        this.setupPanelResizer();
-
         // Global keyboard shortcuts
         document.addEventListener('keydown', (e) => this.handleGlobalShortcuts(e));
 
@@ -300,6 +297,7 @@ class KaliHackerBot {
                 this.confirmModal.classList.remove('active');
                 this.settingsModal.classList.remove('active');
                 this.notepadModal.classList.remove('active');
+                if (this.hostsModal) this.hostsModal.classList.remove('active');
             }
         });
 
@@ -538,18 +536,6 @@ class KaliHackerBot {
         this.localIPDisplay.value = this.localIP;
         this.listeningPortDisplay.value = this.listeningPort;
         this.activeModelDisplay.textContent = this.ollamaModel;
-        this.intelPanel.style.flex = this.panelSplitRatio;
-        this.wirePanel.style.flex = 1 - this.panelSplitRatio;
-
-        if (this.quickCmdsCollapsed) {
-            this.qcBody.classList.add('collapsed');
-        }
-
-        if (this.livePipe) {
-            this.livePipeBtn.classList.add('active');
-            this.modeIndicator.textContent = '⚡';
-            this.modeIndicator.title = 'Mode: Direct Execution';
-        }
 
         this.loadSessionNotes();
         this.loadCommandHistory();

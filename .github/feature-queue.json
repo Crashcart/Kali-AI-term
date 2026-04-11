@@ -1,0 +1,50 @@
+{
+  "_comment": "Feature freeze queue. New features are frozen for 3 days before processing. Managed by .github/workflows/process-features.yml",
+  "freezeDays": 3,
+  "features": [
+    {
+      "id": "unified-chat-command",
+      "title": "Unified chat + command window",
+      "description": "Single input bar that handles both natural-language AI chat and shell commands. Removes separate wire stream panel.",
+      "status": "done",
+      "frozenAt": "2026-04-11T09:00:00.000Z",
+      "unfreezeAt": "2026-04-14T09:00:00.000Z",
+      "completedAt": "2026-04-11T09:10:11.960Z",
+      "branch": "copilot/add-chat-window-feature",
+      "issueRef": null
+    },
+    {
+      "id": "gemini-status-led",
+      "title": "Gemini connection LED in top bar",
+      "description": "Status LED that shows whether the Gemini AI provider is connected, alongside the existing Docker/Ollama/Target LEDs.",
+      "status": "done",
+      "frozenAt": "2026-04-11T09:00:00.000Z",
+      "unfreezeAt": "2026-04-14T09:00:00.000Z",
+      "completedAt": "2026-04-11T09:10:11.960Z",
+      "branch": "copilot/add-chat-window-feature",
+      "issueRef": null
+    },
+    {
+      "id": "ui-declutter",
+      "title": "Declutter UI — remove quick commands, wire panel, extra buttons",
+      "description": "Remove quick-commands palette, live-wire panel, auto-pilot/live-pipe toggles, burn/notepad/report/export buttons. Simplify to core essentials.",
+      "status": "done",
+      "frozenAt": "2026-04-11T09:00:00.000Z",
+      "unfreezeAt": "2026-04-14T09:00:00.000Z",
+      "completedAt": "2026-04-11T09:10:11.960Z",
+      "branch": "copilot/add-chat-window-feature",
+      "issueRef": null
+    },
+    {
+      "id": "host-db-persistence",
+      "title": "Host details saved to DB (3-day retention)",
+      "description": "hosts + host_ports tables at top of schema (processed first). Auto-parse nmap output and persist discovered hosts/ports. 3-day last_seen retention cleanup. API routes: GET/POST/PUT/DELETE /api/hosts.",
+      "status": "in-progress",
+      "frozenAt": "2026-04-11T09:00:00.000Z",
+      "unfreezeAt": "2026-04-14T09:00:00.000Z",
+      "completedAt": null,
+      "branch": "copilot/add-chat-window-feature",
+      "issueRef": null
+    }
+  ]
+}

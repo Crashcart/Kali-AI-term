@@ -46,6 +46,7 @@
                 </div>
             </div>
             <div class="top-actions">
+                <button class="btn-icon" id="hosts-btn" title="Saved Hosts">🖥️</button>
                 <button class="btn-icon" id="fullscreen-btn" title="Toggle Fullscreen (F11)">⛶</button>
                 <button class="btn-icon" id="settings-btn" title="Settings (Ctrl+,)">⚙️</button>
             </div>
@@ -530,6 +531,20 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
+        <!-- Hosts Modal -->
+        <div class="modal" id="hosts-modal">
+            <div class="modal-content settings-content">
+                <div class="settings-header">
+                    <h2>🖥️ SAVED HOSTS <span id="hosts-retention-note" style="font-size:0.7em;color:#888;">(3-day retention)</span></h2>
+                    <button class="btn-small" id="close-hosts">×</button>
+                </div>
+                <div id="hosts-list" style="overflow-y:auto;max-height:400px;margin-bottom:12px;"></div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" id="refresh-hosts-btn">🔄 REFRESH</button>
+                </div>
+            </div>
+        </div>
+
+        <script src="app.js"></script>
 </body>
 </html>
