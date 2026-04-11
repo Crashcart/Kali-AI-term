@@ -906,7 +906,10 @@ Format: <one-liner command suggestion>`;
 
         let plan;
         try {
-            const response = await this.apiCall('POST', '/api/autonomous/plan', { target });
+            const response = await this.apiCall('POST', '/api/autonomous/plan', {
+                target,
+                model: this.ollamaModel,
+            });
             plan = response.plan;
         } catch (err) {
             this.addIntelligenceMessage(`❌ Failed to generate plan: ${err.message}`, 'red');
