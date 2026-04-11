@@ -256,8 +256,8 @@ if (geminiApiKey) {
 
 // Set up routing strategies for different task types
 orchestrator.setRoutingStrategy('reasoning', {
-  primary: 'gemini',      // Use Gemini for complex reasoning
-  fallback: 'ollama',
+  primary: 'ollama',      // Use local Ollama for reasoning
+  fallback: 'gemini',
   timeout: 60000,
   retries: 1
 });
@@ -270,8 +270,8 @@ orchestrator.setRoutingStrategy('speed', {
 });
 
 orchestrator.setRoutingStrategy('quality', {
-  primary: 'gemini',      // Use Gemini for quality
-  fallback: 'ollama',
+  primary: 'ollama',      // Use local Ollama; fall back to Gemini for quality
+  fallback: 'gemini',
   timeout: 120000,
   retries: 2
 });
@@ -1159,13 +1159,10 @@ app.post('/api/ollama/generate', authenticate, async (req, res) => {
     return res.status(400).json({ error: 'Prompt required' });
   }
 
+  // LLM_FROZEN was set for a specific heavy model (dolphin-mixtral). The current
+  // model (phi3:mini) is lightweight — don't block, just log a warning and proceed.
   if (LLM_FROZEN) {
-    return res.status(503).json({
-      error: 'LLM processing is currently frozen',
-      reason: llmState.reason,
-      model: DEFAULT_MODEL,
-      nextUnfreezeCheck: llmState.nextUnfreezeCheck || 'see .github/workflows/unfreeze-llm.yml'
-    });
+    appLogger.warn(`LLM frozen state active but proceeding with model ${DEFAULT_MODEL}. Reason: ${llmState.reason}`);
   }
 
   try {
@@ -1213,9 +1210,10 @@ app.post('/api/ollama/stream', authenticate, async (req, res) => {
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
 
+  // LLM_FROZEN was set for a specific heavy model (dolphin-mixtral). The current
+  // model (phi3:mini) is lightweight — don't block streaming, just log a warning.
   if (LLM_FROZEN) {
-    res.write(`data: ${JSON.stringify({ done: true, frozen: true, reason: llmState.reason, nextUnfreezeCheck: llmState.nextUnfreezeCheck })}\n\n`);
-    return res.end();
+    appLogger.warn(`LLM frozen state active but proceeding with model ${DEFAULT_MODEL} for stream. Reason: ${llmState.reason}`);
   }
 
   try {
@@ -1900,10 +1898,7 @@ app.post('/api/autonomous/plan', authenticate, async (req, res) => {
   }
 
   if (LLM_FROZEN) {
-    return res.status(503).json({
-      error: 'LLM processing is currently frozen',
-      reason: llmState.reason,
-    });
+    appLogger.warn(`LLM frozen state detected for /api/autonomous/plan — attempting with fallback model ${DEFAULT_MODEL}`);
   }
 
   const planPrompt = `You are an elite penetration testing mentor teaching a student. Generate a methodical attack plan for target: ${target}

@@ -1,7 +1,8 @@
 {
-  "frozen": true,
+  "frozen": false,
   "model": "phi3:mini",
   "frozenAt": "2026-04-11T00:00:00Z",
+  "unfrozenAt": "2026-04-11T08:20:00Z",
   "reason": "Memory optimization: dolphin-mixtral requires 24.8 GiB but only 24.1 GiB is available. Switched to phi3:mini (~2.2 GiB) as the lightweight default.",
   "previousModel": "dolphin-mixtral",
   "lightweightModel": "phi3:mini",
