@@ -790,6 +790,79 @@ app.get('/api/ollama/config', authenticate, (req, res) => {
   res.json({ url: OLLAMA_URL });
 });
 
+// ============================================
+// GEMINI API SETTINGS ENDPOINTS
+// ============================================
+
+/**
+ * GET /api/gemini/config
+ * Return current Gemini provider configuration.
+ * The API key value is never returned; only whether one is set.
+ */
+app.get('/api/gemini/config', authenticate, (req, res) => {
+  const geminiProvider = orchestrator.getProvider('gemini');
+  const configured = !!geminiProvider;
+  const model = geminiProvider ? geminiProvider.model : null;
+  const apiKeySet = configured ? !!geminiProvider.apiKey : false;
+
+  res.json({
+    success: true,
+    configured,
+    apiKeySet,
+    model: model || null
+  });
+});
+
+/**
+ * POST /api/gemini/config
+ * Update Gemini API key and/or model at runtime.
+ * Body: { apiKey?: string, model?: string }
+ */
+app.post('/api/gemini/config', authenticate, (req, res) => {
+  const { apiKey, model } = req.body;
+
+  if (!apiKey && !model) {
+    return res.status(400).json({ error: 'apiKey or model is required' });
+  }
+
+  if (apiKey !== undefined && (typeof apiKey !== 'string' || apiKey.trim() === '')) {
+    return res.status(400).json({ error: 'apiKey must be a non-empty string' });
+  }
+
+  if (model !== undefined && (typeof model !== 'string' || model.trim() === '')) {
+    return res.status(400).json({ error: 'model must be a non-empty string' });
+  }
+
+  let geminiProvider = orchestrator.getProvider('gemini');
+
+  if (!geminiProvider) {
+    // Create the provider if it doesn't exist yet (e.g. no GEMINI_API_KEY at startup)
+    if (!apiKey) {
+      return res.status(400).json({ error: 'apiKey is required to initialise the Gemini provider' });
+    }
+    geminiProvider = new GeminiProvider(apiKey.trim(), appLogger);
+    orchestrator.registerProvider('gemini', geminiProvider);
+    appLogger.info('Gemini provider created via /api/gemini/config');
+  } else {
+    if (apiKey) {
+      geminiProvider.setApiKey(apiKey.trim());
+      appLogger.info('Gemini API key updated via /api/gemini/config');
+    }
+  }
+
+  if (model) {
+    geminiProvider.setModel(model.trim());
+    appLogger.info(`Gemini model updated to ${model.trim()} via /api/gemini/config`);
+  }
+
+  res.json({
+    success: true,
+    configured: true,
+    apiKeySet: !!geminiProvider.apiKey,
+    model: geminiProvider.model
+  });
+});
+
 // ---- Ollama multi-instance management ----
 
 /**
