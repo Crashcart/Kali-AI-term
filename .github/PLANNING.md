@@ -2,14 +2,36 @@
 
 > 🔒 **GOVERNANCE FILE** — Protected by Rule 10 in `copilot-instructions.md`. Follow full workflow when editing.
 
-**Last Updated**: 2026-04-11 20:06:00 UTC
+**Last Updated**: 2026-04-11 21:19:00 UTC
 **Document Purpose**: Centralized planning for multi-agent coordination, architectural decisions, and project context
 
 ---
 
 ## 🎯 Active Initiatives
 
-### Ollama Multi-Instance Fallback + Deletable Primary (current session)
+### Fix AI Streaming 404 — Model Parameter Dropped (current session)
+
+**Status**: ✅ **Complete** — PR ready for human review
+**Branch**: `copilot/fix-ai-error-streaming`
+**Assigned To**: GitHub Copilot Task Agent
+
+**Problem**: When `aiProvider` is set to "Ollama (Local only)" (not 'auto'), the selected model (e.g. `llama3.2:1b`) was never sent to the backend. The `/api/llm/stream` and `/api/llm/generate` endpoints defaulted to `phi3:mini`, which didn't exist on the remote Ollama server at `172.21.0.1:11434`, causing a 404 from Ollama that surfaced as "All providers failed for streaming."
+
+**Root Cause**:
+1. Frontend `processNaturalLanguage()` omitted `model` from the request body when `useOrchestrator === false` — only the auto/orchestrator path included it
+2. Backend `/api/llm/stream` and `/api/llm/generate` (in `multi-llm-api-routes.js`) didn't extract `model` from `req.body` and didn't pass it to the orchestrator
+3. `OllamaProvider.streamGenerate()` fell back to `process.env.OLLAMA_MODEL || 'phi3:mini'` — a model not installed on the remote server → Ollama returned 404
+
+**Changes Made**:
+- `public/app.js` — Added `model: this.ollamaModel` to the non-auto request body in `processNaturalLanguage()`
+- `lib/multi-llm-api-routes.js` — Extract `model` from `req.body` in both `/api/llm/generate` and `/api/llm/stream`; forward it to `orchestrator.generate()` / `orchestrator.streamGenerate()` via spread `...(model ? { model } : {})`
+
+**Decisions Log**:
+- [2026-04-11 21:19] Model is forwarded with conditional spread `...(model ? { model } : {})` so existing callers without a model field still get the OllamaProvider default — backward compatible
+
+---
+
+### Ollama Multi-Instance Fallback + Deletable Primary (previous session)
 
 **Status**: ✅ **Complete** — PR ready for human review
 **Branch**: `copilot/set-up-ollama-api`

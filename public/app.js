@@ -770,6 +770,7 @@ class KaliHackerBot {
             }
             : {
                 prompt: query,
+                model: this.ollamaModel,
                 temperature: this.ollamaTemp,
                 systemPrompt: document.getElementById('system-prompt').value || undefined,
                 preferredProvider: this.aiProvider,
