@@ -14,14 +14,14 @@ You are an **Enterprise Autonomous AI Software Engineer**. Your mission: methodi
 
 ### FULL WORKFLOW (Run to completion, no pauses)
 
-0. **PLANNING** — Planning Agent triages issue, writes `TODO.md` + `PLANNING.md`, defines acceptance criteria, flags conflict-risk files
+0. **PLANNING** — Planning Agent triages issue, writes `.github/TODO.md` + `.github/PLANNING.md`, defines acceptance criteria, flags conflict-risk files
 1. **DISCOVERY** — Read ALL issue comments, identify CRITICAL tickets, detect duplicates, post clarifications
 2. **PHASE 0** — Repository verification
 3. **PHASE 1** — Environment prep (feature branch, pull latest, scan, build)
 4. **PHASE 2** — Documentation sync (commit + push + request PR)
 5. **PHASE 3** — Implementation (push-on-edit, request PR after every push)
 6. **PHASE 4** — Final PR & human merge request (**NEVER auto-merge**)
-7. **END-OF-CODE REVIEW** — Code Review Gate workflow runs automatically on every PR; Code Review Agent validates against acceptance criteria in `PLANNING.md`
+7. **END-OF-CODE REVIEW** — Code Review Gate workflow runs automatically on every PR; Code Review Agent validates against acceptance criteria in `.github/PLANNING.md`
 
 ---
 
@@ -197,8 +197,8 @@ After completing the highest-priority issue:
 
 **Every session MUST maintain these files:**
 
-- **`TODO.md`** — Active task list with status (`not-started` / `in-progress` / `completed`), priority, and assignee for every task
-- **`PLANNING.md`** — Session planning notes: current issue, approach, assumptions, open questions, decision log
+- **`.github/TODO.md`** — Active task list with status (`not-started` / `in-progress` / `completed`), priority, and assignee for every task
+- **`.github/PLANNING.md`** — Session planning notes: current issue, approach, assumptions, open questions, decision log
 
 ### TODO.md Format (Required)
 ```markdown
@@ -296,8 +296,8 @@ Before starting any implementation work:
    - Close duplicate with linking comment referencing the master
 5. **Post clarifying comments** on vague issues (even TIER 1 — proceed with assumptions)
 6. **Select highest-tier issue**
-7. **Update `TODO.md`** with full task breakdown
-8. **Update `PLANNING.md`** with approach
+7. **Update `.github/TODO.md`** with full task breakdown
+8. **Update `.github/PLANNING.md`** with approach
 
 **Why:** Ensures no wasted work on duplicates, prioritizes impact, maintains visibility
 
@@ -315,8 +315,8 @@ The **Planning Agent** (`.github/agents/planning.agent.md`) is the **first agent
 2. **Decompose** into ordered subtasks with complexity estimates and acceptance criteria
 3. **Assess risk**: flag conflict-prone files, security impact, regression risk, breaking changes
 4. **Pre-detect conflicts**: check for divergence between the feature branch and `main` before code is written
-5. **Write `PLANNING.md`**: approach, subtask table, risk assessment, decisions log, open questions
-6. **Write `TODO.md`**: all subtasks with status `not-started`, agent assignments, and priorities
+5. **Write `.github/PLANNING.md`**: approach, subtask table, risk assessment, decisions log, open questions
+6. **Write `.github/TODO.md`**: all subtasks with status `not-started`, agent assignments, and priorities
 7. **Post handoff package** to the issue so all agents share the same plan
 
 ### Agent Invocation Order
@@ -350,7 +350,7 @@ The `code-review-gate.yml` GitHub Actions workflow runs **automatically on every
 | **Conflict Detection** | Dry-run merge against target branch; posts conflict details + fails PR if conflicts exist |
 | **Static Code Review** | ESLint, Prettier, `npm audit`, secret scan; posts summary comment on PR |
 | **Test Suite** | Unit + integration tests with coverage upload |
-| **Planning Docs Check** | Warns if `TODO.md` or `PLANNING.md` were not updated in the PR |
+| **Planning Docs Check** | Warns if `.github/TODO.md` or `.github/PLANNING.md` were not updated in the PR |
 
 **No PR may be merged if the Conflict Detection or Static Code Review jobs fail.**
 
@@ -381,8 +381,8 @@ Verify the working environment before making changes:
 When starting work:
 
 ### Rule 1: Always Sync with Shared Planning Files
-- **BEFORE starting work**: Read both `TODO.md` and `PLANNING.md` in the repository root
-- **Track progress**: After each discrete task, update `TODO.md` immediately using the `manage_todo_list` tool
+- **BEFORE starting work**: Read both `.github/TODO.md` and `.github/PLANNING.md` in the `.github/` directory
+- **Track progress**: After each discrete task, update `.github/TODO.md` immediately using the `manage_todo_list` tool
 - **Mark status correctly**: 
   - `not-started` = haven't begun
   - `in-progress` = currently working (max 1 per agent)
@@ -392,8 +392,8 @@ When starting work:
 **Why:** Prevents duplicate work, maintains visibility, enables hand-offs between agents
 
 ### Rule 2: Planning Window for Multi-Step Work
-1. **FIRST**: Check `PLANNING.md` for any active context or prior decisions
-2. **SECOND**: If new planning needed, update `PLANNING.md` with:
+1. **FIRST**: Check `.github/PLANNING.md` for any active context or prior decisions
+2. **SECOND**: If new planning needed, update `.github/PLANNING.md` with:
    - Task name and issue reference
    - Approach/strategy and rationale
    - Known dependencies
@@ -401,7 +401,7 @@ When starting work:
 3. **THEN**: Create feature branch with proper naming
 4. **PULL** latest from origin
 5. **BEGIN** implementation with todo tracking
-6. **Update `TODO.md` status** to `in-progress`
+6. **Update `.github/TODO.md` status** to `in-progress`
 7. **Post**: `[PHASE 1/4] ✅ COMPLETE` on the issue
 
 **Why:** Enables continuity across agent handoffs, prevents strategy rework, keeps work traceable
@@ -415,7 +415,7 @@ When starting work:
 Ensure all documentation is current:
 
 1. **Review relevant docs** for context and consistency
-2. **Update `TODO.md` and `PLANNING.md`** with current task state
+2. **Update `.github/TODO.md` and `.github/PLANNING.md`** with current task state
 3. **Commit documentation changes**: Use `docs(domain):` prefix
 4. **🔴 PUSH IMMEDIATELY**: `git push origin <branch>`
 5. **Create PR immediately** for documentation changes
@@ -444,8 +444,8 @@ git push origin -u fix/issue-41
 
 ### Rule 3: Dependency Resolution
 If your work is blocked:
-- Update `TODO.md` status to `not-started` (unblock for next agent)
-- Add blocking reason to `PLANNING.md` under "Current Blockers" section
+- Update `.github/TODO.md` status to `not-started` (unblock for next agent)
+- Add blocking reason to `.github/PLANNING.md` under "Current Blockers" section
 - Document exact error/constraint with file paths and line numbers
 - Do NOT proceed with workarounds—flag for explicit human decision
 
@@ -533,7 +533,7 @@ After pushing code to origin, verify no merge conflicts exist with main:
      - Exact conflict location (file, lines)
      - Nature of conflict (content overlap, structural difference, etc.)
      - Your attempted changes that caused it
-   - Update `PLANNING.md` "Current Blockers" with full details
+   - Update `.github/PLANNING.md` "Current Blockers" with full details
    - **🔴 Post comment on ticket**:
      ```
      ⚠️ **MERGE CONFLICTS DETECTED**
@@ -572,7 +572,7 @@ After pushing code to origin, verify no merge conflicts exist with main:
 
 **Loop Step C: Escalate to Human (if needed)**
    - If conflict requires architectural/policy decision:
-     - Update `PLANNING.md`: "Awaiting human decision on [conflict]"
+     - Update `.github/PLANNING.md`: "Awaiting human decision on [conflict]"
      - Post on ticket: Request explicit human decision with options:
        ```
        🚨 **CONFLICT REQUIRES HUMAN DECISION**
@@ -596,7 +596,7 @@ After pushing code to origin, verify no merge conflicts exist with main:
      git pull --no-commit origin main
      # Should show: "Automatic merge went well" or "Already up to date"
      ```
-   - Update `PLANNING.md` "Current Blockers": Remove this conflict
+   - Update `.github/PLANNING.md` "Current Blockers": Remove this conflict
    - Post final comment on ticket:
      ```
      ✅ **CONFLICTS RESOLVED**
@@ -792,7 +792,7 @@ Before declaring a task done, verify:
 - ✅ No new errors detected
 - ✅ Code changes follow project patterns
 - ✅ Commits are logically grouped and well-documented
-- ✅ `PLANNING.md` updated with completion notes
+- ✅ `.github/PLANNING.md` updated with completion notes
 
 **Action if issues found**: 
 - Fix them immediately (same session if <30 min)
@@ -803,7 +803,7 @@ Before declaring a task done, verify:
 
 ### Rule 6: Communication via Files
 **For leaving notes for next agent:**
-- Update `PLANNING.md` "Handoff Notes" section
+- Update `.github/PLANNING.md` "Handoff Notes" section
 - Include: what you completed, what's next, any gotchas/lessons learned
 - Format: Clear bullet points, specific file references, example commands
 
@@ -864,7 +864,7 @@ Prepare the work for human review and merge:
 1. **Final commit + push** of any remaining changes
 2. **Ensure PR is up to date** with main branch
 3. **Verify all tests passing** locally and in CI
-4. **Update `TODO.md`** to mark all tasks complete
+4. **Update `.github/TODO.md`** to mark all tasks complete
 5. **Post final completion comment** on issue
 
 **Post message**:
@@ -936,8 +936,8 @@ Closes #[number]
 ### Session-Start Checklist (read these FIRST)
 | File | Why |
 |------|-----|
-| `TODO.md` | Current task list — understand what's in progress |
-| `PLANNING.md` | Session planning & decision log — understand context |
+| `.github/TODO.md` | Current task list — understand what's in progress |
+| `.github/PLANNING.md` | Session planning & decision log — understand context |
 | `.github/copilot-instructions.md` | These rules — re-read each session |
 
 ### Core Application Files (check for conflicts before editing)
@@ -996,10 +996,10 @@ Closes #[number]
 | `DIAGNOSTICS.md` | Diagnostic procedures |
 
 ### Rule: File Monitoring Protocol
-1. **Before every session**: Read `TODO.md` + `PLANNING.md` + `copilot-instructions.md`
+1. **Before every session**: Read `.github/TODO.md` + `.github/PLANNING.md` + `copilot-instructions.md`
 2. **Before editing any file**: Read its current state completely
 3. **After every change**: Verify no regressions in related monitored files
-4. **End of session**: Update `TODO.md` + `PLANNING.md` to reflect current state
+4. **End of session**: Update `.github/TODO.md` + `.github/PLANNING.md` to reflect current state
 
 ---
 
@@ -1141,13 +1141,13 @@ If an agent violates these rules:
 
 Before starting EVERY work session, print this checklist:
 
-- [ ] Read `TODO.md` - What's the current status?
-- [ ] Read `PLANNING.md` - Any blockers, handoffs, or decisions I need?
+- [ ] Read `.github/TODO.md` - What's the current status?
+- [ ] Read `.github/PLANNING.md` - Any blockers, handoffs, or decisions I need?
 - [ ] Read ALL ticket comments - What context do I need?
 - [ ] Re-check ticket comments after each new user update before proceeding
 - [ ] Verify my assigned task - Is it in the todo list with status `not-started`?
 - [ ] Mark task `in-progress` - Did I update the todo list?
-- [ ] Plan multi-step work - Should I update `PLANNING.md` first?
+- [ ] Plan multi-step work - Should I update `.github/PLANNING.md` first?
 - [ ] Complete work - Did I run tests and check for errors?
 - [ ] Mark task complete - Are blockers resolved, or should I flag them?
 - [ ] Commit properly - Did I use correct prefix and issue reference?
@@ -1162,8 +1162,8 @@ Before starting EVERY work session, print this checklist:
 
 ## 🔗 Related Documents
 
-- `TODO.md` - Current task tracking (root directory)
-- `PLANNING.md` - Strategic planning (root directory)
+- `.github/TODO.md` - Current task tracking
+- `.github/PLANNING.md` - Strategic planning
 - `.github/agents/` - Custom CI/CD agent definitions
 - `.github/agents/conflict-review.agent.md` - **Mandatory post-push conflict review (Rule 4a)**
 - `IMPLEMENTATION_COMPLETION_REPORT.md` - Project history

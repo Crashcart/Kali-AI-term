@@ -340,14 +340,29 @@ _initialUrls.forEach((url, idx) => {
 // Keep OLLAMA_URL in sync with the primary instance URL
 OLLAMA_URL = ollamaInstances.get('ollama')?.url || OLLAMA_URL;
 
-// Register Gemini provider (if API key is configured)
-const geminiApiKey = process.env.GEMINI_API_KEY;
-if (geminiApiKey) {
-  const geminiProvider = new GeminiProvider(geminiApiKey, appLogger);
+// Register Gemini provider — env var takes precedence; fall back to persisted config file
+const GEMINI_CONFIG_FILE = path.join(__dirname, 'config', 'gemini-config.json');
+let _geminiStartupKey = process.env.GEMINI_API_KEY || null;
+let _geminiStartupModel = process.env.GEMINI_MODEL || null;
+if (!_geminiStartupKey) {
+  try {
+    if (fs.existsSync(GEMINI_CONFIG_FILE)) {
+      const saved = JSON.parse(fs.readFileSync(GEMINI_CONFIG_FILE, 'utf8'));
+      _geminiStartupKey = saved.apiKey || null;
+      _geminiStartupModel = saved.model || _geminiStartupModel;
+      if (_geminiStartupKey) appLogger.info('Gemini API key loaded from config/gemini-config.json');
+    }
+  } catch (e) {
+    appLogger.warn(`Could not load config/gemini-config.json: ${e.message}`);
+  }
+}
+if (_geminiStartupKey) {
+  const geminiProvider = new GeminiProvider(_geminiStartupKey, appLogger);
+  if (_geminiStartupModel) geminiProvider.setModel(_geminiStartupModel);
   orchestrator.registerProvider('gemini', geminiProvider);
   appLogger.info(`✓ Gemini API provider registered`);
 } else {
-  appLogger.warn(`⚠ GEMINI_API_KEY not set. Gemini provider unavailable. Set it to enable hybrid reasoning.`);
+  appLogger.warn(`⚠ GEMINI_API_KEY not set. Gemini provider unavailable. Set it via Settings → AI/LLM → Gemini API Key.`);
 }
 
 // Set up routing strategies for different task types
@@ -954,6 +969,23 @@ app.post('/api/gemini/config', authenticate, (req, res) => {
   if (model) {
     geminiProvider.setModel(model.trim());
     appLogger.info(`Gemini model updated to ${model.trim()} via /api/gemini/config`);
+  }
+
+  // Persist key + model to config file so they survive server restarts
+  try {
+    const configDir = path.join(__dirname, 'config');
+    if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
+    const existing = fs.existsSync(GEMINI_CONFIG_FILE)
+      ? JSON.parse(fs.readFileSync(GEMINI_CONFIG_FILE, 'utf8'))
+      : {};
+    const toWrite = {
+      apiKey: apiKey ? apiKey.trim() : (existing.apiKey || geminiProvider.apiKey),
+      model: geminiProvider.model,
+    };
+    fs.writeFileSync(GEMINI_CONFIG_FILE, JSON.stringify(toWrite, null, 2), { mode: 0o600 });
+    appLogger.info('Gemini config persisted to config/gemini-config.json');
+  } catch (writeErr) {
+    appLogger.warn(`Could not persist Gemini config: ${writeErr.message}`);
   }
 
   res.json({
@@ -2004,76 +2036,124 @@ app.post('/api/autonomous/plan', authenticate, async (req, res) => {
     appLogger.warn(`LLM frozen state detected for /api/autonomous/plan — attempting with fallback model ${DEFAULT_MODEL}`);
   }
 
-  const planPrompt = `You are an elite penetration testing mentor teaching a student. Generate a methodical attack plan for target: ${target}
+  const planPrompt = `You are an elite penetration testing mentor teaching a student. Generate a comprehensive, methodical attack plan for target: ${target}
 
 Respond with ONLY valid JSON (no markdown fences, no text outside the JSON object). Use exactly this structure:
 {
   "target": "${target}",
   "phases": [
     {
-      "name": "Host Discovery",
-      "command": "nmap -sn ${target}",
-      "purpose": "Confirm the target is alive before scanning",
-      "bestPractice": "Always begin with a ping sweep. The -sn flag skips port scanning and only checks reachability, keeping noise low. If the host does not respond it may be blocking ICMP — try a TCP ping next.",
+      "name": "Passive Reconnaissance",
+      "command": "whois ${target} && dig ${target} ANY +noall +answer 2>/dev/null || echo 'DNS lookup complete'",
+      "purpose": "Gather public information before touching the target",
+      "bestPractice": "Passive recon leaves no trace on the target. Whois reveals registrar, owner, and name servers. DNS ANY queries can expose subdomains, mail servers, and TXT records such as SPF/DMARC that reveal cloud providers in use.",
       "continueOnFail": true
     }
   ]
 }
 
-Include exactly these 6 phases in order (substitute the real target IP/host for every placeholder):
-1. Host Discovery — nmap ping sweep
-2. Fast TCP Port Scan — nmap top 1000 TCP ports
-3. Service & Version Detection — nmap -sV on discovered open ports
-4. Default Script Scan — nmap -sC to run common NSE scripts
-5. OS Detection — nmap -O
-6. Web Service Fingerprint — whatweb or curl -I on port 80/443 if applicable
+Include exactly these 12 phases in order (substitute the real target IP/host for every occurrence of the placeholder):
+1.  Passive Reconnaissance      — whois + dig DNS enumeration (no packets to target)
+2.  Host Discovery              — nmap -sn ping sweep to confirm liveness
+3.  Fast TCP Port Scan          — nmap -T4 --top-ports 1000 for quick surface mapping
+4.  Full TCP Port Scan          — nmap -p- --min-rate 5000 to catch every open port
+5.  Service & Version Detection — nmap -sV -sC on all discovered open ports
+6.  OS & Aggressive Fingerprint — nmap -O -A for OS, traceroute, and deep scripts
+7.  UDP Top-Port Scan           — nmap -sU --top-ports 100 for DNS/SNMP/TFTP exposure
+8.  Vulnerability Scan          — nmap --script vuln combined with nikto -h on port 80/443
+9.  Web Enumeration             — wafw00f to detect WAF, then gobuster dir with dirb wordlist
+10. SMB & NetBIOS Enumeration   — nbtscan + enum4linux for Windows/Samba targets
+11. Exploit Research            — searchsploit on each discovered service and version string
+12. Credential Brute Force      — hydra against discovered SSH/FTP/HTTP services using rockyou
 
-For each bestPractice write 2-3 sentences explaining WHY the technique is used, what to look for in the output, and one pitfall to avoid. Speak as an experienced mentor.`;
+For each bestPractice write 2-3 sentences explaining WHY the technique is used, what to look for in the output, and one pitfall to avoid. Speak as an experienced mentor. Replace every placeholder in commands with the real target value.`;
 
   // Template plan used when AI generation fails or no provider is available
   const templatePlan = {
     target,
     phases: [
       {
+        name: 'Passive Reconnaissance',
+        command: `whois ${target} 2>/dev/null; dig ${target} ANY +noall +answer 2>/dev/null; dig ${target} MX +noall +answer 2>/dev/null; dig ${target} NS +noall +answer 2>/dev/null`,
+        purpose: 'Gather public information without sending packets to the target',
+        bestPractice: 'Passive recon is completely silent — no packets reach the target. Whois reveals registrar, owner contacts, and name servers. DNS lookups expose mail servers, subdomains, and TXT records (SPF/DMARC) that hint at cloud providers and infrastructure.',
+        continueOnFail: true
+      },
+      {
         name: 'Host Discovery',
         command: `nmap -sn ${target}`,
-        purpose: 'Confirm the target is alive before scanning',
-        bestPractice: 'Always begin with a ping sweep. The -sn flag skips port scanning and only checks reachability, keeping noise low. If the host does not respond it may be blocking ICMP — try a TCP ping next.',
+        purpose: 'Confirm the target is alive before investing time in deeper scans',
+        bestPractice: 'Always begin with a ping sweep. The -sn flag skips port scanning and checks only reachability, keeping noise low. If the host does not respond it may be blocking ICMP — follow up with nmap -PS80,443 or -PA80 for TCP-based liveness checks.',
         continueOnFail: true
       },
       {
         name: 'Fast TCP Port Scan',
-        command: `nmap -T4 --top-ports 1000 ${target}`,
-        purpose: 'Identify open TCP ports quickly',
-        bestPractice: 'The top 1000 ports cover ~95% of common services. Use -T4 for speed on local networks; drop to -T3 on slow or monitored links to avoid detection.',
+        command: `nmap -T4 --top-ports 1000 -oN /tmp/fast_scan_${target.replace(/[^a-zA-Z0-9]/g, '_')}.txt ${target}`,
+        purpose: 'Quickly map the most common open TCP ports to guide further work',
+        bestPractice: 'The top 1000 ports cover ~95% of real-world services and complete in seconds. Save results with -oN so later phases can reference discovered ports. Use -T3 instead of -T4 on slow or IDS-monitored links.',
+        continueOnFail: false
+      },
+      {
+        name: 'Full TCP Port Scan',
+        command: `nmap -p- --min-rate 5000 -oN /tmp/full_scan_${target.replace(/[^a-zA-Z0-9]/g, '_')}.txt ${target}`,
+        purpose: 'Discover services running on non-standard ports that fast scans miss',
+        bestPractice: 'Scanning all 65535 ports uncovers hidden admin panels, development servers, and backdoors on non-standard ports. --min-rate 5000 speeds it up significantly; reduce this on production networks to avoid packet loss causing false negatives.',
         continueOnFail: false
       },
       {
         name: 'Service & Version Detection',
-        command: `nmap -sV -p- ${target}`,
-        purpose: 'Identify exact services and versions on all ports',
-        bestPractice: 'Version detection (-sV) reveals exact software versions which can be cross-referenced with CVE databases. Scanning all ports (-p-) is slower but catches non-standard port assignments.',
+        command: `nmap -sV -sC -p- --open -oN /tmp/svc_scan_${target.replace(/[^a-zA-Z0-9]/g, '_')}.txt ${target}`,
+        purpose: 'Identify exact software names and versions running on every open port',
+        bestPractice: 'Exact version strings are the key to CVE lookup. -sC layers default NSE scripts on top of version detection — they check for anonymous FTP, SSL cert details, HTTP titles, and dozens more misconfigurations in a single pass. Look for end-of-life software versions.',
         continueOnFail: false
       },
       {
-        name: 'Default Script Scan',
-        command: `nmap -sC ${target}`,
-        purpose: 'Run default NSE scripts to detect common misconfigurations',
-        bestPractice: 'NSE default scripts check for anonymous FTP, open SMTP relays, and other common issues automatically. Review each script result carefully — false positives are possible.',
+        name: 'OS & Aggressive Fingerprint',
+        command: `nmap -O -A --osscan-guess ${target}`,
+        purpose: 'Fingerprint the operating system and gather traceroute + deep script output',
+        bestPractice: 'The -A flag combines OS detection, version detection, script scanning, and traceroute into one sweep. OS detection requires raw sockets (run as root). A match confidence below 90% is only a hint — use service banner strings to confirm. Aggressive scanning generates more noise.',
         continueOnFail: true
       },
       {
-        name: 'OS Detection',
-        command: `nmap -O ${target}`,
-        purpose: 'Fingerprint the operating system',
-        bestPractice: 'OS detection requires raw socket access (run as root). Use the result to narrow exploit selection. A confident match above 90% is reliable; below that, treat the result as a hint only.',
+        name: 'UDP Top-Port Scan',
+        command: `nmap -sU --top-ports 100 -T4 ${target}`,
+        purpose: 'Discover UDP services such as DNS, SNMP, TFTP, and NTP that TCP scans miss entirely',
+        bestPractice: 'UDP services are frequently overlooked and often less hardened. SNMP (161) exposes system info with default community strings; TFTP (69) may allow unauthenticated file read/write. UDP scanning is slow because closed ports only reply with ICMP unreachable — be patient.',
         continueOnFail: true
       },
       {
-        name: 'Web Service Fingerprint',
-        command: `curl -sI http://${target} 2>/dev/null || curl -sI https://${target} 2>/dev/null || echo "No web service on port 80/443"`,
-        purpose: 'Check for web services and fingerprint the server',
-        bestPractice: 'Response headers often reveal the server type, framework, and version. Look for Server:, X-Powered-By:, and Set-Cookie: headers. Missing security headers (CSP, HSTS) are findings in themselves.',
+        name: 'Vulnerability Scan',
+        command: `nmap --script vuln -p 21,22,23,25,53,80,110,139,143,443,445,3389 ${target} 2>/dev/null; nikto -h http://${target} -maxtime 120s 2>/dev/null || nikto -h https://${target} -maxtime 120s 2>/dev/null || echo "Nikto scan complete"`,
+        purpose: 'Run automated vulnerability checks across network services and web applications',
+        bestPractice: 'Nmap vuln scripts check for known CVEs, EternalBlue (MS17-010), Shellshock, and other critical vulnerabilities with low false-positive rates. Nikto covers 6700+ web checks including outdated software, dangerous files, and insecure configurations. Both are noisy — expect IDS alerts.',
+        continueOnFail: true
+      },
+      {
+        name: 'Web Enumeration',
+        command: `wafw00f http://${target} 2>/dev/null; gobuster dir -u http://${target} -w /usr/share/wordlists/dirb/common.txt -t 30 -q 2>/dev/null || gobuster dir -u https://${target} -w /usr/share/wordlists/dirb/common.txt -t 30 -q 2>/dev/null || echo "Web enumeration complete"`,
+        purpose: 'Detect web application firewalls and brute-force hidden directories and endpoints',
+        bestPractice: 'Always run wafw00f first — a WAF will block or alert on directory brute-force, so you need to know before launching gobuster. The dirb/common.txt wordlist hits admin panels, backup files, config files, and .git directories that are often left exposed by accident.',
+        continueOnFail: true
+      },
+      {
+        name: 'SMB & NetBIOS Enumeration',
+        command: `nbtscan ${target} 2>/dev/null; enum4linux -a ${target} 2>/dev/null || echo "SMB/NetBIOS enumeration complete"`,
+        purpose: 'Extract shares, users, groups, and policies from Windows and Samba targets',
+        bestPractice: 'Enum4linux wraps smbclient, rpcclient, and net commands into one tool. Null sessions (unauthenticated SMB) often reveal usernames, share names, and password policies that enable targeted brute-force. Even if null sessions are blocked, share listings can indicate OS type and domain membership.',
+        continueOnFail: true
+      },
+      {
+        name: 'Exploit Research',
+        command: `searchsploit --colour $(nmap -sV --open -p 21,22,23,25,80,110,139,443,445,3389,8080 ${target} 2>/dev/null | grep -oP '(?<=open  )\\S+.*' | tr '\\n' ' ') 2>/dev/null || searchsploit ${target} 2>/dev/null || echo "Searchsploit complete — check /usr/share/exploitdb manually"`,
+        purpose: 'Cross-reference discovered service versions against the Exploit-DB offline database',
+        bestPractice: 'Searchsploit queries the local copy of Exploit-DB — no internet required and no target interaction. Match the exact version string from nmap output for highest accuracy. Prefer ranked Metasploit modules over raw exploits; they handle offsets, bad chars, and reliability automatically.',
+        continueOnFail: true
+      },
+      {
+        name: 'Credential Brute Force',
+        command: `hydra -L /usr/share/wordlists/metasploit/unix_users.txt -P /usr/share/wordlists/rockyou.txt -t 4 -f ssh://${target} 2>/dev/null || hydra -L /usr/share/wordlists/metasploit/unix_users.txt -P /usr/share/wordlists/rockyou.txt -t 4 -f ftp://${target} 2>/dev/null || echo "Credential brute force complete"`,
+        purpose: 'Test common credentials against discovered authentication services',
+        bestPractice: 'Use -f to stop after the first valid credential pair to reduce lockout risk. Limit threads (-t 4) on services with account lockout policies. Always test default credentials (admin/admin, root/root, anonymous/anonymous) before launching a full dictionary — they hit more often than expected.',
         continueOnFail: true
       }
     ]
@@ -2096,7 +2176,7 @@ For each bestPractice write 2-3 sentences explaining WHY the technique is used, 
       try {
         const parsed = JSON.parse(jsonMatch[0]);
         if (parsed.phases && Array.isArray(parsed.phases) && parsed.phases.length > 0) {
-          parsed.phases = parsed.phases.slice(0, 10);
+          parsed.phases = parsed.phases.slice(0, 15);
           aiPlanUsed = true;
           return res.json({ success: true, plan: parsed });
         }
