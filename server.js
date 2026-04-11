@@ -371,7 +371,24 @@ const pluginManager = new PluginManager();
 // AUTHENTICATION
 // ============================================
 
-const AUTH_SECRET = process.env.AUTH_SECRET || 'changeme-' + uuidv4();
+const AUTH_SECRET_FILE = path.join(__dirname, 'data', 'auth-secret');
+let AUTH_SECRET;
+if (process.env.AUTH_SECRET) {
+  AUTH_SECRET = process.env.AUTH_SECRET;
+} else {
+  try {
+    AUTH_SECRET = fs.readFileSync(AUTH_SECRET_FILE, 'utf8').trim();
+  } catch (_) {
+    AUTH_SECRET = 'kali-' + uuidv4();
+    try {
+      const dataDir = path.join(__dirname, 'data');
+      if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+      fs.writeFileSync(AUTH_SECRET_FILE, AUTH_SECRET, { mode: 0o600 });
+    } catch (writeErr) {
+      appLogger.warn('Could not persist AUTH_SECRET; tokens will be invalidated on restart', { error: writeErr.message });
+    }
+  }
+}
 const LOGIN_REPORT_DIR = path.join(__dirname, 'data', 'login-error-reports');
 
 function truncateString(value, maxLength = 512) {

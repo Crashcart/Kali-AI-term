@@ -1926,6 +1926,14 @@ Format: <one-liner command suggestion>`;
             const err = new Error(payload.error || payload.message || `HTTP ${response.status}`);
             err.status = response.status;
             err.payload = payload;
+            if (response.status === 401) {
+                // Session is no longer valid — clear stored credentials and force re-login
+                this.token = null;
+                this.sessionId = null;
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('session_id');
+                this.showLoginModal();
+            }
             throw err;
         }
 
