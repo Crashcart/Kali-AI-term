@@ -16,7 +16,7 @@ class KaliHackerBot {
         this.showTimestamps = true;
         this.soundEnabled = true;
         this.ollamaUrl = 'http://localhost:11434';
-        this.ollamaModel = 'dolphin-mixtral';
+        this.ollamaModel = 'smollm2:135m';
         this.ollamaTemp = 0.7;
         this.panelSplitRatio = 0.5;
         this.quickCmdsCollapsed = false;
@@ -25,8 +25,11 @@ class KaliHackerBot {
         this.plugins = new Map();
         this.enabledPlugins = [];
         this.defaultModels = [
-            { id: 'dolphin-mixtral', name: 'Dolphin Mixtral', recommended: true },
-            { id: 'neural-chat:7b', name: 'Neural Chat 7B', recommended: true }
+            { id: 'smollm2:135m', name: 'SmolLM2 135M ⭐ (Ultra-light, 512MB RAM)', recommended: true },
+            { id: 'llama3.2:1b', name: 'Llama 3.2 1B (Balanced, 2-3GB RAM)', recommended: true },
+            { id: 'mistral:7b', name: 'Mistral 7B (Powerful, 6GB RAM)', recommended: false },
+            { id: 'llama3.2:3b', name: 'Llama 3.2 3B (Fast, 3-4GB RAM)', recommended: false },
+            { id: 'neural-chat:7b', name: 'Neural Chat 7B (Quality, 6GB RAM)', recommended: false }
         ];
 
         this.initializeElements();
@@ -454,7 +457,7 @@ class KaliHackerBot {
         this.localIP = saved.localIP || '192.168.1.50';
         this.listeningPort = saved.listeningPort || '4444';
         this.ollamaUrl = saved.ollamaUrl || 'http://localhost:11434';
-        this.ollamaModel = saved.ollamaModel || 'dolphin-mixtral';
+        this.ollamaModel = saved.ollamaModel || 'smollm2:135m';
         this.ollamaTemp = saved.ollamaTemp || 0.7;
         this.showTimestamps = saved.showTimestamps !== false;
         this.soundEnabled = saved.soundEnabled !== false;
@@ -1069,21 +1072,35 @@ Format: <one-liner command suggestion>`;
     }
 
     async refreshOllamaModels() {
-        const url = this.ollamaUrlInput.value;
         this.refreshModelsBtn.textContent = '⏳';
         this.refreshModelsBtn.disabled = true;
 
         try {
-            const response = await axios.get(`${url}/api/tags`);
+            // Use our app's API endpoint instead of direct Ollama URL
+            const response = await axios.get('/api/ollama/models', {
+                headers: { 'Authorization': `Bearer ${this.sessionToken}` }
+            });
+
             if (response.data.models && response.data.models.length > 0) {
+                // Sort models by name
+                const sortedModels = response.data.models.sort((a, b) => {
+                    const aName = typeof a === 'string' ? a : a.name;
+                    const bName = typeof b === 'string' ? b : b.name;
+                    return aName.localeCompare(bName);
+                });
+
                 this.ollamaModelInput.innerHTML = '';
-                response.data.models.forEach(model => {
+                sortedModels.forEach(model => {
                     const option = document.createElement('option');
-                    option.value = model.name;
-                    option.textContent = model.name;
+                    const modelName = typeof model === 'string' ? model : model.name;
+                    const modelSize = typeof model === 'string' ? '' : ` (${this.formatBytes(model.size)})`;
+                    option.value = modelName;
+                    option.textContent = modelName + modelSize;
                     this.ollamaModelInput.appendChild(option);
                 });
-                this.addIntelligenceMessage('✓ Models refreshed', 'green');
+                this.addIntelligenceMessage(`✓ Models refreshed - ${sortedModels.length} model(s) available`, 'green');
+            } else {
+                this.addIntelligenceMessage('⚠️ No models available. Pull a model first: smollm2:135m recommended', 'yellow');
             }
         } catch (err) {
             this.addIntelligenceMessage(`❌ Failed to fetch models: ${err.message}`, 'red');
@@ -1091,6 +1108,15 @@ Format: <one-liner command suggestion>`;
             this.refreshModelsBtn.textContent = '🔄';
             this.refreshModelsBtn.disabled = false;
         }
+    }
+
+    // Helper function to format bytes
+    formatBytes(bytes) {
+        if (!bytes) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
     async pullModel() {
