@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-10T03:10:58.543Z",
+  "timestamp": "2026-04-11T05:08:26.473Z",
   "script": "install",
   "status": "failed",
   "stage": "installation",
@@ -8,14 +8,14 @@
   "errorCount": 2,
   "errors": [
     {
-      "timestamp": "2026-04-10T03:10:58.542Z",
+      "timestamp": "2026-04-11T05:08:26.471Z",
       "message": "Failed to start containers",
       "data": {
         "error": "Command failed: docker-compose up -d --build --force-recreate 2>/dev/null || docker compose up -d --build --force-recreate\nDockerfile:4\n\n--------------------\n\n   2 |     \n\n   3 |     # Install dumb-init and curl for proper signal handling and health checks\n\n   4 | >>> RUN apk add --no-cache dumb-init curl\n\n   5 |     \n\n   6 |     WORKDIR /app\n\n--------------------\n\nfailed to solve: process \"/bin/sh -c apk add --no-cache dumb-init curl\" did not complete successfully: exit code: 2\n\n"
       }
     },
     {
-      "timestamp": "2026-04-10T03:10:58.543Z",
+      "timestamp": "2026-04-11T05:08:26.473Z",
       "message": "Installation failed",
       "data": {
         "error": "Command failed: docker-compose up -d --build --force-recreate 2>/dev/null || docker compose up -d --build --force-recreate\nDockerfile:4\n\n--------------------\n\n   2 |     \n\n   3 |     # Install dumb-init and curl for proper signal handling and health checks\n\n   4 | >>> RUN apk add --no-cache dumb-init curl\n\n   5 |     \n\n   6 |     WORKDIR /app\n\n--------------------\n\nfailed to solve: process \"/bin/sh -c apk add --no-cache dumb-init curl\" did not complete successfully: exit code: 2\n\n",
@@ -26,7 +26,7 @@
   "system": {},
   "commands": [
     {
-      "timestamp": "2026-04-10T03:08:57.967Z",
+      "timestamp": "2026-04-11T05:06:25.702Z",
       "command": "docker-compose down",
       "exitCode": 0,
       "stdout": "",
@@ -34,5 +34,5 @@
     }
   ],
   "containers": [],
-  "logFile": "install-2026-04-10T03-08-57.log"
+  "logFile": "install-2026-04-11T05-06-25.log"
 }
