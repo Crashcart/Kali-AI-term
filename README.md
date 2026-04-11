@@ -593,17 +593,6 @@ LOG_LEVEL=error  # Errors only
 - Session authentication is basic - use strong passwords in production
 - Never expose to untrusted networks
 
-## Future Enhancements
-
-- [ ] Metasploit RPC integration for exploit staging
-- [ ] CVE database enrichment for identified services
-- [ ] Model-on-demand hot-swapping
-- [ ] Persistent session storage (Redis)
-- [ ] Advanced logging and audit trail
-- [ ] Multi-user support with role-based access
-- [ ] Custom payload generation
-- [ ] Vulnerability scanning integration
-
 ## License
 
 Proprietary - Internal Use Only
