@@ -566,12 +566,12 @@ app.post('/api/docker/exec', authenticate, async (req, res) => {
       Cmd: ['bash', '-c', command],
       AttachStdout: true,
       AttachStderr: true,
+      Tty: true,
     });
 
     const execId = exec.id;
-    const stream = await exec.start({ Detach: false });
+    const stream = await exec.start({ Detach: false, Tty: true });
     let output = '';
-    let errorOutput = '';
     let timedOut = false;
 
     activeProcesses.set(execId, exec);
@@ -582,9 +582,7 @@ app.post('/api/docker/exec', authenticate, async (req, res) => {
     }, timeout);
 
     stream.on('data', (chunk) => {
-      // Docker stream has 8-byte header per frame; strip it
-      const raw = chunk.toString();
-      output += raw;
+      output += chunk.toString();
     });
 
     stream.on('end', () => {
@@ -594,7 +592,7 @@ app.post('/api/docker/exec', authenticate, async (req, res) => {
       const durationSeconds = Math.round((Date.now() - startTime) / 1000);
 
       // Store command in database
-      db.addCommand(req.sessionId, command, durationSeconds, output, errorOutput, !timedOut);
+      db.addCommand(req.sessionId, command, durationSeconds, output, '', !timedOut);
 
       res.json({
         success: true,
@@ -670,9 +668,10 @@ app.post('/api/docker/install', authenticate, async (req, res) => {
       Cmd: ['bash', '-c', `apt-get update -qq && apt-get install -y -qq ${pkgList} 2>&1`],
       AttachStdout: true,
       AttachStderr: true,
+      Tty: true,
     });
 
-    const stream = await exec.start({ Detach: false });
+    const stream = await exec.start({ Detach: false, Tty: true });
     let output = '';
 
     stream.on('data', (chunk) => { output += chunk.toString(); });
@@ -694,9 +693,10 @@ app.post('/api/docker/killall', authenticate, async (req, res) => {
       Cmd: ['bash', '-c', 'kill -9 $(ps aux | grep -v PID | awk \'{print $2}\' | grep -v "^1$") 2>/dev/null; echo "All processes killed"'],
       AttachStdout: true,
       AttachStderr: true,
+      Tty: true,
     });
 
-    const stream = await exec.start({ Detach: false });
+    const stream = await exec.start({ Detach: false, Tty: true });
     let output = '';
 
     stream.on('data', (chunk) => { output += chunk.toString(); });
