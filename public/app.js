@@ -8,6 +8,8 @@ class KaliHackerBot {
         this.sessionId = localStorage.getItem('session_id');
         this.autoPilot = false;
         this.livePipe = false;
+        this.autonomousRunning = false;
+        this.autonomousAbort = false;
         this.targetIP = '192.168.1.100';
         this.localIP = '192.168.1.50';
         this.listeningPort = 4444;
@@ -649,6 +651,14 @@ class KaliHackerBot {
         this.historyIndex = -1;
         this.addToCommandHistory(input);
 
+        // Autonomous attack mode: "attack" or "attack <target>"
+        const attackMatch = input.match(/^attack(?:\s+(.+))?$/i);
+        if (attackMatch) {
+            const target = (attackMatch[1] || this.targetIP || '').trim();
+            this.startAutonomousAttack(target);
+            return;
+        }
+
         let mode = 'auto';
         let command = input;
 
@@ -860,11 +870,167 @@ Format: <one-liner command suggestion>`;
     }
 
     // ============================================
+    // AUTONOMOUS ATTACK MODE
+    // ============================================
+
+    async startAutonomousAttack(target) {
+        if (this.autonomousRunning) {
+            this.addIntelligenceMessage('⚠️ Autonomous attack already running. Use KILL to stop.', 'yellow');
+            return;
+        }
+
+        if (!target || target === '---.---.---.---') {
+            this.addIntelligenceMessage('❌ No target set. Set $TARGET_IP in the HUD first, or use: attack 192.168.1.1', 'red');
+            return;
+        }
+
+        if (!confirm(`⚠️  AUTONOMOUS ATTACK MODE\n\nTarget: ${target}\n\nThe AI will plan and execute a series of penetration testing commands automatically.\n\nOnly use against systems you own or have explicit written permission to test.\n\nContinue?`)) {
+            return;
+        }
+
+        this.autonomousRunning = true;
+        this.autonomousAbort = false;
+        this.autoPilotBtn.classList.add('active');
+
+        this.addIntelligenceMessage('\n🤖 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'red');
+        this.addIntelligenceMessage('   AUTONOMOUS ATTACK MODE ACTIVATED', 'red');
+        this.addIntelligenceMessage('🤖 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n', 'red');
+        this.addIntelligenceMessage(`🎯 Target: ${target}`, 'cyan');
+        this.addIntelligenceMessage('⏳ Asking AI to generate attack plan...', 'cyan');
+
+        let plan;
+        try {
+            const response = await this.apiCall('POST', '/api/autonomous/plan', { target });
+            plan = response.plan;
+        } catch (err) {
+            this.addIntelligenceMessage(`❌ Failed to generate plan: ${err.message}`, 'red');
+            this.autonomousRunning = false;
+            this.autoPilotBtn.classList.remove('active');
+            return;
+        }
+
+        this.addIntelligenceMessage(`\n📋 ATTACK PLAN — ${plan.phases.length} phases`, 'green');
+        plan.phases.forEach((phase, i) => {
+            this.addIntelligenceMessage(`  ${i + 1}. ${phase.name}`, 'grey');
+        });
+        this.addIntelligenceMessage('', 'grey');
+
+        for (let i = 0; i < plan.phases.length; i++) {
+            if (this.autonomousAbort) break;
+
+            const phase = plan.phases[i];
+            const stepLabel = `Phase ${i + 1}/${plan.phases.length}`;
+
+            this.addIntelligenceMessage(`\n┌─ ${stepLabel}: ${phase.name.toUpperCase()} ─┐`, 'cyan');
+            this.addIntelligenceMessage(`📖 Best Practice:\n   ${phase.bestPractice}`, 'yellow');
+            this.addIntelligenceMessage(`🎯 Purpose: ${phase.purpose}`, 'grey');
+
+            // Substitute common placeholders in the command
+            const cmd = phase.command
+                .replace(/\$TARGET_IP/g, target)
+                .replace(/TARGET_IP/g, target);
+
+            this.addWireMessage(`\n[${stepLabel}] ${phase.name}`, 'cyan');
+            this.addWireMessage(`$ ${cmd}`, 'green');
+
+            let output = '';
+            try {
+                const execResponse = await this.apiCall('POST', '/api/docker/exec', {
+                    command: cmd,
+                    timeout: 90000,
+                });
+
+                if (execResponse.success) {
+                    output = execResponse.output || '(no output)';
+                    this.addWireMessage(output.slice(0, 3000), 'grey');
+
+                    if (execResponse.timedOut) {
+                        this.addWireMessage(`⏱ ${stepLabel} timed out`, 'yellow');
+                    } else {
+                        this.addWireMessage(`✓ ${stepLabel} complete`, 'green');
+                    }
+                }
+            } catch (err) {
+                output = `Error: ${err.message}`;
+                this.addWireMessage(`❌ ${stepLabel} failed: ${err.message}`, 'red');
+                if (!phase.continueOnFail) {
+                    this.addIntelligenceMessage(`⛔ Stopping: ${phase.name} failed and continueOnFail is false`, 'red');
+                    break;
+                }
+            }
+
+            // AI mentor analysis of this phase's output
+            if (!this.autonomousAbort) {
+                await this.analyzeAutonomousOutput(phase.name, cmd, output);
+            }
+
+            // Brief pause between phases so the user can read
+            if (!this.autonomousAbort) {
+                await new Promise(r => setTimeout(r, 1500));
+            }
+        }
+
+        this.autonomousRunning = false;
+        this.autoPilotBtn.classList.remove('active');
+
+        if (this.autonomousAbort) {
+            this.addIntelligenceMessage('\n⛔ Autonomous attack ABORTED', 'red');
+        } else {
+            this.addIntelligenceMessage('\n✅ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'green');
+            this.addIntelligenceMessage(`   AUTONOMOUS ATTACK SEQUENCE COMPLETE`, 'green');
+            this.addIntelligenceMessage('✅ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n', 'green');
+            this.addIntelligenceMessage(`All ${plan.phases.length} phases executed against ${target}`, 'green');
+            this.addIntelligenceMessage('💡 Tip: Click 📋 to generate a full pentest report', 'cyan');
+        }
+    }
+
+    async analyzeAutonomousOutput(phaseName, command, output) {
+        const prompt = `You are a penetration testing mentor reviewing a student's scan results.
+
+Phase: ${phaseName}
+Command run: ${command}
+Output (first 800 chars):
+${output.slice(0, 800)}
+
+Provide a concise mentor-style debrief with these sections:
+KEY FINDINGS: What important information was revealed?
+WHAT IT MEANS: Security implications of what was found.
+NEXT STEPS: What should be investigated next based on these results?
+
+Keep it under 150 words. Be educational and specific.`;
+
+        this.addIntelligenceMessage(`\n🧠 AI Mentor — ${phaseName} Analysis:`, 'cyan');
+
+        try {
+            const response = await this.apiCall('POST', '/api/ollama/generate', {
+                prompt,
+                model: this.ollamaModel,
+                temperature: 0.4,
+                useOrchestrator: this.aiProvider === 'auto',
+                taskType: 'reasoning',
+            });
+
+            if (response.response) {
+                this.addIntelligenceMessage(response.response, 'green');
+            }
+        } catch (err) {
+            this.addIntelligenceMessage(`(Analysis unavailable: ${err.message})`, 'grey');
+        }
+    }
+
+    // ============================================
     // KILL & BURN
     // ============================================
 
     async killAllProcesses() {
         if (!confirm('Kill ALL processes in Kali container?')) return;
+
+        // Abort any running autonomous attack chain
+        if (this.autonomousRunning) {
+            this.autonomousAbort = true;
+            this.autonomousRunning = false;
+            this.autoPilotBtn.classList.remove('active');
+        }
 
         this.addWireMessage('⏹ KILL SWITCH ACTIVATED', 'red');
 
