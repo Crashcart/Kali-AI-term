@@ -249,10 +249,10 @@ Check:
 
 ## Useful GitHub Links
 
-- **Actions:** `https://github.com/Crashcart/tipistore/actions`
-- **Pull Requests:** `https://github.com/Crashcart/tipistore/pulls`
-- **Releases:** `https://github.com/Crashcart/tipistore/releases`
-- **Issues:** `https://github.com/Crashcart/tipistore/issues`
+- **Actions:** `https://github.com/Crashcart/Kali-AI-term/actions`
+- **Pull Requests:** `https://github.com/Crashcart/Kali-AI-term/pulls`
+- **Releases:** `https://github.com/Crashcart/Kali-AI-term/releases`
+- **Issues:** `https://github.com/Crashcart/Kali-AI-term/issues`
 
 ## Need Help?
 

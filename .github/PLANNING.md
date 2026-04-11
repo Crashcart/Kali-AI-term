@@ -1,5 +1,7 @@
 # 📊 Kali-AI-term Strategic Planning & Coordination
 
+> 🔒 **GOVERNANCE FILE** — Protected by Rule 10 in `copilot-instructions.md`. Follow full workflow when editing.
+
 **Last Updated**: 2026-04-11 20:06:00 UTC
 **Document Purpose**: Centralized planning for multi-agent coordination, architectural decisions, and project context
 

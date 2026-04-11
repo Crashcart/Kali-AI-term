@@ -1,3 +1,4 @@
+<!-- 🔒 GOVERNANCE FILE — Protected by Rule 10 in copilot-instructions.md. Follow full workflow when editing. -->
 ## Description
 <!-- Provide a detailed description of the changes in this pull request -->
 

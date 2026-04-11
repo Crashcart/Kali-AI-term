@@ -6,6 +6,7 @@ labels: enhancement
 assignees: ''
 
 ---
+<!-- 🔒 GOVERNANCE FILE — Protected by Rule 10 in .github/copilot-instructions.md -->
 
 ## Feature Description
 <!-- Clear description of the requested feature -->
