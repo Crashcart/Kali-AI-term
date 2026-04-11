@@ -129,7 +129,8 @@ class KaliHackerBot {
 
         // Multi-instance Ollama
         this.ollamaInstancesList = document.getElementById('ollama-instances-list');
-        this.newOllamaUrlInput = document.getElementById('new-ollama-url');
+        this.newOllamaHostInput = document.getElementById('new-ollama-host');
+        this.newOllamaPortInput = document.getElementById('new-ollama-port');
         this.addOllamaInstanceBtn = document.getElementById('add-ollama-instance-btn');
 
         // Network scan
@@ -242,8 +243,13 @@ class KaliHackerBot {
         if (this.addOllamaInstanceBtn) {
             this.addOllamaInstanceBtn.addEventListener('click', () => this.addOllamaInstance());
         }
-        if (this.newOllamaUrlInput) {
-            this.newOllamaUrlInput.addEventListener('keydown', (e) => {
+        if (this.newOllamaHostInput) {
+            this.newOllamaHostInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') this.addOllamaInstance();
+            });
+        }
+        if (this.newOllamaPortInput) {
+            this.newOllamaPortInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') this.addOllamaInstance();
             });
         }
@@ -1350,17 +1356,20 @@ Format: <one-liner command suggestion>`;
     }
 
     async addOllamaInstance() {
-        if (!this.newOllamaUrlInput) return;
-        const url = this.newOllamaUrlInput.value.trim();
-        if (!url) {
-            this.addIntelligenceMessage('⚠ Enter a URL first', 'yellow');
+        if (!this.newOllamaHostInput) return;
+        const host = this.newOllamaHostInput.value.trim();
+        if (!host) {
+            this.addIntelligenceMessage('⚠ Enter a host or IP address first', 'yellow');
             return;
         }
+        const port = (this.newOllamaPortInput && this.newOllamaPortInput.value.trim()) || '11434';
+        const url = `http://${host}:${port}`;
         try {
             const response = await this.apiCall('POST', '/api/ollama/instances', { url });
             if (response.success) {
                 this.addIntelligenceMessage(`✓ Ollama instance added: ${response.id} → ${url}`, 'green');
-                this.newOllamaUrlInput.value = '';
+                this.newOllamaHostInput.value = '';
+                if (this.newOllamaPortInput) this.newOllamaPortInput.value = '11434';
                 await this.loadOllamaInstances();
             }
         } catch (err) {
