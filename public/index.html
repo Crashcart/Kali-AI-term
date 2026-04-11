@@ -74,6 +74,27 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Draggable Panel Resizer -->
+            <div class="panel-resizer" id="panel-resizer" title="Drag to resize panels"></div>
+
+            <!-- Live Shell / Wire Stream -->
+            <div class="panel wire-panel" id="wire-panel">
+                <div class="panel-header">
+                    <span class="panel-title">🖥️ LIVE SHELL</span>
+                    <div class="panel-controls">
+                        <input type="text" class="search-input" id="wire-search" placeholder="Search..." title="Search output" />
+                        <button class="btn-small" id="copy-wire" title="Copy All">⎘</button>
+                        <button class="btn-small" id="clear-wire" title="Clear">×</button>
+                    </div>
+                </div>
+                <div class="stream wire-stream" id="wire-stream">
+                    <div class="ready-msg">
+                        <span class="grey">>> Shell output will appear here</span><br/>
+                        <span class="grey">>> Execute commands to see live results</span>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Variables HUD -->

@@ -49,16 +49,16 @@ class KaliHackerBot {
         this.bootLog = document.getElementById('boot-log');
         this.bootProgressBar = document.getElementById('boot-progress-bar');
 
-        // Streams — wire stream is unified into the intelligence stream
+        // Streams
         this.intelligenceStream = document.getElementById('intelligence-stream');
-        this.wireStream = this.intelligenceStream;
+        this.wireStream = document.getElementById('wire-stream');
         this.intelPanel = document.getElementById('intel-panel');
-        this.wirePanel = this.intelPanel;
-        this.panelResizer = null;
+        this.wirePanel = document.getElementById('wire-panel');
+        this.panelResizer = document.getElementById('panel-resizer');
 
         // Search
         this.intelSearch = document.getElementById('intel-search');
-        this.wireSearch = null;
+        this.wireSearch = document.getElementById('wire-search');
 
         // LEDs
         this.dockerLED = document.getElementById('docker-led');
@@ -94,11 +94,11 @@ class KaliHackerBot {
 
         // Copy buttons
         this.copyIntelBtn = document.getElementById('copy-intel');
-        this.copyWireBtn = null;    // removed from UI
+        this.copyWireBtn = document.getElementById('copy-wire');
 
         // Clear buttons
         this.clearIntelBtn = document.getElementById('clear-intel');
-        this.clearWireBtn = null;   // removed from UI
+        this.clearWireBtn = document.getElementById('clear-wire');
 
         // Quick commands (removed from UI)
         this.quickCommands = null;
@@ -207,12 +207,26 @@ class KaliHackerBot {
 
         // Clear
         this.clearIntelBtn.addEventListener('click', () => { this.intelligenceStream.innerHTML = ''; });
+        if (this.clearWireBtn) {
+            this.clearWireBtn.addEventListener('click', () => { this.wireStream.innerHTML = ''; });
+        }
 
         // Copy
         this.copyIntelBtn.addEventListener('click', () => this.copyToClipboard(this.intelligenceStream));
+        if (this.copyWireBtn) {
+            this.copyWireBtn.addEventListener('click', () => this.copyToClipboard(this.wireStream));
+        }
 
         // Search
         this.intelSearch.addEventListener('input', (e) => this.searchStream(this.intelligenceStream, e.target.value));
+        if (this.wireSearch) {
+            this.wireSearch.addEventListener('input', (e) => this.searchStream(this.wireStream, e.target.value));
+        }
+
+        // Panel resizer
+        if (this.panelResizer) {
+            this.setupPanelResizer();
+        }
 
         // Top actions
         this.fullscreenBtn.addEventListener('click', () => this.toggleFullscreen());
@@ -526,6 +540,12 @@ class KaliHackerBot {
         this.quickCmdsCollapsed = saved.quickCmdsCollapsed || false;
         this.enabledPlugins = saved.enabledPlugins || ['cve-plugin', 'threat-intel-plugin'];
         this.livePipe = saved.livePipe === true;
+
+        // Apply panel split ratio to layout
+        if (this.intelPanel && this.wirePanel) {
+            this.intelPanel.style.flex = this.panelSplitRatio;
+            this.wirePanel.style.flex = 1 - this.panelSplitRatio;
+        }
 
         // Apply theme
         const theme = saved.theme || 'default';
