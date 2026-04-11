@@ -47,11 +47,10 @@ Elite browser-based penetration testing terminal that bridges a local Ollama ins
            ↓
 ┌─────────────────────────────────────────────────────────┐
 │  Docker Containers                                      │
-│  ├─ Kali Linux (Execution Environment)                  │
+│  ├─ Kali Linux (Command Execution Environment)          │
+│  ├─ Ollama (LLM Service with Intel GPU Support)         │
+│  ├─ App (Node.js/Express Backend)                       │
 │  └─ Bridge Network (Inter-container communication)      │
-│                                                         │
-│  Host Services                                          │
-│  └─ Ollama (LLM Service, port 11434)                    │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -142,12 +141,84 @@ Each script:
 
 See `QUICK_DIAGNOSTICS.md` for detailed troubleshooting guide.
 
+### LLM (Language Model) Configuration
+
+This system uses **Ollama** to run open-source LLMs locally on your hardware. The AI reasoning capability depends on having a model installed and running.
+
+#### Default Model
+
+By default, **`smollm2:135m`** is pre-configured (91 MB, ultra-light):
+- ⭐ Recommended for low-end systems (Intel iGPU, limited VRAM)
+- Automatically downloaded on first startup
+- 512 MB VRAM minimum requirement
+- Fast inference, good for basic tasks
+
+#### Available Models for Different Hardware
+
+| Model | Size | VRAM | Speed | Quality | Best For |
+|-------|------|------|-------|---------|----------|
+| **smollm2:135m** ⭐ | 91 MB | 512 MB | Very Fast | Fair | Low-end systems, quick responses |
+| **llama3.2:1b** | 770 MB | 2-3 GB | Fast | Good | Balanced performance |
+| **llama3.2:3b** | 2.0 GB | 3-4 GB | Good | Very Good | Mid-range systems |
+| **mistral:7b** | 4.1 GB | 6 GB | Balanced | Excellent | High-end systems |
+| **llama3.1:8b** | 4.7 GB | 6-8 GB | Good | Excellent | Powerful systems |
+| **qwen2.5-coder:7b** | 4.7 GB | 6 GB | Balanced | Excellent | Code analysis, debugging |
+
+#### Switching Models
+
+1. **Via Web UI:**
+   - Open Settings (⚙️) → OLLAMA tab
+   - Click the refresh button (🔄) to see available models
+   - Select a different model from the dropdown
+   - Commands will use the selected model
+
+2. **Pull New Model from CLI:**
+   ```bash
+   docker exec kali-ai-term-ollama ollama pull mistral
+   docker exec kali-ai-term-ollama ollama pull llama3.2:1b
+   ```
+
+3. **List Installed Models:**
+   ```bash
+   docker exec kali-ai-term-ollama ollama list
+   ```
+
+4. **Delete a Model:**
+   ```bash
+   docker exec kali-ai-term-ollama ollama rm mistral
+   ```
+
+#### Performance Tuning
+
+The Docker container is pre-configured with optimal settings for resource-constrained systems:
+
+```env
+OLLAMA_NUM_PARALLEL=1              # Single request at a time (preserves VRAM)
+OLLAMA_MAX_LOADED_MODELS=1         # Only one model in VRAM
+OLLAMA_KEEP_ALIVE=-1               # Keep model loaded (avoids 5m reload delay)
+OLLAMA_FLASH_ATTENTION=1           # 2-3x faster inference
+OLLAMA_KV_CACHE_TYPE=q8_0          # 50% VRAM reduction, minimal quality loss
+```
+
+These settings are automatically applied in `docker-compose.yml`.
+
+#### Troubleshooting Model Issues
+
+| Problem | Solution |
+|---------|----------|
+| "Model not found" error | Pull the model: `docker exec kali-ai-term-ollama ollama pull smollm2:135m` |
+| Slow responses | Check model size vs available VRAM, or switch to smaller model |
+| Out of memory errors | Reduce number of parallel requests or switch to smaller model |
+| Model takes 10+ seconds to respond | This is normal on first request (model loads into VRAM). Subsequent requests are faster due to `KEEP_ALIVE=-1` |
+| Ollama service won't start | Run diagnostic: `bash diagnose-quick.sh` |
+
 ### Manual Installation
 
 **Prerequisites**
-- Docker & Docker Compose installed
-- Port 31337 available (Web UI)
-- Ollama already installed and running on host (port 11434)
+- Docker & Docker Compose installed  
+- Ports 31337 (Web UI) and 11434 (Ollama API) available
+- 512 MB free RAM minimum (for smollm2:135m)
+- 2+ GB free disk space for LLM models
 
 ### Installation & Deployment
 
