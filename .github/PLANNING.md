@@ -1,13 +1,44 @@
 # 📊 Kali-AI-term Strategic Planning & Coordination
 
-**Last Updated**: 2026-04-11 09:37:00 UTC
+**Last Updated**: 2026-04-11 20:06:00 UTC
 **Document Purpose**: Centralized planning for multi-agent coordination, architectural decisions, and project context
 
 ---
 
 ## 🎯 Active Initiatives
 
-### LLM Low-End System Optimisation + Ollama Intel GPU Integration (current session)
+### Ollama Multi-Instance Fallback + Deletable Primary (current session)
+
+**Status**: ✅ **Complete** — PR ready for human review
+**Branch**: `copilot/set-up-ollama-api`
+**Assigned To**: Debug Agent
+
+**Problem**: When the primary Ollama instance (localhost:11434) was down but a healthy remote instance existed (e.g. 172.21.0.1:11434), the system failed instead of falling back. The primary instance could not be deleted from the UI, leaving users stuck with a dead 🔴 entry.
+
+**Root Causes**:
+1. Orchestrator routing only tried `strategy.primary` → `strategy.fallback` (ollama → gemini), ignoring other registered Ollama instances like `ollama-2`
+2. Direct `/api/ollama/generate` and `/api/ollama/stream` paths only hit `OLLAMA_URL` (localhost) with no fallback
+3. `unregisterOllamaInstance('ollama')` was hardcoded to return false — primary could never be deleted
+4. Frontend rendered EDIT button (not ✕) for the primary instance, so users couldn't remove a dead primary
+
+**Changes Made**:
+- `lib/llm-orchestrator.js` — New `_buildProviderList()` method: strategy providers first, then all other registered providers; used by both `generate()` and `streamGenerate()`
+- `server.js` — `unregisterOllamaInstance()`: any instance deletable; when primary removed, next instance auto-promotes to 'ollama' id and `OLLAMA_URL` syncs
+- `server.js` — `DELETE /api/ollama/instances/:id`: removed `id === 'ollama'` block; returns `primaryUrl` after promotion
+- `server.js` — `/api/ollama/generate` direct path: iterates all instance URLs until one succeeds
+- `server.js` — `/api/ollama/stream` direct path: same multi-instance iteration with proper stream wiring
+- `server.js` — `checkOllamaHealth()`: falls back to first healthy instance when primary missing
+- `public/app.js` — `renderOllamaInstances()`: shows ✕ delete button on ALL instances including primary
+- `public/app.js` — `removeOllamaInstance()`: handles primary removal with promotion confirmation and status sync
+
+**Decisions Log**:
+- [2026-04-11 20:06] Orchestrator `_buildProviderList` always appends all unmentioned providers — zero-config fallback for any new instance
+- [2026-04-11 20:06] Primary deletion promotes next instance by re-registering under 'ollama' id — no code elsewhere needs to know about the rename
+- [2026-04-11 20:06] Direct Ollama paths iterate `[OLLAMA_URL, ...otherUrls]` — primary tried first for speed, then all others
+
+---
+
+### LLM Low-End System Optimisation + Ollama Intel GPU Integration
 
 **Status**: 🟠 **In Progress**
 **Branch**: `copilot/add-llms-to-app`
