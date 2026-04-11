@@ -16,7 +16,7 @@ class KaliHackerBot {
         this.showTimestamps = true;
         this.soundEnabled = true;
         this.ollamaUrl = 'http://localhost:11434';
-        this.ollamaModel = 'dolphin-mixtral';
+        this.ollamaModel = 'phi3:mini';
         this.ollamaTemp = 0.7;
         this.aiProvider = 'auto';
         this.aiTaskType = 'default';
@@ -27,8 +27,11 @@ class KaliHackerBot {
         this.plugins = new Map();
         this.enabledPlugins = [];
         this.defaultModels = [
-            { id: 'dolphin-mixtral', name: 'Dolphin Mixtral', recommended: true },
-            { id: 'neural-chat:7b', name: 'Neural Chat 7B', recommended: true }
+            { id: 'phi3:mini', name: 'Phi-3 Mini (lightweight, ~2.2 GiB)', recommended: true },
+            { id: 'tinyllama', name: 'TinyLlama (~637 MiB)', recommended: true },
+            { id: 'llama3.2:3b', name: 'Llama 3.2 3B (~2 GiB)', recommended: true },
+            { id: 'dolphin-mixtral', name: 'Dolphin Mixtral (requires ~24.8 GiB RAM)', recommended: false },
+            { id: 'neural-chat:7b', name: 'Neural Chat 7B', recommended: false }
         ];
 
         this.initializeElements();
@@ -515,7 +518,7 @@ class KaliHackerBot {
         this.localIP = saved.localIP || '192.168.1.50';
         this.listeningPort = saved.listeningPort || '4444';
         this.ollamaUrl = saved.ollamaUrl || 'http://localhost:11434';
-        this.ollamaModel = saved.ollamaModel || 'dolphin-mixtral';
+        this.ollamaModel = saved.ollamaModel || 'phi3:mini';
         this.ollamaTemp = saved.ollamaTemp || 0.7;
         this.aiProvider = saved.aiProvider || 'auto';
         this.aiTaskType = saved.aiTaskType || 'default';

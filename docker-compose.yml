@@ -9,6 +9,8 @@ services:
       - PORT=3000
       - BIND_HOST=0.0.0.0
       - OLLAMA_URL=http://host.docker.internal:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-phi3:mini}
+      - LLM_FROZEN=${LLM_FROZEN:-false}
       - KALI_CONTAINER=kali-ai-term-kali
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-kalibot}
       - AUTH_SECRET=${AUTH_SECRET:-changeme-local-dev}
