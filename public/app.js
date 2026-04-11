@@ -124,6 +124,9 @@ class KaliHackerBot {
         this.tempValueDisplay = document.getElementById('temp-value');
         this.ollamaStatusBox = document.getElementById('ollama-status');
         this.geminiStatusBox = document.getElementById('gemini-status');
+        this.geminiApiKeyInput = document.getElementById('gemini-api-key');
+        this.geminiModelInput = document.getElementById('gemini-model');
+        this.saveGeminiBtn = document.getElementById('save-gemini-btn');
         this.refreshModelsBtn = document.getElementById('refresh-models');
         this.pullModelName = document.getElementById('pull-model-name');
         this.pullModelBtn = document.getElementById('pull-model-btn');
@@ -272,6 +275,9 @@ class KaliHackerBot {
         this.restartContainerBtn.addEventListener('click', () => this.restartContainer());
         this.resetContainerBtn.addEventListener('click', () => this.resetContainer());
         this.testProxyBtn.addEventListener('click', () => this.testProxyConnection());
+        if (this.saveGeminiBtn) {
+            this.saveGeminiBtn.addEventListener('click', () => this.saveGeminiConfig());
+        }
 
         this.closeSettingsBtn.addEventListener('click', () => this.closeSettings());
         this.saveSettingsBtn.addEventListener('click', () => this.saveSettings());
@@ -1165,6 +1171,9 @@ Keep it under 150 words. Be educational and specific.`;
         this.loadOllamaInstances();
         this.loadNetworkScanSetting();
 
+        // Load Gemini config (model + key presence) from server
+        this.loadGeminiConfig();
+
         this.checkOllamaStatus();
         this.loadContainerInfo();
     }
@@ -1237,6 +1246,59 @@ Keep it under 150 words. Be educational and specific.`;
         }).catch(err => {
             console.warn('Failed to save proxy config to backend:', err);
         });
+    }
+
+    async loadGeminiConfig() {
+        try {
+            const config = await this.apiCall('GET', '/api/gemini/config');
+            if (this.geminiModelInput && config.model) {
+                this.geminiModelInput.value = config.model;
+            }
+            if (this.geminiApiKeyInput) {
+                this.geminiApiKeyInput.placeholder = config.apiKeySet
+                    ? 'API key is set — paste new key to update'
+                    : 'Paste API key (leave blank to keep existing)';
+            }
+        } catch (err) {
+            console.warn('Could not fetch Gemini config:', err.message);
+        }
+    }
+
+    async saveGeminiConfig() {
+        const apiKey = this.geminiApiKeyInput ? this.geminiApiKeyInput.value.trim() : '';
+        const model = this.geminiModelInput ? this.geminiModelInput.value.trim() : '';
+
+        if (!apiKey && !model) {
+            this.addIntelligenceMessage('⚠ Enter an API key or model to update Gemini config', 'yellow');
+            return;
+        }
+
+        const payload = {};
+        if (apiKey) payload.apiKey = apiKey;
+        if (model) payload.model = model;
+
+        try {
+            const result = await this.apiCall('POST', '/api/gemini/config', payload);
+            if (result.success) {
+                // Clear the key field so it isn't sitting in the DOM
+                if (this.geminiApiKeyInput) {
+                    this.geminiApiKeyInput.value = '';
+                    this.geminiApiKeyInput.placeholder = 'API key is set — paste new key to update';
+                }
+                if (this.geminiModelInput && result.model) {
+                    this.geminiModelInput.value = result.model;
+                }
+                this.addIntelligenceMessage(`✓ Gemini config saved (model: ${result.model})`, 'green');
+                // Refresh status box
+                if (this.geminiStatusBox) {
+                    this.geminiStatusBox.textContent = `✓ Configured — ${result.model}`;
+                    this.geminiStatusBox.classList.add('connected');
+                    this.geminiStatusBox.classList.remove('disconnected');
+                }
+            }
+        } catch (err) {
+            this.addIntelligenceMessage(`❌ Failed to save Gemini config: ${err.message}`, 'red');
+        }
     }
 
     async testProxyConnection() {
@@ -1445,7 +1507,7 @@ Keep it under 150 words. Be educational and specific.`;
                         this.geminiStatusBox.classList.add('connected');
                         this.geminiStatusBox.classList.remove('disconnected');
                     } else {
-                        this.geminiStatusBox.textContent = '✗ Not configured — add GEMINI_API_KEY to server environment';
+                        this.geminiStatusBox.textContent = '✗ Not configured — add API key in Settings → AI/LLM → Gemini API Key';
                         this.geminiStatusBox.classList.remove('connected');
                         this.geminiStatusBox.classList.add('disconnected');
                     }
