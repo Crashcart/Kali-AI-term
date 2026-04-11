@@ -1,5 +1,42 @@
 #!/bin/bash
 
+set -e
+export PS4='+ [${BASH_SOURCE##*/}:${LINENO}] '
+set -x
+
+# Stabilize execution context so deleted/invalid cwd does not break install flow.
+if ! pwd >/dev/null 2>&1; then
+  cd "$HOME" 2>/dev/null || cd /tmp
+fi
+
+SOURCE_PATH="${BASH_SOURCE[0]}"
+if [[ "$SOURCE_PATH" == /dev/fd/* || "$SOURCE_PATH" == /proc/*/fd/* ]]; then
+  REPO_DIR="${KALI_AI_TERM_DIR:-$HOME/Kali-AI-term}"
+  REPO_URL="https://github.com/Crashcart/Kali-AI-term.git"
+
+  echo "✓ Streamed installer detected; bootstrapping repository checkout..."
+  command -v git >/dev/null 2>&1 || { echo "  ❌ git is required for streamed install"; exit 1; }
+
+  if [[ -d "$REPO_DIR/.git" ]]; then
+    git -C "$REPO_DIR" pull --ff-only >/dev/null 2>&1 || true
+  else
+    git clone "$REPO_URL" "$REPO_DIR" >/dev/null 2>&1
+  fi
+
+  exec bash "$REPO_DIR/install-full.sh" "$@"
+fi
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+cd "$SCRIPT_DIR"
+
+for required in docker-compose.yml package.json server.js; do
+  if [[ ! -e "$required" ]]; then
+    echo "  ❌ Installer must run from a Kali-AI-term repository checkout"
+    echo "  Missing required file: $required"
+    exit 1
+  fi
+done
+
 echo "💉 ═══════════════════════════════════════════════════════════════════ 💉"
 echo "    Kali Hacker Bot - Installation"
 echo "💉 ═══════════════════════════════════════════════════════════════════ 💉"
@@ -16,7 +53,13 @@ command -v node &>/dev/null && echo "  ✓ Node.js found: $(node --version)" || 
 # Interactive password prompt
 echo ""
 echo "✓ Configuration:"
-read -p "  Enter admin password: " ADMIN_PASSWORD
+while true; do
+  read -p "  Enter admin password: " ADMIN_PASSWORD
+  if [[ -n "$ADMIN_PASSWORD" ]]; then
+    break
+  fi
+  echo "  ⚠ Password cannot be empty"
+done
 echo ""
 
 # Generate .env
@@ -75,6 +118,27 @@ fi
 echo "✓ Waiting for startup..."
 sleep 3
 echo "  ✓ Ready"
+
+# Auto-pull a lightweight default model if Ollama has none installed
+OLLAMA_INSTALL_URL="${OLLAMA_URL:-http://localhost:11434}"
+DEFAULT_LLM="phi3:mini"
+echo "✓ Checking Ollama for installed models..."
+OLLAMA_MODELS=$(curl -sf "${OLLAMA_INSTALL_URL}/api/tags" 2>/dev/null || echo "")
+if [ -n "$OLLAMA_MODELS" ]; then
+  MODEL_COUNT=$(echo "$OLLAMA_MODELS" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{console.log((JSON.parse(d).models||[]).length)}catch(e){console.log(0)}})" 2>/dev/null || echo "0")
+  if [ "$MODEL_COUNT" = "0" ]; then
+    echo "  ℹ  No models found — pulling default lightweight model: $DEFAULT_LLM"
+    echo "  ℹ  This may take a few minutes depending on your connection..."
+    curl -sf "${OLLAMA_INSTALL_URL}/api/pull" -d "{\"name\":\"${DEFAULT_LLM}\",\"stream\":false}" -H "Content-Type: application/json" --max-time 600 >/dev/null 2>&1 \
+      && echo "  ✓ Model $DEFAULT_LLM pulled successfully" \
+      || echo "  ⚠ Could not pull model (Ollama may not be running). Pull manually: ollama pull $DEFAULT_LLM"
+  else
+    echo "  ✓ Ollama already has $MODEL_COUNT model(s) installed"
+  fi
+else
+  echo "  ⚠ Ollama not reachable at $OLLAMA_INSTALL_URL — skipping model pull"
+  echo "  ℹ  After starting Ollama, pull a model: ollama pull $DEFAULT_LLM"
+fi
 
 # Success
 echo ""

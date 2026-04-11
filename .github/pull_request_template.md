@@ -1,3 +1,4 @@
+<!-- 🔒 GOVERNANCE FILE — Protected by Rule 10 in copilot-instructions.md. Follow full workflow when editing. -->
 ## Description
 <!-- Provide a detailed description of the changes in this pull request -->
 
@@ -40,6 +41,22 @@ Related to #
 ## Screenshots / Demos
 <!-- If applicable, add screenshots or video of the feature -->
 
+## Planning Agent Sign-Off
+<!-- Was this work planned through the Planning Agent before implementation? -->
+- [ ] Issue triaged and tiered in `TODO.md`
+- [ ] Approach documented in `PLANNING.md`
+- [ ] Acceptance criteria defined before coding started
+- [ ] High-conflict-risk files flagged and handled
+- [ ] `TODO.md` updated with completed tasks
+- [ ] `PLANNING.md` updated with decisions + handoff notes
+
+## End-of-Code Review
+<!-- Automated via code-review-gate.yml — confirm before requesting human merge -->
+- [ ] Code Review Gate workflow passed (conflict check ✅, ESLint ✅, tests ✅)
+- [ ] No merge conflicts with target branch
+- [ ] Code Review agent (or human reviewer) has reviewed all changed files
+- [ ] All acceptance criteria from PLANNING.md are met
+
 ## Checklist
 - [ ] I have self-reviewed my code
 - [ ] I have commented complex sections
@@ -60,6 +77,8 @@ Related to #
 
 ### CI/CD Status
 All of the following must pass before merge:
+- ✅ Conflict Detection (code-review-gate / Conflict Detection job)
+- ✅ Static Code Review (code-review-gate / Static Code Review job)
 - ✅ Tests (unit + integration)
 - ✅ Linting & formatting
 - ✅ Security audit

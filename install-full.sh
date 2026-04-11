@@ -5,6 +5,32 @@
 # ============================================
 
 set -e
+export PS4='+ [${BASH_SOURCE##*/}:${LINENO}] '
+set -x
+
+# Stabilize execution context so deleted/invalid cwd does not break install flow.
+if ! pwd >/dev/null 2>&1; then
+    cd "$HOME" 2>/dev/null || cd /tmp
+fi
+
+SOURCE_PATH="${BASH_SOURCE[0]}"
+if [[ "$SOURCE_PATH" == /dev/fd/* || "$SOURCE_PATH" == /proc/*/fd/* ]]; then
+    log_error() { echo "$1"; }
+    log_error "ERROR: install-full.sh should run from a real repository checkout"
+    log_error "Run: git clone https://github.com/Crashcart/Kali-AI-term.git && cd Kali-AI-term && bash install-full.sh"
+    exit 1
+fi
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+cd "$SCRIPT_DIR"
+
+for required in docker-compose.yml package.json server.js; do
+    if [[ ! -e "$required" ]]; then
+        echo "ERROR: Installer must run from a Kali-AI-term repository checkout"
+        echo "Missing required file: $required"
+        exit 1
+    fi
+done
 
 # Colors for output
 RED='\033[0;31m'
@@ -28,6 +54,36 @@ log_error() {
 
 log_warn() {
     echo -e "${YELLOW}⚠${NC}  $1"
+}
+
+can_prompt_user() {
+    [ -r /dev/tty ] && [ -w /dev/tty ]
+}
+
+prompt_line() {
+    local prompt_message="$1"
+    local result_var="$2"
+    local input_value=""
+
+    if can_prompt_user; then
+        read -r -p "$prompt_message" input_value < /dev/tty
+    fi
+
+    printf -v "$result_var" '%s' "$input_value"
+}
+
+prompt_confirm() {
+    local prompt_message="$1"
+    local response=""
+
+    if can_prompt_user; then
+        read -r -p "$prompt_message" -n 1 response < /dev/tty
+        echo
+        [[ "$response" =~ ^[Yy]$ ]]
+        return
+    fi
+
+    return 1
 }
 
 check_command() {
@@ -136,20 +192,42 @@ echo ""
 log_info "Configuring environment..."
 echo ""
 
+CREATE_ENV=1
 if [ -f .env ]; then
     log_warn ".env file already exists"
-    read -p "    Overwrite? (y/n) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    if ! prompt_confirm "    Overwrite? (y/n) "; then
         log_info "Keeping existing .env"
+        CREATE_ENV=0
     else
         cp .env .env.backup
         log_success "Backed up to .env.backup"
     fi
-else
+fi
+
+if [ "$CREATE_ENV" -eq 1 ]; then
     # Generate secure random values
     AUTH_SECRET=$(node -e "console.log(require('crypto').randomUUID())")
-    ADMIN_PASSWORD=$(node -e "console.log(require('crypto').randomBytes(8).toString('hex'))")
+    GENERATED_ADMIN_PASSWORD=$(node -e "console.log(require('crypto').randomBytes(8).toString('hex'))")
+    ADMIN_PASSWORD="$GENERATED_ADMIN_PASSWORD"
+
+    # Ask for password from the controlling terminal so streamed installs can still prompt.
+    if can_prompt_user; then
+        prompt_line "    Enter admin password (press Enter to auto-generate): " USER_ADMIN_PASSWORD
+        if [ -n "$USER_ADMIN_PASSWORD" ]; then
+            prompt_line "    Confirm admin password: " CONFIRM_ADMIN_PASSWORD
+            if [ "$USER_ADMIN_PASSWORD" = "$CONFIRM_ADMIN_PASSWORD" ]; then
+                ADMIN_PASSWORD="$USER_ADMIN_PASSWORD"
+                log_success "Using custom admin password"
+            else
+                log_warn "Password confirmation did not match; using generated admin password"
+                log_info "Using generated admin password"
+            fi
+        else
+            log_info "Using generated admin password"
+        fi
+    else
+        log_info "Using generated admin password (non-interactive mode)"
+    fi
 
     cat > .env << EOF
 # Kali Hacker Bot Configuration
@@ -161,7 +239,7 @@ BIND_HOST=0.0.0.0
 OLLAMA_URL=http://host.docker.internal:11434
 
 # Docker
-KALI_CONTAINER=Kali-AI-linux
+KALI_CONTAINER=kali-ai-term-kali
 
 # Security
 ADMIN_PASSWORD=$ADMIN_PASSWORD
@@ -173,8 +251,11 @@ EOF
 
     log_success "Generated .env with secure secrets"
     echo ""
-    echo -e "${YELLOW}⚠  Save your credentials:${NC}"
-    echo "    Admin Password: ${GREEN}$ADMIN_PASSWORD${NC}"
+    echo -e "${YELLOW}╔════════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}║  SAVE THESE CREDENTIALS NOW           ║${NC}"
+    echo -e "${YELLOW}╚════════════════════════════════════════╝${NC}"
+    echo -e "${YELLOW}Admin Password:${NC} ${GREEN}$ADMIN_PASSWORD${NC}"
+    echo -e "${YELLOW}This password will be required to log in.${NC}"
     echo ""
 fi
 
@@ -210,7 +291,7 @@ log_info "Waiting for containers to be healthy..."
 sleep 5
 
 # Check if containers are running
-if docker ps | grep -q "Kali-AI-app" && docker ps | grep -q "Kali-AI-linux"; then
+if docker ps | grep -q "kali-ai-term-app" && docker ps | grep -q "kali-ai-term-kali"; then
     log_success "All containers are running"
 else
     log_warn "Containers may still be starting, checking logs..."
@@ -252,7 +333,33 @@ else
 fi
 
 # ============================================
-# 6. Display Success Message
+# 6. Auto-pull lightweight default model
+# ============================================
+
+OLLAMA_INSTALL_URL=$(grep OLLAMA_URL .env 2>/dev/null | cut -d'=' -f2 || echo "http://localhost:11434")
+DEFAULT_LLM="phi3:mini"
+log_info "Checking Ollama for installed models..."
+OLLAMA_MODELS=$(curl -sf "${OLLAMA_INSTALL_URL}/api/tags" 2>/dev/null || echo "")
+if [ -n "$OLLAMA_MODELS" ]; then
+  MODEL_COUNT=$(echo "$OLLAMA_MODELS" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{console.log((JSON.parse(d).models||[]).length)}catch(e){console.log(0)}})" 2>/dev/null || echo "0")
+  if [ "$MODEL_COUNT" = "0" ]; then
+    log_info "No models found — pulling default lightweight model: $DEFAULT_LLM"
+    echo "    This may take a few minutes depending on your connection..."
+    if curl -sf "${OLLAMA_INSTALL_URL}/api/pull" -d "{\"name\":\"${DEFAULT_LLM}\",\"stream\":false}" -H "Content-Type: application/json" --max-time 600 >/dev/null 2>&1; then
+      log_success "Model $DEFAULT_LLM pulled successfully"
+    else
+      log_warn "Could not pull model (Ollama may not be running). Pull manually: ollama pull $DEFAULT_LLM"
+    fi
+  else
+    log_success "Ollama already has $MODEL_COUNT model(s) installed"
+  fi
+else
+  log_warn "Ollama not reachable at $OLLAMA_INSTALL_URL — skipping model pull"
+  echo "    After starting Ollama, pull a model: ollama pull $DEFAULT_LLM"
+fi
+
+# ============================================
+# 7. Display Success Message
 # ============================================
 
 echo ""

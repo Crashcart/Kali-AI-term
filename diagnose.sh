@@ -3,6 +3,14 @@
 # Comprehensive Diagnostic Script for Kali Hacker Bot
 # Collects all system and Docker information for troubleshooting
 
+PROJECT_DIR="${KALI_AI_TERM_DIR:-$HOME/Kali-AI-term}"
+if [ -d "$PROJECT_DIR" ]; then
+    cd "$PROJECT_DIR"
+fi
+
+export PS4='+ [${BASH_SOURCE##*/}:${LINENO}] '
+set -x
+
 DIAGNOSTIC_FILE="diagnostic-report-$(date +%Y-%m-%d-%H-%M-%S).txt"
 
 echo "🔍 Collecting diagnostic information..."
@@ -266,7 +274,7 @@ echo ""
     echo "═══ END OF DIAGNOSTIC REPORT ═══"
     echo "Generated: $(date)"
 
-} | tee "$DIAGNOSTIC_FILE"
+} 2>&1 | tee "$DIAGNOSTIC_FILE"
 
 echo ""
 echo "✓ Diagnostic report saved to: $DIAGNOSTIC_FILE"

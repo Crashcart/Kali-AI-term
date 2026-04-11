@@ -17,6 +17,57 @@ const logger = createLogger('install', {
 });
 
 const COMPOSE_SCRIPT = process.platform === 'win32' ? 'docker-compose.cmd' : 'docker-compose';
+const REQUIRED_CONTAINERS = ['kali-ai-term-app', 'kali-ai-term-kali'];
+
+function getContainerStates() {
+  const psOutput = execSync('docker ps -a --format "{{.Names}}\t{{.State}}\t{{.Status}}"', {
+    encoding: 'utf8',
+    shell: true
+  });
+
+  const containerStates = new Map();
+  psOutput
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .forEach((line) => {
+      const [name, state, status] = line.split('\t');
+      if (name) {
+        containerStates.set(name, {
+          state: state || 'unknown',
+          status: status || ''
+        });
+      }
+    });
+
+  return containerStates;
+}
+
+function verifyRequiredContainersRunning() {
+  const containerStates = getContainerStates();
+  const failures = [];
+
+  REQUIRED_CONTAINERS.forEach((name) => {
+    const info = containerStates.get(name);
+    if (!info) {
+      failures.push(`${name}: not found`);
+      return;
+    }
+
+    if (info.state !== 'running') {
+      failures.push(`${name}: state=${info.state} status=${info.status}`);
+      return;
+    }
+
+    logger.trackContainer(name, 'running', { status: info.status, state: info.state });
+  });
+
+  if (failures.length > 0) {
+    throw new Error(`Required containers are not running: ${failures.join('; ')}`);
+  }
+
+  logger.success('Required containers verified as running');
+}
 
 // ============================================
 // 1. Check Prerequisites
@@ -34,6 +85,35 @@ async function checkPrerequisites() {
   } catch (err) {
     logger.error('Docker not found', { url: 'https://docs.docker.com/get-docker/' });
     missingDeps.push('docker');
+  }
+
+  // Check Docker socket accessibility (Linux/macOS only)
+  // Newer Docker Engine (24+) / runc (1.1.x+) changed default bind propagation
+  // to rprivate (MS_REC), which fails for socket files. Catching this early
+  // gives a clear error instead of a cryptic OCI runtime failure.
+  if (process.platform !== 'win32') {
+    if (process.env.DOCKER_HOST) {
+      logger.info(`DOCKER_HOST is set (${process.env.DOCKER_HOST}); Docker socket path check skipped`);
+    } else {
+      const socketPath = process.env.DOCKER_SOCKET || '/var/run/docker.sock';
+      try {
+        const sockStat = fs.statSync(socketPath);
+        if (!sockStat.isSocket()) {
+          logger.error(
+            `${socketPath} exists but is not a socket file — check your Docker installation`
+          );
+          missingDeps.push('docker-socket');
+        } else {
+          logger.success(`Docker socket accessible at ${socketPath}`);
+        }
+      } catch (err) {
+        logger.error(
+          `Docker socket not found at ${socketPath} — is the Docker daemon running?`,
+          { hint: 'Try: sudo systemctl start docker' }
+        );
+        missingDeps.push('docker-socket');
+      }
+    }
   }
 
   // Check Docker Compose
@@ -84,6 +164,10 @@ async function checkPrerequisites() {
   }
 
   return true;
+}
+
+function getDockerSocketPath() {
+  return process.env.DOCKER_SOCKET || '/var/run/docker.sock';
 }
 
 // ============================================
@@ -174,10 +258,10 @@ async function startContainers() {
     }
 
     // Start containers
-    const upOutput = execSync('docker-compose up -d 2>/dev/null || docker compose up -d',
+    const upOutput = execSync('docker-compose up -d --build --force-recreate 2>/dev/null || docker compose up -d --build --force-recreate',
       { encoding: 'utf8', shell: true, maxBuffer: 10 * 1024 * 1024 });
-    logger.trackCommand('docker-compose up -d', 0, upOutput);
-    logger.success('Docker containers started');
+    logger.trackCommand('docker-compose up -d --build --force-recreate', 0, upOutput);
+    logger.success('Docker containers built and started');
 
     // Wait for containers with health checks
     logger.info('Waiting for containers to be healthy (max 60 seconds)...');
@@ -187,27 +271,14 @@ async function startContainers() {
 
     while (!healthy && attempts < maxAttempts) {
       try {
-        const psOutput = execSync('docker ps --format "{{.Names}}\t{{.Status}}"',
-          { encoding: 'utf8' });
-
-        const lines = psOutput.trim().split('\n');
-        const appRunning = lines.some(line =>
-          line.includes('kali-ai-term-app') && line.includes('Up'));
-        const kaliRunning = lines.some(line =>
-          line.includes('kali-ai-term-kali') && line.includes('Up'));
+        const containerStates = getContainerStates();
+        const appRunning = containerStates.get('kali-ai-term-app')?.state === 'running';
+        const kaliRunning = containerStates.get('kali-ai-term-kali')?.state === 'running';
 
         if (appRunning && kaliRunning) {
           healthy = true;
           logger.success('All containers are running and healthy');
-
-          // Track container states
-          lines.forEach(line => {
-            if (line.trim()) {
-              const [name, status] = line.split('\t');
-              const action = status.includes('Up') ? 'running' : 'created';
-              logger.trackContainer(name, action, { status });
-            }
-          });
+          verifyRequiredContainersRunning();
         } else {
           attempts++;
           if (attempts % 5 === 0) {
@@ -231,6 +302,7 @@ async function startContainers() {
       } catch (err) {
         // Ignore log fetch errors
       }
+      verifyRequiredContainersRunning();
     }
 
   } catch (err) {
@@ -245,6 +317,8 @@ async function startContainers() {
 
 async function verifyInstallation() {
   logger.info('Verifying installation...');
+
+  verifyRequiredContainersRunning();
 
   try {
     // Check if app is responding
@@ -332,5 +406,12 @@ async function runInstallation() {
   }
 }
 
-// Run installation
-runInstallation();
+module.exports = {
+  checkPrerequisites,
+  getDockerSocketPath
+};
+
+// Run installation only when executed directly
+if (require.main === module) {
+  runInstallation();
+}

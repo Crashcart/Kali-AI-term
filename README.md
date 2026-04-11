@@ -81,6 +81,8 @@ cd Kali-AI-term
 
 The script will:
 - ✓ Check all prerequisites (Docker, Node.js, Ollama)
+- ✓ Prompt for an admin password during interactive installs
+- ✓ Generate a secure fallback password if you press Enter or run non-interactively
 - ✓ Generate secure `.env` configuration
 - ✓ Install dependencies
 - ✓ Start Docker containers
@@ -99,8 +101,9 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/
 
 The script will:
 - ✓ Pull latest `kalilinux/kali-rolling:latest` base image
-- ✓ Rebuild the app container (no cache)
-- ✓ Restart all services with updated images
+- ✓ Validate `docker-compose.yml`
+- ✓ Rebuild and force-recreate services with updated images
+- ✓ Recover project files automatically if run outside a git checkout
 
 ### Complete Uninstall
 
@@ -112,9 +115,11 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/
 
 The script will:
 - ✓ Stop and remove Docker containers
+- ✓ Remove orphaned compose networks and legacy container names
 - ✓ Delete `.env` and `.env.backup` files
 - ✓ Remove `node_modules` directory
 - ✓ Clean up `data` and `logs` directories
+- ✓ Optionally remove the entire project directory (including `.git`)
 - ✓ Confirm all data has been removed
 
 ### Quick Diagnostics
@@ -123,13 +128,13 @@ The script will:
 
 ```bash
 # Quick status check (10 seconds)
-bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/claude/logging-diagnostic-system/diagnose-quick.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/diagnose-quick.sh)
 
 # Full diagnostic report (2-5 minutes)
-bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/claude/logging-diagnostic-system/diagnose.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/diagnose.sh)
 
 # Collect all logs for support (2-3 minutes)
-bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/claude/logging-diagnostic-system/collect-logs.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/collect-logs.sh)
 ```
 
 Each script:
@@ -241,7 +246,7 @@ These settings are automatically applied in `docker-compose.yml`.
 4. **Access the terminal**
    ```
    Open browser: http://localhost:31337
-   Default password: kalibot
+   Use the password you entered during install, or the generated password printed by the installer
    ```
 
 ### Stopping the System
@@ -253,8 +258,11 @@ docker-compose down
 
 ### Authentication
 1. Navigate to `http://localhost:31337`
-2. Enter the admin password (default: `kalibot`)
+2. Enter the admin password you set during install, or the generated password shown by the installer
 3. You're logged in for 24 hours
+
+If login fails, the UI now generates a login error report ID and tells you what to collect.
+Run `./collect-logs.sh` and share the report output plus the login report ID.
 
 ### Command Types
 
@@ -305,7 +313,7 @@ NODE_ENV=production          # Environment
 PORT=31337                   # Web server port
 BIND_HOST=0.0.0.0            # Bind address (0.0.0.0 = all interfaces)
 OLLAMA_URL=http://ollama:11434  # Ollama API endpoint
-KALI_CONTAINER=Kali-AI-linux # Container name
+KALI_CONTAINER=kali-ai-term-kali # Container name
 ADMIN_PASSWORD=kalibot       # Login password
 AUTH_SECRET=<random-uuid>    # Session secret
 LOG_LEVEL=info               # Logging level
@@ -398,7 +406,7 @@ The install scripts (`install.sh` and `install-full.sh`) automatically detect Ze
 
 | Check | Command |
 |-------|---------|
-| Container running? | `docker ps \| grep Kali-AI-app` |
+| Container running? | `docker ps \| grep kali-ai-term-app` |
 | Port bound to all interfaces? | `ss -tlnp \| grep 31337` |
 | ZeroTier connected? | `zerotier-cli listnetworks` |
 | iptables rule present? | `iptables -L DOCKER-USER -n \| grep zt` |
@@ -494,6 +502,7 @@ install.log                    # Symlink to latest installation log
 install.diagnostic             # JSON diagnostic report with system state
 update-TIMESTAMP.log           # Update operation log
 uninstall-TIMESTAMP.log        # Uninstall operation log
+data/login-error-reports/*.json # Login failure diagnostics (generated on auth failures)
 ```
 
 ### Viewing Logs
@@ -654,17 +663,6 @@ LOG_LEVEL=error  # Errors only
 - This tool can be destructive - use the Kill Switch and Burn features carefully
 - Session authentication is basic - use strong passwords in production
 - Never expose to untrusted networks
-
-## Future Enhancements
-
-- [ ] Metasploit RPC integration for exploit staging
-- [ ] CVE database enrichment for identified services
-- [ ] Model-on-demand hot-swapping
-- [ ] Persistent session storage (Redis)
-- [ ] Advanced logging and audit trail
-- [ ] Multi-user support with role-based access
-- [ ] Custom payload generation
-- [ ] Vulnerability scanning integration
 
 ## License
 

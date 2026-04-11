@@ -11,6 +11,20 @@ const { execSync } = require('child_process');
 const readline = require('readline');
 const { createLogger } = require('./lib/install-logger');
 
+function isProjectDir(dir) {
+  return fs.existsSync(path.join(dir, 'docker-compose.yml'))
+    && fs.existsSync(path.join(dir, 'package.json'));
+}
+
+const CWD = process.cwd();
+const HOME_PROJECT_DIR = process.env.KALI_AI_TERM_DIR || path.join(process.env.HOME || '.', 'Kali-AI-term');
+
+if (isProjectDir(CWD)) {
+  process.chdir(CWD);
+} else if (fs.existsSync(HOME_PROJECT_DIR) && isProjectDir(HOME_PROJECT_DIR)) {
+  process.chdir(HOME_PROJECT_DIR);
+}
+
 const logger = createLogger('uninstall', {
   logDir: process.cwd(),
   verbose: true,
@@ -36,7 +50,7 @@ function promptConfirmation() {
     console.log('  • Stop and remove Docker containers');
     console.log('  • Remove volume data');
     console.log('  • Delete .env configuration');
-    console.log('  • Preserve logs for review\n');
+    console.log('  • Delete generated logs/diagnostics/backups\n');
 
     rl.question('Type "uninstall" to confirm: ', (answer) => {
       rl.close();
@@ -52,35 +66,62 @@ function promptConfirmation() {
 async function stopContainers() {
   logger.info('Stopping Docker containers...');
 
+  const composeProject = path.basename(process.cwd())
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-');
+
   try {
-    execSync('docker-compose down 2>/dev/null || docker compose down 2>/dev/null',
+    execSync('docker compose down --volumes --remove-orphans 2>/dev/null || docker-compose down --volumes --remove-orphans 2>/dev/null',
       { shell: true, stdio: 'ignore' });
-    logger.trackCommand('docker-compose down', 0);
+    logger.trackCommand('docker compose down --volumes --remove-orphans', 0);
     logger.success('Containers stopped');
   } catch (err) {
     logger.warn('docker-compose down failed (containers may not exist)', { error: err.message });
   }
 
-  // Check if containers still exist
+  // Remove known current/legacy container names and compose patterns.
   try {
-    const psOutput = execSync('docker ps -a --format "{{.Names}}" | grep -i kali',
-      { encoding: 'utf8', shell: true }).trim();
+    const ids = execSync(
+      [
+        'docker ps -aq',
+        '--filter "name=^/kali-ai-term-app$"',
+        '--filter "name=^/kali-ai-term-kali$"',
+        '--filter "name=^/Kali-AI-app$"',
+        '--filter "name=^/Kali-AI-linux$"',
+        `--filter "name=^/${composeProject}-app-"`,
+        `--filter "name=^/${composeProject}-kali-"`,
+        `--filter "name=^/${composeProject}_app_"`,
+        `--filter "name=^/${composeProject}_kali_"`
+      ].join(' '),
+      { encoding: 'utf8', shell: true, stdio: 'pipe' }
+    ).trim();
 
-    if (psOutput) {
+    if (ids) {
       logger.warn('Found remaining containers, forcing removal...');
-      psOutput.split('\n').forEach(container => {
-        if (container) {
-          try {
-            execSync(`docker rm -f ${container}`, { stdio: 'ignore' });
-            logger.debug(`Removed container: ${container}`);
-          } catch (err) {
-            logger.warn(`Could not remove container: ${container}`);
-          }
+      ids.split(/\s+/).forEach((containerId) => {
+        if (!containerId) {
+          return;
+        }
+        try {
+          execSync(`docker rm -f ${containerId}`, { stdio: 'ignore' });
+          logger.debug(`Removed container id: ${containerId}`);
+        } catch (err) {
+          logger.warn(`Could not remove container id: ${containerId}`);
         }
       });
     }
   } catch (err) {
     logger.debug('No containers found');
+  }
+
+  try {
+    execSync(
+      `docker network rm ${composeProject}-net ${composeProject}_default kali-ai-term-net 2>/dev/null || true`,
+      { shell: true, stdio: 'ignore' }
+    );
+    logger.debug('Cleaned up known compose networks');
+  } catch (err) {
+    logger.debug('No compose networks to remove');
   }
 
   logger.success('All containers removed');
@@ -124,25 +165,76 @@ async function removeVolumes() {
 async function removeDataDirectories() {
   logger.info('Removing application data...');
 
-  const dirs = ['./data', './node_modules', './.env'];
+  const cleanupTargets = [
+    './data',
+    './logs',
+    './node_modules',
+    './.env',
+    './.env.backup',
+    './install.diagnostic',
+    './install-full.diagnostic',
+    './update.diagnostic',
+    './.cache'
+  ];
 
-  for (const dir of dirs) {
-    if (fs.existsSync(dir)) {
+  const wildcardPatterns = [
+    'diagnostic-logs-*',
+    'diagnostic-*.txt',
+    'install-*.log',
+    'update-*.log',
+    '.backup-*'
+  ];
+
+  for (const target of cleanupTargets) {
+    if (fs.existsSync(target)) {
       try {
-        if (fs.statSync(dir).isDirectory()) {
-          execSync(`rm -rf ${dir}`);
-          logger.debug(`Removed directory: ${dir}`);
+        if (fs.statSync(target).isDirectory()) {
+          execSync(`rm -rf ${target}`);
+          logger.debug(`Removed directory: ${target}`);
         } else {
-          fs.unlinkSync(dir);
-          logger.debug(`Removed file: ${dir}`);
+          fs.unlinkSync(target);
+          logger.debug(`Removed file: ${target}`);
         }
       } catch (err) {
-        logger.warn(`Could not remove ${dir}`, { error: err.message });
+        logger.warn(`Could not remove ${target}`, { error: err.message });
       }
     }
   }
 
-  logger.success('Data directories removed');
+  wildcardPatterns.forEach((pattern) => {
+    try {
+      execSync(`find . -maxdepth 1 -name "${pattern}" -exec rm -rf {} +`, { stdio: 'ignore' });
+      logger.debug(`Removed pattern matches: ${pattern}`);
+    } catch (err) {
+      logger.debug(`No matches for pattern: ${pattern}`);
+    }
+  });
+
+  logger.success('Generated data and artifacts removed');
+}
+
+async function promptRemoveProjectDirectory() {
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+
+    rl.question('Remove project directory too (including .git)? (y/N): ', (answer) => {
+      rl.close();
+      resolve(/^y(es)?$/i.test(answer.trim()));
+    });
+  });
+}
+
+async function removeProjectDirectory() {
+  const projectPath = process.cwd();
+  const parentDir = path.dirname(projectPath);
+
+  process.chdir(parentDir);
+  fs.rmSync(projectPath, { recursive: true, force: true });
+
+  logger.success('Project directory removed', { projectPath });
 }
 
 // ============================================
@@ -173,6 +265,15 @@ async function verifyCleanup() {
     },
     '.env removed': () => !fs.existsSync('.env'),
     'data directory removed': () => !fs.existsSync('./data'),
+    'diagnostic artifacts removed': () => {
+      try {
+        const output = execSync('find . -maxdepth 1 \( -name "diagnostic-logs-*" -o -name "diagnostic-*.txt" -o -name "install-*.log" -o -name "update-*.log" -o -name ".backup-*" \)',
+          { encoding: 'utf8', shell: true, stdio: 'pipe' }).trim();
+        return !output;
+      } catch (err) {
+        return true;
+      }
+    }
   };
 
   let allClean = true;
@@ -210,9 +311,17 @@ async function runUninstallation() {
     logger.info('Starting uninstallation process');
     console.log('\nUninstalling...\n');
 
+    const projectPath = process.cwd();
+
     await stopContainers();
     await removeVolumes();
     await removeDataDirectories();
+    const removeDir = await promptRemoveProjectDirectory();
+    if (removeDir) {
+      await removeProjectDirectory();
+    } else {
+      logger.info('Project directory preserved', { projectPath });
+    }
     const isClean = await verifyCleanup();
 
     logger.generateDiagnostic('success', 'uninstalled', 'Clean uninstall completed');
@@ -227,9 +336,12 @@ async function runUninstallation() {
     console.log('  • Application data');
     console.log('  • Environment configuration\n');
 
-    console.log('Preserved:');
-    console.log('  • Installation logs (for reference)');
-    console.log('  • Source code files\n');
+    if (removeDir) {
+      console.log('Project directory was removed, including git checkout.\n');
+    } else {
+      console.log('Preserved:');
+      console.log('  • Source code files (unless manually removed)\n');
+    }
 
     if (!isClean) {
       console.log('⚠️  Some files may remain (permission issues)');

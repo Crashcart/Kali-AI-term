@@ -5,6 +5,8 @@
 # to your local Kali-AI-term repository
 
 set -e
+export PS4='+ [${BASH_SOURCE##*/}:${LINENO}] '
+set -x
 
 # Configuration
 SOURCE_DIR="/tmp/Kali-AI-term"

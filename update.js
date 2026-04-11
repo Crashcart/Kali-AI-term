@@ -6,9 +6,36 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { execSync } = require('child_process');
 const { createLogger } = require('./lib/install-logger');
+
+function resolveProjectDirectory() {
+  const cwd = process.cwd();
+  const homeProjectDir = path.join(os.homedir(), 'Kali-AI-term');
+
+  const looksLikeProject = (dir) =>
+    fs.existsSync(path.join(dir, 'docker-compose.yml')) ||
+    fs.existsSync(path.join(dir, 'package.json'));
+
+  if (looksLikeProject(cwd)) {
+    return cwd;
+  }
+
+  if (looksLikeProject(homeProjectDir)) {
+    return homeProjectDir;
+  }
+
+  if (!fs.existsSync(homeProjectDir)) {
+    fs.mkdirSync(homeProjectDir, { recursive: true });
+  }
+
+  return homeProjectDir;
+}
+
+const projectDir = resolveProjectDirectory();
+process.chdir(projectDir);
 
 const logger = createLogger('update', {
   logDir: process.cwd(),
@@ -53,11 +80,12 @@ async function checkInstallation() {
   }
 
   if (!allPresent) {
-    logger.error('Installation check failed - some components missing');
-    throw new Error('Installation incomplete. Run install.js first.');
+    logger.warn('Some project components are missing. Continuing: updater will attempt recovery.');
+    return false;
   }
 
   logger.success('Installation verified');
+  return true;
 }
 
 // ============================================
@@ -108,10 +136,39 @@ async function updateSourceCode() {
       logger.trackCommand('git pull', 0, gitOutput);
       logger.success('Code updated from git');
     } else {
-      logger.warn('Not a git repository, skipping code update');
+      logger.warn('Not a git repository, refreshing full project snapshot from fix/issue-41 branch');
+
+      const tmpDir = execSync('mktemp -d', { encoding: 'utf8' }).trim();
+      const downloadCmd = [
+        `curl -fsSL https://codeload.github.com/Crashcart/Kali-AI-term/tar.gz/refs/heads/fix/issue-41 -o ${tmpDir}/project.tar.gz`,
+        `tar -xzf ${tmpDir}/project.tar.gz -C ${tmpDir}`,
+        `rsync -a --delete --exclude '.env' --exclude 'data/' --exclude '.backup-*' ${tmpDir}/Kali-AI-term-fix-issue-41/ ./`,
+        `rm -rf ${tmpDir}`
+      ].join(' && ');
+
+      execSync(downloadCmd, { shell: true, stdio: 'pipe' });
+      logger.success('Project files refreshed from remote branch snapshot');
     }
   } catch (err) {
     logger.warn('git pull failed', { error: err.message });
+  }
+}
+
+// ============================================
+// VALIDATE COMPOSE CONFIG
+// ============================================
+
+async function validateComposeConfig() {
+  logger.info('Validating docker-compose configuration...');
+
+  try {
+    execSync('docker compose config >/dev/null 2>&1 || docker-compose config >/dev/null 2>&1', {
+      shell: true
+    });
+    logger.success('docker-compose.yml is valid');
+  } catch (err) {
+    logger.error('docker-compose.yml validation failed', { error: err.message });
+    throw new Error('Invalid docker-compose.yml. Fix configuration before update.');
   }
 }
 
@@ -193,10 +250,10 @@ async function startContainers() {
   logger.info('Starting updated containers...');
 
   try {
-    const upOutput = execSync('docker-compose up -d 2>/dev/null || docker compose up -d',
+    const upOutput = execSync('docker-compose up -d --build --force-recreate 2>/dev/null || docker compose up -d --build --force-recreate',
       { encoding: 'utf8', shell: true, maxBuffer: 10 * 1024 * 1024 });
-    logger.trackCommand('docker-compose up -d', 0, upOutput);
-    logger.success('Containers started');
+    logger.trackCommand('docker-compose up -d --build --force-recreate', 0, upOutput);
+    logger.success('Containers built and started');
 
     // Monitor startup
     logger.info('Waiting for containers to become healthy...');
@@ -285,9 +342,11 @@ async function runUpdate() {
     console.log('║  Kali Hacker Bot - Update             ║');
     console.log('╚════════════════════════════════════════╝\n');
 
+    logger.info(`Using project directory: ${projectDir}`);
     await checkInstallation();
     await backupConfiguration();
     await updateSourceCode();
+    await validateComposeConfig();
     await updateDependencies();
     await stopContainers();
     await rebuildDockerImage();

@@ -1,159 +1,91 @@
 #!/bin/bash
 
-# Collect all Docker and application logs for debugging
+# Collect targeted Docker and application logs for debugging
 
-LOGS_DIR="diagnostic-logs-$(date +%Y-%m-%d-%H-%M-%S)"
-mkdir -p "$LOGS_DIR"
-
-echo "📋 Collecting diagnostic logs..."
-echo "Directory: $LOGS_DIR"
-echo ""
-
-# ============================================
-# Docker Daemon Logs
-# ============================================
-echo "→ Collecting Docker daemon logs..."
-
-if command -v journalctl &>/dev/null; then
-    # Linux with systemd
-    journalctl -u docker -n 200 --no-pager > "$LOGS_DIR/docker-daemon-logs.txt" 2>&1
-    echo "  ✓ Saved journalctl logs"
-elif [ -f /var/log/docker.log ]; then
-    # macOS or older systems
-    tail -200 /var/log/docker.log > "$LOGS_DIR/docker-daemon-logs.txt" 2>&1
-    echo "  ✓ Saved /var/log/docker.log"
-else
-    echo "  ⚠ Docker daemon logs not accessible"
+PROJECT_DIR="${KALI_AI_TERM_DIR:-$HOME/Kali-AI-term}"
+if [ -d "$PROJECT_DIR" ]; then
+    cd "$PROJECT_DIR"
 fi
 
-# ============================================
-# Docker Info & Status
-# ============================================
-echo "→ Collecting Docker information..."
-docker info > "$LOGS_DIR/docker-info.txt" 2>&1
-docker ps -a > "$LOGS_DIR/docker-containers.txt" 2>&1
-docker images > "$LOGS_DIR/docker-images.txt" 2>&1
-docker network ls > "$LOGS_DIR/docker-networks.txt" 2>&1
-docker volume ls > "$LOGS_DIR/docker-volumes.txt" 2>&1
-echo "  ✓ Docker status saved"
+export PS4='+ [${BASH_SOURCE##*/}:${LINENO}] '
+set -x
 
-# ============================================
-# Container Logs
-# ============================================
-echo "→ Collecting container logs..."
-for container in $(docker ps -a --format "{{.Names}}" 2>/dev/null); do
-    echo "  - Collecting logs from: $container"
-    docker logs "$container" > "$LOGS_DIR/container-${container}.log" 2>&1
-done
+REPORT_FILE="diagnostic-logs-$(date +%Y-%m-%d-%H-%M-%S).txt"
+PHASE3_LINES=300
 
-# ============================================
-# Application Logs
-# ============================================
-echo "→ Collecting application logs..."
-[ -f install.log ] && cp install.log "$LOGS_DIR/" && echo "  ✓ install.log"
-[ -f install.diagnostic ] && cp install.diagnostic "$LOGS_DIR/" && echo "  ✓ install.diagnostic"
-[ -f update.log ] && cp update.log "$LOGS_DIR/" && echo "  ✓ update.log"
-[ -f .env ] && (sed 's/PASSWORD=.*/PASSWORD=***/' .env > "$LOGS_DIR/.env-sanitized.txt") && echo "  ✓ .env (sanitized)"
-[ -f docker-compose.yml ] && cp docker-compose.yml "$LOGS_DIR/" && echo "  ✓ docker-compose.yml"
+write_section() {
+    local title="$1"
+    echo ""
+    echo "=== $title ==="
+}
 
-# ============================================
-# System Information
-# ============================================
-echo "→ Collecting system information..."
+echo "📋 Collecting diagnostic logs..."
+echo "Report: $REPORT_FILE"
+echo ""
+
 {
-    echo "=== SYSTEM INFO ==="
-    uname -a
-    echo ""
-    echo "=== DOCKER VERSION ==="
-    docker --version
-    echo ""
-    echo "=== DOCKER DAEMON SOCKET ==="
-    ls -lah /var/run/docker.sock 2>/dev/null || echo "Socket not found"
-    echo ""
-    echo "=== DISK SPACE ==="
-    df -h
-    echo ""
-    echo "=== MEMORY ==="
-    free -h 2>/dev/null || vm_stat 2>/dev/null || echo "Cannot determine"
-} > "$LOGS_DIR/system-info.txt" 2>&1
-echo "  ✓ system info"
+    echo "Diagnostic Logs Report"
+    echo "Generated: $(date)"
+    echo "Project Directory: $(pwd)"
+    echo "Mode: targeted"
 
-# ============================================
-# Docker Daemon Health Check
-# ============================================
-echo "→ Checking Docker daemon..."
-{
-    echo "=== DOCKER DAEMON HEALTH ==="
-    if docker ps &>/dev/null 2>&1; then
-        echo "✓ Docker daemon is responding"
-        docker ps
-    else
-        echo "✗ Docker daemon is NOT responding"
-        docker ps 2>&1
-    fi
-} > "$LOGS_DIR/docker-health-check.txt" 2>&1
-echo "  ✓ health check"
+    write_section "Phase 1 - Runtime Snapshot"
+    docker --version 2>&1 || true
+    docker compose version 2>&1 || docker-compose --version 2>&1 || true
+    docker compose ps 2>&1 || docker ps -a 2>&1 || true
+    docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Image}}" 2>&1 || true
 
-# ============================================
-# Network Diagnostics
-# ============================================
-echo "→ Collecting network information..."
-{
-    echo "=== NETWORK INFO ==="
-    ip addr show 2>/dev/null || ifconfig 2>/dev/null || echo "Cannot determine"
-    echo ""
-    echo "=== DNS ==="
-    cat /etc/resolv.conf 2>/dev/null || echo "Cannot read resolv.conf"
-    echo ""
-    echo "=== PORT STATUS ==="
-    for port in 3000 31337 11434; do
-        echo "Port $port:"
-        netstat -tulpn 2>/dev/null | grep ":$port " || echo "  Available"
+    write_section "Phase 2 - Container Status Details"
+    for container in kali-ai-term-app kali-ai-term-kali; do
+        echo "--- inspect: $container ---"
+        docker inspect "$container" --format '{{json .State}}' 2>&1 || echo "Container not found: $container"
+        echo ""
     done
-} > "$LOGS_DIR/network-info.txt" 2>&1
-echo "  ✓ network info"
 
-# ============================================
-# Create Summary
-# ============================================
-cat > "$LOGS_DIR/README.txt" << 'EOF'
-Diagnostic Logs Package
-=======================
+    write_section "Phase 3 - Required Debug Logs"
+    echo "Collecting only logs required for auth/container triage"
 
-Contents:
-- docker-daemon-logs.txt: Docker daemon system logs
-- docker-info.txt: Docker system information
-- docker-containers.txt: List of containers
-- docker-images.txt: Available Docker images
-- docker-networks.txt: Docker networks
-- docker-volumes.txt: Docker volumes
-- container-*.log: Individual container logs
-- install.log: Installation script log
-- install.diagnostic: Detailed diagnostic JSON
-- docker-compose.yml: Docker Compose configuration
-- .env-sanitized.txt: Environment configuration (passwords masked)
-- system-info.txt: System and resource information
-- docker-health-check.txt: Docker daemon health status
-- network-info.txt: Network and connectivity information
+    echo "--- kali-ai-term-app (last ${PHASE3_LINES} lines) ---"
+    docker logs --tail "$PHASE3_LINES" kali-ai-term-app 2>&1 || echo "kali-ai-term-app logs unavailable"
+    echo ""
 
-Share these files with support to help diagnose issues.
-All sensitive information has been masked (passwords replaced with ***)
-EOF
+    echo "--- kali-ai-term-kali (last ${PHASE3_LINES} lines) ---"
+    docker logs --tail "$PHASE3_LINES" kali-ai-term-kali 2>&1 || echo "kali-ai-term-kali logs unavailable"
+    echo ""
 
-# ============================================
-# Create Tarball
-# ============================================
-echo ""
-echo "→ Creating archive..."
-tar -czf "${LOGS_DIR}.tar.gz" "$LOGS_DIR" 2>/dev/null || zip -r "${LOGS_DIR}.zip" "$LOGS_DIR" 2>/dev/null
+    [ -f install.log ] && { echo "--- install.log (last ${PHASE3_LINES} lines) ---"; tail -n "$PHASE3_LINES" install.log; echo ""; } || echo "install.log not found"
+    [ -f install.diagnostic ] && { echo "--- install.diagnostic ---"; cat install.diagnostic; echo ""; } || echo "install.diagnostic not found"
 
-echo ""
+    if [ -d data/login-error-reports ]; then
+        echo "--- data/login-error-reports (latest 5) ---"
+        ls -1t data/login-error-reports/*.json 2>/dev/null | head -n 5 | while read -r report; do
+            [ -f "$report" ] || continue
+            echo "--- $(basename "$report") ---"
+            cat "$report"
+            echo ""
+        done
+    else
+        echo "data/login-error-reports not found"
+    fi
+
+    write_section "Minimal Configuration Context"
+    [ -f .env ] && { echo "--- .env (sanitized) ---"; sed -E 's/(ADMIN_PASSWORD|AUTH_SECRET)=.*/\1=***/' .env; echo ""; } || echo ".env not found"
+    [ -f docker-compose.yml ] && { echo "--- docker-compose.yml ---"; cat docker-compose.yml; echo ""; } || echo "docker-compose.yml not found"
+} > "$REPORT_FILE"
+
 echo "✓ Diagnostic logs collected successfully!"
+echo "Report: $REPORT_FILE"
+echo "Share this file for support."
 echo ""
-echo "Location: $LOGS_DIR/"
-echo "Archive: ${LOGS_DIR}.tar.gz or ${LOGS_DIR}.zip"
-echo ""
-echo "Share these files to help diagnose the issue:"
-echo "  tar czf diagnostic-logs.tar.gz $LOGS_DIR/"
-echo "  # Then upload diagnostic-logs.tar.gz"
-echo ""
+
+if [ -t 0 ]; then
+    read -r -p "Display report now for copy/paste? [y/N]: " SHOW_REPORT
+    if [[ "$SHOW_REPORT" =~ ^[Yy]$ ]]; then
+        echo ""
+        echo "===== BEGIN $REPORT_FILE ====="
+        cat "$REPORT_FILE"
+        echo "===== END $REPORT_FILE ====="
+    else
+        echo "Run: cat $REPORT_FILE"
+    fi
+fi
