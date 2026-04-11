@@ -3,6 +3,9 @@
  * Unit and integration tests for sandbox detection, configuration, and management
  */
 
+jest.mock('axios');
+const axios = require('axios');
+
 const SandboxDetector = require('../../lib/sandbox-detector');
 const SandboxConfig = require('../../lib/sandbox-config');
 const SandboxManager = require('../../lib/sandbox-manager');

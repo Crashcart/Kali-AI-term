@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 describe('Configuration wiring', () => {
   it('passes auth settings into the app container', () => {

@@ -2,6 +2,7 @@ module.exports = {
   testEnvironment: 'node',
   collectCoverageFrom: [
     'server.js',
+    'lib/**/*.js',
     'plugins/**/*.js',
   ],
   coveragePathIgnorePatterns: [
