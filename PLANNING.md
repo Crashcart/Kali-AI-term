@@ -1,11 +1,32 @@
 # 📊 Kali-AI-term Strategic Planning & Coordination
 
-**Last Updated**: 2026-04-11 05:39:00 UTC  
+**Last Updated**: 2026-04-11 06:28:00 UTC  
 **Document Purpose**: Centralized planning for multi-agent coordination, architectural decisions, and project context
 
 ---
 
 ## 🎯 Active Initiatives
+
+### Terminal Connection Fix + Security Patch (copilot/debug-terminal-connection)
+
+**Status**: ✅ **Complete** — PR ready for human review  
+**Branch**: `copilot/debug-terminal-connection`  
+**Assigned To**: GitHub Copilot Task Agent  
+
+**Summary**: Fixed 3 bugs preventing the Kali terminal from working, and patched 2 critical axios CVEs.
+
+**Changes Made**:
+- `public/app.js` — `isNaturalLanguage()`: removed shell command names (find/scan/test/check/search/show/list/get) from NL pattern; added shell-syntax escape hatch (flags, pipes, paths)
+- `public/app.js` — `livePipe`: persisted in `saveUserSettings`/`loadUserSettings`; UI button state restored on load
+- `server.js` — All 3 `container.exec()` calls: added `Tty: true` to eliminate multiplexed 8-byte binary frame headers in stream output
+- `package.json` / `package-lock.json` — axios `^1.6.0` → `^1.15.0` (patches CVE SSRF + metadata exfiltration)
+
+**Decisions Log**:
+- [2026-04-11 06:20] `isNaturalLanguage` fix: shell-syntax regex escape hatch is safer than trying to enumerate all shell commands
+- [2026-04-11 06:20] `Tty: true` chosen over dockerode `modem.demuxStream` — simpler, merges stdout/stderr which is already the UI behaviour
+- [2026-04-11 06:28] axios pinned to `^1.15.0` (not exact) to allow patch releases; 0 vulns confirmed via advisory DB
+
+---
 
 ### Conflict Review Agent (copilot/add-review-conflicts-to-github)
 
@@ -555,3 +576,25 @@ Other blockers from previous sessions:
 - ✅ Read TODO.md for task list
 - ✅ Read copilot-instructions.md for rules
 - ✅ Then pick a task and begin
+
+---
+
+## Conflict Check Log
+
+| Timestamp | Branch | Result | Details |
+|-----------|--------|--------|---------|
+| 2026-04-11 | `copilot/debug-terminal-connection` | ⚠️ → ✅ RESOLVED | Conflicts in `package.json`, `package-lock.json`, `install.diagnostic` — resolved via Rule 4a loop; commit `66ef45b` |
+
+### Resolution Summary (2026-04-11)
+
+**Branch**: `copilot/debug-terminal-connection`  
+**Conflicted Files**: `package.json`, `package-lock.json`, `install.diagnostic`  
+**Resolution Commit**: `66ef45b`
+
+| File | Strategy | Rationale |
+|------|----------|-----------|
+| `package.json` | Hybrid merge | Kept `axios: ^1.15.0` from branch (CVE patch), took `better-sqlite3: ^11.0.0` + `supertest: ^7.1.0` + `engines` from main (Node 24 compat) |
+| `package-lock.json` | Took `main` (theirs) | Auto-generated; main reflects the v11 better-sqlite3 + v7.1 supertest upgrades |
+| `install.diagnostic` | Kept branch (ours) | Diagnostic log only; branch version has newer timestamp (06:22 vs 06:16) |
+
+**Note**: Push blocked by `403` in CI runner — merge commit `66ef45b` is present locally on the branch. Human must push or CI must be re-triggered with write permissions.

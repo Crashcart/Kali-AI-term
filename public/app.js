@@ -527,6 +527,7 @@ class KaliHackerBot {
         this.panelSplitRatio = saved.panelSplitRatio || 0.5;
         this.quickCmdsCollapsed = saved.quickCmdsCollapsed || false;
         this.enabledPlugins = saved.enabledPlugins || ['cve-plugin', 'threat-intel-plugin'];
+        this.livePipe = saved.livePipe === true;
 
         // Apply theme
         const theme = saved.theme || 'default';
@@ -542,6 +543,12 @@ class KaliHackerBot {
 
         if (this.quickCmdsCollapsed) {
             this.qcBody.classList.add('collapsed');
+        }
+
+        if (this.livePipe) {
+            this.livePipeBtn.classList.add('active');
+            this.modeIndicator.textContent = '⚡';
+            this.modeIndicator.title = 'Mode: Direct Execution';
         }
 
         this.loadSessionNotes();
@@ -565,6 +572,7 @@ class KaliHackerBot {
             panelSplitRatio: this.panelSplitRatio,
             quickCmdsCollapsed: this.quickCmdsCollapsed,
             enabledPlugins: this.enabledPlugins,
+            livePipe: this.livePipe,
         };
 
         localStorage.setItem('userSettings', JSON.stringify(settings));
@@ -669,7 +677,12 @@ class KaliHackerBot {
     }
 
     isNaturalLanguage(input) {
-        const nlPatterns = /^(what|how|why|when|where|can|find|scan|test|check|enumerate|exploit|analyze|search|tell|explain|show|list|get|describe|identify)/i;
+        // If the input contains shell syntax, treat it as a shell command regardless of first word
+        const shellSyntax = /(\s+-{1,2}[a-zA-Z]|[|><&;]|^\/|~\/|\.\/)/ ;
+        if (shellSyntax.test(input)) return false;
+
+        // Only match words that are unambiguously natural language (not shell command names)
+        const nlPatterns = /^(what|how|why|when|where|can|enumerate|exploit|analyze|tell|explain|describe|identify)\b/i;
         return nlPatterns.test(input);
     }
 
