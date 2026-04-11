@@ -80,6 +80,7 @@ class KaliHackerBot {
         this.sendBtn = document.getElementById('send-btn');
         this.killBtn = document.getElementById('kill-btn');
         this.burnBtn = document.getElementById('burn-btn');
+        this.attackBtn = document.getElementById('attack-btn');
         this.autoPilotBtn = document.getElementById('autopilot-btn');
         this.livePipeBtn = document.getElementById('livepipe-btn');
 
@@ -197,6 +198,7 @@ class KaliHackerBot {
         this.sendBtn.addEventListener('click', () => this.executeCommand());
         this.killBtn.addEventListener('click', () => this.killAllProcesses());
         this.burnBtn.addEventListener('click', () => this.burnSession());
+        this.attackBtn.addEventListener('click', () => this.startAutonomousAttack(this.targetIP));
 
         // Toggles
         this.autoPilotBtn.addEventListener('click', () => this.toggleAutoPilot());
@@ -897,6 +899,7 @@ Format: <one-liner command suggestion>`;
         this.autonomousRunning = true;
         this.autonomousAbort = false;
         this.autoPilotBtn.classList.add('active');
+        if (this.attackBtn) this.attackBtn.classList.add('active');
 
         this.addIntelligenceMessage('\n🤖 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'red');
         this.addIntelligenceMessage('   AUTONOMOUS ATTACK MODE ACTIVATED', 'red');
@@ -915,6 +918,7 @@ Format: <one-liner command suggestion>`;
             this.addIntelligenceMessage(`❌ Failed to generate plan: ${err.message}`, 'red');
             this.autonomousRunning = false;
             this.autoPilotBtn.classList.remove('active');
+            if (this.attackBtn) this.attackBtn.classList.remove('active');
             return;
         }
 
@@ -981,6 +985,7 @@ Format: <one-liner command suggestion>`;
 
         this.autonomousRunning = false;
         this.autoPilotBtn.classList.remove('active');
+        if (this.attackBtn) this.attackBtn.classList.remove('active');
 
         if (this.autonomousAbort) {
             this.addIntelligenceMessage('\n⛔ Autonomous attack ABORTED', 'red');
