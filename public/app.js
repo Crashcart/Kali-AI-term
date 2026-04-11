@@ -411,6 +411,7 @@ class KaliHackerBot {
             this.showMainApp();
             this.updateUserInfo();
             this.loadUserSettings();
+            this.syncOllamaUrlToServer();
             this.initializeSystemStatus();
             this.startUptimeCounter();
         } else {
@@ -435,6 +436,7 @@ class KaliHackerBot {
             this.showMainApp();
             this.updateUserInfo();
             this.loadUserSettings();
+            this.syncOllamaUrlToServer();
             this.initializeSystemStatus();
             this.startUptimeCounter();
             this.addIntelligenceMessage('🔓 Authentication successful! Welcome to Kali Hacker Bot.', 'green');
@@ -541,6 +543,14 @@ class KaliHackerBot {
         else if (key === 'localIP') this.localIP = value;
         else if (key === 'listeningPort') this.listeningPort = value;
         this.saveUserSettings();
+    }
+
+    syncOllamaUrlToServer() {
+        // Only push a non-default URL — localhost:11434 is already the server default
+        if (!this.ollamaUrl || this.ollamaUrl === 'http://localhost:11434') return;
+        this.apiCall('POST', '/api/ollama/config', { url: this.ollamaUrl }).catch(err => {
+            console.warn('Failed to sync Ollama URL to server on startup:', err.message);
+        });
     }
 
     // ============================================
@@ -913,7 +923,17 @@ Format: <one-liner command suggestion>`;
         this.settingsModal.classList.remove('active');
     }
 
-    loadSettings() {
+    async loadSettings() {
+        // Sync Ollama URL from server so the input reflects what the server is actually using
+        try {
+            const config = await this.apiCall('GET', '/api/ollama/config');
+            if (config.url) {
+                this.ollamaUrl = config.url;
+            }
+        } catch (err) {
+            console.warn('Could not fetch Ollama config from server:', err.message);
+        }
+
         this.ollamaUrlInput.value = this.ollamaUrl;
         this.ollamaModelInput.value = this.ollamaModel;
         this.ollmaTempInput.value = this.ollamaTemp * 100;
@@ -946,7 +966,7 @@ Format: <one-liner command suggestion>`;
     }
 
     saveSettings() {
-        this.ollamaUrl = this.ollamaUrlInput.value;
+        this.ollamaUrl = this.ollamaUrlInput.value.trim();
         this.ollamaModel = this.ollamaModelInput.value;
         this.ollamaTemp = parseInt(this.ollmaTempInput.value) / 100;
         this.targetIP = this.targetIPInput.value;
@@ -965,6 +985,11 @@ Format: <one-liner command suggestion>`;
         this.localIPDisplay.value = this.localIP;
         this.listeningPortDisplay.value = this.listeningPort;
         this.activeModelDisplay.textContent = this.ollamaModel;
+
+        // Sync Ollama URL to server so health checks and AI calls use the correct host
+        this.apiCall('POST', '/api/ollama/config', { url: this.ollamaUrl }).catch(err => {
+            console.warn('Failed to sync Ollama URL to server:', err.message);
+        });
 
         // Save proxy settings
         this.saveProxySettings();
@@ -1162,48 +1187,74 @@ Format: <one-liner command suggestion>`;
     }
 
     async checkOllamaStatus() {
-        try {
-            const response = await this.apiCall('GET', '/api/llm/health');
-            const health = response.health || {};
+        const url = this.ollamaUrlInput?.value?.trim() || this.ollamaUrl;
+        this.ollamaStatusBox.textContent = '⏳ Testing connection...';
+        this.ollamaStatusBox.classList.remove('connected', 'disconnected');
 
-            const ollama = health.ollama;
-            if (ollama && ollama.available) {
-                const modelCount = (ollama.models || []).length;
-                this.ollamaStatusBox.textContent = `✓ Connected — ${modelCount} model${modelCount !== 1 ? 's' : ''} available`;
+        try {
+            const result = await this.apiCall('GET', `/api/ollama/status?url=${encodeURIComponent(url)}`);
+
+            if (result.connected) {
+                const modelList = result.models && result.models.length > 0
+                    ? `Models: ${result.models.join(', ')}`
+                    : 'No models installed';
+                this.ollamaStatusBox.textContent = [
+                    `✓ Connected`,
+                    `URL: ${result.url}`,
+                    `${result.modelCount} model(s) available`,
+                    modelList
+                ].join('\n');
                 this.ollamaStatusBox.classList.add('connected');
                 this.ollamaStatusBox.classList.remove('disconnected');
             } else {
-                this.ollamaStatusBox.textContent = `✗ Disconnected${ollama?.error ? ` — ${ollama.error}` : ''}`;
+                const lines = [
+                    `✗ Disconnected`,
+                    `URL: ${result.url}`,
+                    `Error: ${result.error}`
+                ];
+                if (result.errorCode) lines.push(`Code: ${result.errorCode}`);
+                if (result.httpStatus) lines.push(`HTTP Status: ${result.httpStatus}`);
+                if (result.suggestion) lines.push(`Tip: ${result.suggestion}`);
+                this.ollamaStatusBox.textContent = lines.join('\n');
                 this.ollamaStatusBox.classList.remove('connected');
                 this.ollamaStatusBox.classList.add('disconnected');
             }
 
+            // Keep Gemini status updated via the /api/llm/health fallback
             if (this.geminiStatusBox) {
-                const gemini = health.gemini;
-                if (gemini && gemini.available) {
-                    const geminiModel = (gemini.models || [])[0] || 'gemini';
-                    this.geminiStatusBox.textContent = `✓ Connected — ${geminiModel}`;
-                    this.geminiStatusBox.classList.add('connected');
-                    this.geminiStatusBox.classList.remove('disconnected');
-                } else {
-                    this.geminiStatusBox.textContent = '✗ Not configured — add GEMINI_API_KEY to server environment';
-                    this.geminiStatusBox.classList.remove('connected');
-                    this.geminiStatusBox.classList.add('disconnected');
-                }
+                try {
+                    const health = await this.apiCall('GET', '/api/llm/health');
+                    const gemini = (health.health || {}).gemini;
+                    if (gemini && gemini.available) {
+                        const geminiModel = (gemini.models || [])[0] || 'gemini';
+                        this.geminiStatusBox.textContent = `✓ Connected — ${geminiModel}`;
+                        this.geminiStatusBox.classList.add('connected');
+                        this.geminiStatusBox.classList.remove('disconnected');
+                    } else {
+                        this.geminiStatusBox.textContent = '✗ Not configured — add GEMINI_API_KEY to server environment';
+                        this.geminiStatusBox.classList.remove('connected');
+                        this.geminiStatusBox.classList.add('disconnected');
+                    }
+                } catch (_) { }
             }
         } catch (err) {
-            this.ollamaStatusBox.textContent = `✗ Error: ${err.message}`;
+            this.ollamaStatusBox.textContent = [
+                `✗ Status check failed`,
+                `Error: ${err.message}`,
+                `Tip: Ensure the server is running and you are authenticated.`
+            ].join('\n');
             this.ollamaStatusBox.classList.remove('connected');
             this.ollamaStatusBox.classList.add('disconnected');
         }
     }
 
     async refreshOllamaModels() {
+        const url = this.ollamaUrlInput?.value?.trim() || this.ollamaUrl;
         this.refreshModelsBtn.textContent = '⏳';
         this.refreshModelsBtn.disabled = true;
 
         try {
-            const response = await this.apiCall('GET', '/api/ollama/models');
+            const response = await this.apiCall('GET', `/api/ollama/models?url=${encodeURIComponent(url)}`);
             const models = response.models || [];
             if (models.length > 0) {
                 this.ollamaModelInput.innerHTML = '';
@@ -1214,6 +1265,8 @@ Format: <one-liner command suggestion>`;
                     this.ollamaModelInput.appendChild(option);
                 });
                 this.addIntelligenceMessage('✓ Models refreshed', 'green');
+            } else {
+                this.addIntelligenceMessage('⚠ No models found at that URL', 'yellow');
             }
         } catch (err) {
             this.addIntelligenceMessage(`❌ Failed to fetch models: ${err.message}`, 'red');
