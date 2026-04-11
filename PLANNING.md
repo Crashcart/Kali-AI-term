@@ -1,6 +1,6 @@
 # 📊 Kali-AI-term Strategic Planning & Coordination
 
-**Last Updated**: 2026-04-11 03:13:00 UTC  
+**Last Updated**: 2026-04-11 03:34:40 UTC  
 **Document Purpose**: Centralized planning for multi-agent coordination, architectural decisions, and project context
 
 ---
@@ -9,13 +9,14 @@
 
 ### PR #77: Merge Conflict Resolution
 
-**Status**: 🔴 **In Progress** — Branch `copilot/fix-conflicts-in-pr-77`  
+**Status**: 🔴 **In Progress** — Branch `copilot/fix-conflicts-in-pr-77-again`  
 **Assigned To**: GitHub Copilot  
 **Progress**: 0% — Fetch + merge required
 
 **Background**:
 - PR #77 has merge conflicts with `main` (https://github.com/Crashcart/Kali-AI-term/pull/77/conflicts)
-- Branch `copilot/fix-conflicts-in-pr-77` was created at `main`'s HEAD to produce the resolved state
+- Branch `copilot/fix-conflicts-in-pr-77-again` is at `main`'s HEAD (`bf61e848`) — push resolved state here
+- Prior attempt used branch `copilot/fix-conflicts-in-pr-77`; current active branch is `copilot/fix-conflicts-in-pr-77-again`
 - The conflict resolution requires fetching the PR branch and merging it with main
 
 **Resolution Steps** (requires bash):
@@ -37,7 +38,7 @@ git merge pr-77
 # 5. Commit and push resolved state
 git add .
 git commit -m "fix: resolve merge conflicts between PR #77 and main"
-git push origin copilot/fix-conflicts-in-pr-77
+git push origin copilot/fix-conflicts-in-pr-77-again
 ```
 
 **High-Risk Conflict Files** (based on project history):
@@ -214,9 +215,9 @@ git push origin copilot/fix-conflicts-in-pr-77
 
 ## 🚧 Current Blockers
 
-**🔴 BLOCKED**: PR #77 Conflict Resolution (as of 2026-04-11)
+**🔴 BLOCKED**: PR #77 Conflict Resolution (as of 2026-04-11, confirmed this session)
 
-The `copilot/fix-conflicts-in-pr-77` branch was created to resolve merge conflicts in PR #77, but the Code Review Agent does not have bash access to run `git fetch` and `git merge`. A bash-capable agent must complete the actual merge.
+Active working branch is `copilot/fix-conflicts-in-pr-77-again` at `bf61e848` (same as main HEAD). The PR #77 branch has never been fetched into this working copy — no conflict markers exist in any file. A bash-capable agent must complete the actual merge.
 
 **Commands to unblock**:
 ```bash
@@ -226,7 +227,7 @@ git merge pr-77
 # resolve any conflict markers in files
 git add .
 git commit -m "fix: resolve merge conflicts between PR #77 and main"
-git push origin copilot/fix-conflicts-in-pr-77
+git push origin copilot/fix-conflicts-in-pr-77-again
 ```
 
 Other blockers from previous sessions:
@@ -245,7 +246,40 @@ Other blockers from previous sessions:
 
 ## 📝 Handoff Notes (For Next Agent)
 
-### From: GitHub Copilot Code Review Agent (Session 2026-04-11)
+### From: GitHub Copilot Task Agent — Code Review Agent (Session 2026-04-11 03:34 UTC)
+**Task**: Resolve merge conflicts in PR #77 (follow .github enterprise workflow)  
+**Branch**: `copilot/fix-conflicts-in-pr-77-again`  
+**Session Duration**: ~20 min  
+**Progress This Session**: PHASE 0 + PHASE 2 (documentation sync) — git fetch/merge still requires bash
+
+**✅ What I Completed**:
+1. Executed PHASE 0: Verified repo state — on `copilot/fix-conflicts-in-pr-77-again` at `bf61e848`
+2. Confirmed no active merge state (no MERGE_HEAD, no conflict markers in any file)
+3. Confirmed shallow clone exists (`.git/shallow` present, FETCH_HEAD only has `main` at `bf61e848`)
+4. Read all monitored files: server.js, install.sh, install-full.sh, package.json, PLANNING.md, TODO.md, copilot-instructions.md
+5. Updated PLANNING.md with corrected branch name and confirmed blocker details
+6. Updated TODO.md task 0a–0e status notes
+
+**⛔ What I Could NOT Complete** (bash access required):
+1. `git fetch --unshallow origin` — shallow clone must be unshallowed first
+2. `git fetch origin pull/77/head:pr-77` — PR branch not yet in local working copy
+3. `git merge pr-77` — cannot be run without the above
+4. Conflict resolution (no conflict markers exist yet)
+
+**⏭️ What's Next** (for bash-capable agent):
+1. Run the 5 bash commands in "Current Blockers" section
+2. If conflicts appear, follow per-file guidelines documented in the PR #77 section above
+3. Run `npm test` after resolving to verify no regressions
+4. Push to `copilot/fix-conflicts-in-pr-77-again`
+
+**🔍 Key Facts Confirmed This Session**:
+- `.git/config` fetch spec only covers this branch — no PR fetch refspec configured
+- No prior merge attempt was made on this branch
+- All source files (server.js, install.sh, install-full.sh, etc.) are clean — identical to main
+
+---
+
+### From: GitHub Copilot Code Review Agent (Session 2026-04-11 03:13 UTC)
 **Task**: Resolve merge conflicts in PR #77  
 **Session Duration**: ~1 hour  
 **Progress This Session**: Documentation only — git fetch/merge requires bash
