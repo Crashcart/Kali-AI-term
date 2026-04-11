@@ -74,16 +74,31 @@ class KaliHackerBot {
         this.sessionIDDisplay = document.getElementById('session-id');
         this.activeModelDisplay = document.getElementById('active-model');
 
-        // Command
+        // Command (shell)
         this.commandInput = document.getElementById('command-input');
-        this.commandWrapper = document.getElementById('command-wrapper');
-        this.modeIndicator = document.getElementById('mode-indicator');
+        this.commandWrapper = document.getElementById('cmd-wrapper');
+        this.modeIndicator = null;   // removed — each row has its own fixed mode
         this.sendBtn = document.getElementById('send-btn');
         this.killBtn = document.getElementById('kill-btn');
         this.burnBtn = null;        // removed from UI
         this.attackBtn = document.getElementById('attack-btn');
         this.autoPilotBtn = null;   // removed from UI
         this.livePipeBtn = null;    // removed from UI
+
+        // Chat input (AI)
+        this.chatInput = document.getElementById('chat-input');
+        this.chatSendBtn = document.getElementById('chat-send-btn');
+
+        // LLM log modal
+        this.llmLogBtn = document.getElementById('llm-log-btn');
+        this.llmLogModal = document.getElementById('llm-log-modal');
+        this.llmLogStream = document.getElementById('llm-log-stream');
+        this.llmLogSummary = document.getElementById('llm-log-summary');
+        this.closeLLMLogBtn = document.getElementById('close-llm-log');
+        this.refreshLLMLogBtn = document.getElementById('refresh-llm-log-btn');
+        this.clearLLMLogBtn = document.getElementById('clear-llm-log-btn');
+        this.llmLogAutoRefresh = document.getElementById('llm-log-autorefresh');
+        this._llmLogTimer = null;
 
         // Top actions
         this.fullscreenBtn = document.getElementById('fullscreen-btn');
@@ -197,13 +212,38 @@ class KaliHackerBot {
     }
 
     attachEventListeners() {
-        // Command input
+        // Shell command input (CMD row)
         this.commandInput.addEventListener('keydown', (e) => this.handleCommandInput(e));
+
+        // Chat / AI input (CHAT row)
+        this.chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); this.executeChatInput(); }
+        });
 
         // Buttons
         this.sendBtn.addEventListener('click', () => this.executeCommand());
+        this.chatSendBtn.addEventListener('click', () => this.executeChatInput());
         this.killBtn.addEventListener('click', () => this.killAllProcesses());
         this.attackBtn.addEventListener('click', () => this.startAutonomousAttack(this.targetIP));
+
+        // LLM log modal
+        if (this.llmLogBtn) {
+            this.llmLogBtn.addEventListener('click', () => this.openLLMLog());
+        }
+        if (this.closeLLMLogBtn) {
+            this.closeLLMLogBtn.addEventListener('click', () => this.closeLLMLog());
+        }
+        if (this.refreshLLMLogBtn) {
+            this.refreshLLMLogBtn.addEventListener('click', () => this.fetchLLMLog());
+        }
+        if (this.clearLLMLogBtn) {
+            this.clearLLMLogBtn.addEventListener('click', () => this.clearLLMLog());
+        }
+        if (this.llmLogModal) {
+            this.llmLogModal.addEventListener('click', (e) => {
+                if (e.target === this.llmLogModal) this.closeLLMLog();
+            });
+        }
 
         // Clear
         this.clearIntelBtn.addEventListener('click', () => { this.intelligenceStream.innerHTML = ''; });
@@ -363,6 +403,7 @@ class KaliHackerBot {
                 case 'k': e.preventDefault(); this.killAllProcesses(); break;
                 case 'n': e.preventDefault(); this.openNotepad(); break;
                 case ',': e.preventDefault(); this.openSettings(); break;
+                case 'g': e.preventDefault(); this.openLLMLog(); break;
             }
         }
 
@@ -647,6 +688,7 @@ class KaliHackerBot {
     // COMMAND EXECUTION
     // ============================================
 
+    // CMD row: always treated as a shell command
     executeCommand() {
         const input = this.commandInput.value.trim();
         if (!input) return;
@@ -663,26 +705,30 @@ class KaliHackerBot {
             return;
         }
 
-        let mode = 'auto';
-        let command = input;
-
-        if (input.startsWith('!')) {
-            mode = 'shell';
-            command = input.slice(1).trim();
-        } else if (input.startsWith('?')) {
-            mode = 'ai';
-            command = input.slice(1).trim();
-        }
-
-        if (mode === 'ai' || (mode === 'auto' && this.isNaturalLanguage(command))) {
-            this.processNaturalLanguage(command);
+        if (this.livePipe) {
+            this.executeDockerCommand(input);
         } else {
-            if (this.livePipe) {
-                this.executeDockerCommand(command);
-            } else {
-                this.showConfirmModal(command);
-            }
+            this.showConfirmModal(input);
         }
+    }
+
+    // CHAT row: always sent to AI
+    executeChatInput() {
+        const input = this.chatInput.value.trim();
+        if (!input) return;
+
+        this.chatInput.value = '';
+        this.addToCommandHistory(input);
+
+        // Autonomous attack mode shortcut works from chat too
+        const attackMatch = input.match(/^attack(?:\s+(.+))?$/i);
+        if (attackMatch) {
+            const target = (attackMatch[1] || this.targetIP || '').trim();
+            this.startAutonomousAttack(target);
+            return;
+        }
+
+        this.processNaturalLanguage(input);
     }
 
     addToCommandHistory(cmd) {
@@ -781,6 +827,112 @@ class KaliHackerBot {
             this.addIntelligenceMessage(`❌ AI Error: ${err.message}`, 'red');
             this.playSound('error');
         }
+    }
+
+    // ============================================
+    // LLM DEBUG LOG
+    // ============================================
+
+    openLLMLog() {
+        if (!this.llmLogModal) return;
+        this.llmLogModal.style.display = 'flex';
+        this.fetchLLMLog();
+        this._startLLMLogAutoRefresh();
+    }
+
+    closeLLMLog() {
+        if (!this.llmLogModal) return;
+        this.llmLogModal.style.display = 'none';
+        this._stopLLMLogAutoRefresh();
+    }
+
+    _startLLMLogAutoRefresh() {
+        this._stopLLMLogAutoRefresh();
+        if (this.llmLogAutoRefresh && this.llmLogAutoRefresh.checked) {
+            this._llmLogTimer = setInterval(() => this.fetchLLMLog(), 4000);
+        }
+        if (this.llmLogAutoRefresh) {
+            this.llmLogAutoRefresh.onchange = () => {
+                if (this.llmLogAutoRefresh.checked) {
+                    this._llmLogTimer = setInterval(() => this.fetchLLMLog(), 4000);
+                } else {
+                    this._stopLLMLogAutoRefresh();
+                }
+            };
+        }
+    }
+
+    _stopLLMLogAutoRefresh() {
+        if (this._llmLogTimer) {
+            clearInterval(this._llmLogTimer);
+            this._llmLogTimer = null;
+        }
+    }
+
+    async fetchLLMLog() {
+        if (!this.token) return;
+        try {
+            const data = await this.apiCall('GET', '/api/llm/log?limit=100');
+            this._renderLLMLog(data);
+        } catch (e) {
+            if (this.llmLogStream) {
+                this.llmLogStream.innerHTML = `<div style="color:var(--danger);padding:8px;">❌ Failed to load log: ${e.message}</div>`;
+            }
+        }
+    }
+
+    async clearLLMLog() {
+        if (!this.token) return;
+        try {
+            await this.apiCall('DELETE', '/api/llm/log');
+            this.fetchLLMLog();
+        } catch (e) { /* ignore */ }
+    }
+
+    _renderLLMLog(data) {
+        if (!this.llmLogStream) return;
+        const entries = data.entries || [];
+
+        if (this.llmLogSummary) {
+            this.llmLogSummary.textContent = `${data.total || 0} total interactions | showing last ${entries.length}`;
+        }
+
+        if (!entries.length) {
+            this.llmLogStream.innerHTML = '<div style="color:var(--text-secondary);font-size:11px;padding:8px;">No LLM interactions logged yet.</div>';
+            return;
+        }
+
+        const html = entries.map(e => {
+            const ts = new Date(e.ts).toLocaleTimeString();
+            const statusClass = `status-${e.status || 'pending'}`;
+            const dur = e.durationMs != null ? `${e.durationMs}ms` : '…';
+            const bodyParts = [];
+            if (e.prompt) {
+                bodyParts.push(`<div class="llm-log-prompt">▶ ${this._escHtml(e.prompt.slice(0, 200))}${e.prompt.length > 200 ? '…' : ''}</div>`);
+            }
+            if (e.responseSnippet) {
+                bodyParts.push(`<div class="llm-log-snippet">◀ ${this._escHtml(e.responseSnippet)}${e.responseSnippet.length >= 300 ? '…' : ''}</div>`);
+            }
+            if (e.error) {
+                bodyParts.push(`<div class="llm-log-error">⚠ ${this._escHtml(e.error)}</div>`);
+            }
+            if (e.tokenCount != null) {
+                bodyParts.push(`<div style="color:var(--text-secondary);font-size:10px;">${e.tokenCount} tokens</div>`);
+            }
+            return `<div class="llm-log-entry ${statusClass}">
+                <span class="llm-log-ts">${ts}</span>
+                <span class="llm-log-type">${e.type || '?'}</span>
+                <span class="llm-log-prov">${e.provider || '?'}</span>
+                <div class="llm-log-body">${bodyParts.join('')}</div>
+                <span class="llm-log-dur">${dur}</span>
+            </div>`;
+        }).join('');
+
+        this.llmLogStream.innerHTML = html;
+    }
+
+    _escHtml(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
 
     async executeDockerCommand(command) {

@@ -46,6 +46,7 @@
                 </div>
             </div>
             <div class="top-actions">
+                <button class="btn-icon" id="llm-log-btn" title="LLM Debug Log (Ctrl+G)">🪵</button>
                 <button class="btn-icon" id="hosts-btn" title="Saved Hosts">🖥️</button>
                 <button class="btn-icon" id="fullscreen-btn" title="Toggle Fullscreen (F11)">⛶</button>
                 <button class="btn-icon" id="settings-btn" title="Settings (Ctrl+,)">⚙️</button>
@@ -117,23 +118,41 @@
             </div>
         </div>
 
-        <!-- Command Bar -->
+        <!-- Command Bar (two dedicated rows: CHAT → AI | CMD → Shell) -->
         <div class="command-bar">
-            <div class="command-input-wrapper" id="command-wrapper">
-                <span class="prompt" id="mode-indicator" title="Mode: AI + Shell">›</span>
-                <input
-                    type="text"
-                    id="command-input"
-                    class="command-input"
-                    placeholder="Ask a question or enter a command..."
-                    autocomplete="off"
-                    spellcheck="false"
-                />
+            <!-- Row 1: Chat / AI -->
+            <div class="command-row">
+                <div class="command-input-wrapper" id="chat-wrapper">
+                    <span class="prompt ai-mode" title="Chat with AI">💬</span>
+                    <input
+                        type="text"
+                        id="chat-input"
+                        class="command-input"
+                        placeholder="Ask the AI anything…"
+                        autocomplete="off"
+                        spellcheck="false"
+                    />
+                    <button class="btn btn-primary btn-row" id="chat-send-btn">CHAT</button>
+                </div>
             </div>
-
+            <!-- Row 2: Shell Command -->
+            <div class="command-row">
+                <div class="command-input-wrapper" id="cmd-wrapper">
+                    <span class="prompt shell-mode" title="Shell command">$</span>
+                    <input
+                        type="text"
+                        id="command-input"
+                        class="command-input"
+                        placeholder="Shell command (e.g. nmap -sV 192.168.1.1)…"
+                        autocomplete="off"
+                        spellcheck="false"
+                    />
+                    <button class="btn btn-shell btn-row" id="send-btn">EXEC</button>
+                </div>
+            </div>
+            <!-- Action row -->
             <div class="command-controls">
                 <div class="action-buttons">
-                    <button class="btn btn-primary" id="send-btn">SEND</button>
                     <button class="btn btn-danger" id="kill-btn" title="Kill all processes (Ctrl+K)">⏹ KILL</button>
                     <button class="btn btn-attack" id="attack-btn" title="Launch Autonomous Attack Mode against $TARGET_IP — AI plans and executes a full pentest sequence">⚡ ATTACK</button>
                 </div>
@@ -173,6 +192,27 @@
                 <div class="modal-actions">
                     <button class="btn btn-primary" id="confirm-btn">EXECUTE</button>
                     <button class="btn btn-secondary" id="cancel-btn">CANCEL</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal for LLM Debug Log -->
+        <div class="modal" id="llm-log-modal">
+            <div class="modal-content llm-log-content">
+                <div class="settings-header">
+                    <h2>🪵 LLM DEBUG LOG</h2>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <button class="btn btn-warning btn-small" id="refresh-llm-log-btn" title="Refresh">↺ REFRESH</button>
+                        <button class="btn btn-danger btn-small" id="clear-llm-log-btn" title="Clear log">✕ CLEAR</button>
+                        <label class="toggle-label" style="font-size:10px;color:var(--text-secondary);cursor:pointer;">
+                            <input type="checkbox" id="llm-log-autorefresh" style="margin-right:4px;" checked />AUTO
+                        </label>
+                        <button class="btn-small" id="close-llm-log">×</button>
+                    </div>
+                </div>
+                <div class="llm-log-summary" id="llm-log-summary"></div>
+                <div class="llm-log-stream" id="llm-log-stream">
+                    <div style="color:var(--text-secondary);font-size:11px;padding:8px;">No LLM interactions logged yet. Send a chat message to see entries here.</div>
                 </div>
             </div>
         </div>

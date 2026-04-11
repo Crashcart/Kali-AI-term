@@ -553,32 +553,44 @@ body {
 .command-bar {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     padding: 8px 12px;
     background-color: var(--bg-dark);
     border-top: 1px solid var(--border-color);
     flex-shrink: 0;
 }
 
+.command-row {
+    display: flex;
+    gap: 6px;
+}
+
 .command-input-wrapper {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex: 1;
     border: 1px solid var(--border-color);
     background-color: var(--bg-darker);
-    padding: 6px 10px;
+    padding: 5px 10px;
     transition: all 0.2s;
 }
 
-.command-input-wrapper:focus-within {
-    border-color: var(--cyan);
-    box-shadow: 0 0 10px var(--cyan);
+#chat-wrapper:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+}
+
+#cmd-wrapper:focus-within {
+    border-color: var(--green);
+    box-shadow: 0 0 8px var(--green);
 }
 
 .prompt {
     color: var(--cyan);
     font-weight: bold;
     font-size: 14px;
+    flex-shrink: 0;
 }
 
 .prompt.shell-mode { color: var(--green); }
@@ -599,10 +611,20 @@ body {
     opacity: 0.4;
 }
 
+.btn-row {
+    padding: 3px 10px;
+    font-size: 10px;
+    flex-shrink: 0;
+    border-width: 1px;
+}
+
+.btn-shell { border-color: var(--green); color: var(--green); }
+.btn-shell:hover { background-color: rgba(0, 255, 0, 0.1); box-shadow: 0 0 8px var(--green); }
+
 .command-controls {
     display: flex;
     gap: 12px;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
 }
 
@@ -1361,3 +1383,56 @@ body {
     .modal-content, .settings-content, .notepad-content { min-width: 90vw !important; overflow-x: hidden; }
     .qc-body { flex-wrap: wrap; }
 }
+
+/* ============================================
+   LLM LOG MODAL
+   ============================================ */
+
+.llm-log-content {
+    min-width: 700px;
+    max-width: 900px;
+    width: 80vw;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.llm-log-summary {
+    font-size: 10px;
+    color: var(--text-secondary);
+    padding: 4px 2px 6px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.llm-log-stream {
+    flex: 1;
+    overflow-y: auto;
+    font-size: 11px;
+    font-family: inherit;
+    padding: 4px 0;
+}
+
+.llm-log-entry {
+    padding: 6px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    display: grid;
+    grid-template-columns: 130px 60px 80px 1fr 70px;
+    gap: 8px;
+    align-items: start;
+}
+
+.llm-log-entry:last-child { border-bottom: none; }
+
+.llm-log-entry.status-ok    { border-left: 2px solid var(--green); }
+.llm-log-entry.status-error { border-left: 2px solid var(--danger); }
+.llm-log-entry.status-pending { border-left: 2px solid var(--warning); }
+
+.llm-log-ts    { color: var(--text-secondary); white-space: nowrap; font-size: 10px; }
+.llm-log-type  { color: var(--cyan); text-transform: uppercase; font-size: 10px; }
+.llm-log-prov  { color: var(--warning); font-size: 10px; }
+.llm-log-body  { color: var(--text-primary); word-break: break-word; }
+.llm-log-dur   { color: var(--text-secondary); text-align: right; font-size: 10px; white-space: nowrap; }
+.llm-log-prompt  { color: var(--cyan); }
+.llm-log-snippet { color: var(--green); margin-top: 2px; opacity: 0.8; }
+.llm-log-error   { color: var(--danger); margin-top: 2px; }
