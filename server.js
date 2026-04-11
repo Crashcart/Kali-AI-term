@@ -67,6 +67,18 @@ if (LLM_FROZEN) {
   appLogger.info(`LLM model: ${DEFAULT_MODEL}`);
 }
 
+// ============================================
+// LLM INTERACTION LOG
+// In-memory ring buffer (max 500 entries). Accessible via GET /api/llm/log.
+// ============================================
+const LLM_LOG_MAX = 500;
+const llmLog = [];
+
+function addLLMLogEntry(entry) {
+  llmLog.push({ id: llmLog.length + 1, ts: new Date().toISOString(), ...entry });
+  if (llmLog.length > LLM_LOG_MAX) llmLog.shift();
+}
+
 // Pentesting system prompt for Ollama
 const SYSTEM_PROMPT = `You are an elite penetration testing AI assistant embedded in a Kali Linux terminal. You have deep expertise in:
 - Network reconnaissance (Nmap, Masscan, Netdiscover)
@@ -1298,6 +1310,9 @@ app.post('/api/ollama/generate', authenticate, async (req, res) => {
     appLogger.warn(`LLM frozen state active but proceeding with model ${DEFAULT_MODEL}. Reason: ${llmState.reason}`);
   }
 
+  const logEntry = { type: 'generate', provider: useOrchestrator ? 'orchestrator' : 'ollama', model, prompt: prompt.slice(0, 500), taskType, status: 'pending', durationMs: null };
+  const t0 = Date.now();
+
   try {
     // If useOrchestrator is true, route through the multi-LLM orchestrator
     if (useOrchestrator) {
@@ -1307,6 +1322,11 @@ app.post('/api/ollama/generate', authenticate, async (req, res) => {
         temperature: temperature,
         systemPrompt: systemPrompt || SYSTEM_PROMPT
       });
+
+      logEntry.status = 'ok';
+      logEntry.durationMs = Date.now() - t0;
+      logEntry.responseSnippet = String(response).slice(0, 300);
+      addLLMLogEntry(logEntry);
 
       return res.json({
         success: true,
@@ -1324,6 +1344,11 @@ app.post('/api/ollama/generate', authenticate, async (req, res) => {
       options: { temperature },
     });
 
+    logEntry.status = 'ok';
+    logEntry.durationMs = Date.now() - t0;
+    logEntry.responseSnippet = String(response.data.response || '').slice(0, 300);
+    addLLMLogEntry(logEntry);
+
     res.json({
       success: true,
       model: model,
@@ -1332,6 +1357,10 @@ app.post('/api/ollama/generate', authenticate, async (req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
+    logEntry.status = 'error';
+    logEntry.durationMs = Date.now() - t0;
+    logEntry.error = err.message;
+    addLLMLogEntry(logEntry);
     console.error('Ollama error:', err.message);
     res.status(500).json({ error: 'LLM generation failed', details: err.message });
   }
@@ -1350,9 +1379,14 @@ app.post('/api/ollama/stream', authenticate, async (req, res) => {
     appLogger.warn(`LLM frozen state active but proceeding with model ${DEFAULT_MODEL} for stream. Reason: ${llmState.reason}`);
   }
 
+  const logEntry = { type: 'stream', provider: useOrchestrator ? 'orchestrator' : 'ollama', model, prompt: prompt ? prompt.slice(0, 500) : '', taskType, status: 'pending', durationMs: null };
+  const t0 = Date.now();
+
   try {
     // If useOrchestrator is true, route through the multi-LLM orchestrator
     if (useOrchestrator) {
+      let tokenCount = 0;
+      let lastProvider = null;
       for await (const chunk of orchestrator.streamGenerate(prompt, {
         taskType: taskType,
         preferredProvider: preferredProvider,
@@ -1361,10 +1395,17 @@ app.post('/api/ollama/stream', authenticate, async (req, res) => {
       })) {
         if (chunk.done) {
           res.write(`data: ${JSON.stringify({ done: true, provider: chunk.provider })}\n\n`);
+          lastProvider = chunk.provider;
         } else {
+          tokenCount++;
           res.write(`data: ${JSON.stringify({ token: chunk.token, provider: chunk.provider })}\n\n`);
         }
       }
+      logEntry.status = 'ok';
+      logEntry.durationMs = Date.now() - t0;
+      logEntry.tokenCount = tokenCount;
+      if (lastProvider) logEntry.provider = lastProvider;
+      addLLMLogEntry(logEntry);
       res.end();
       return;
     }
@@ -1380,6 +1421,7 @@ app.post('/api/ollama/stream', authenticate, async (req, res) => {
       responseType: 'stream',
     });
 
+    let tokenCount = 0;
     response.data.on('data', (chunk) => {
       try {
         const lines = chunk.toString().split('\n').filter(l => l.trim());
@@ -1388,6 +1430,7 @@ app.post('/api/ollama/stream', authenticate, async (req, res) => {
           if (json.done) {
             res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
           } else {
+            tokenCount++;
             res.write(`data: ${JSON.stringify({ token: json.response })}\n\n`);
           }
         });
@@ -1397,11 +1440,19 @@ app.post('/api/ollama/stream', authenticate, async (req, res) => {
     });
 
     response.data.on('end', () => {
+      logEntry.status = 'ok';
+      logEntry.durationMs = Date.now() - t0;
+      logEntry.tokenCount = tokenCount;
+      addLLMLogEntry(logEntry);
       res.write('data: {"done": true}\n\n');
       res.end();
     });
 
     response.data.on('error', (err) => {
+      logEntry.status = 'error';
+      logEntry.durationMs = Date.now() - t0;
+      logEntry.error = err.message;
+      addLLMLogEntry(logEntry);
       res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
       res.end();
     });
@@ -1411,9 +1462,30 @@ app.post('/api/ollama/stream', authenticate, async (req, res) => {
     });
 
   } catch (err) {
+    logEntry.status = 'error';
+    logEntry.durationMs = Date.now() - t0;
+    logEntry.error = err.message;
+    addLLMLogEntry(logEntry);
     res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
     res.end();
   }
+});
+
+// ============================================
+// LLM LOG ENDPOINTS
+// ============================================
+
+// GET /api/llm/log — return recent LLM interaction log entries
+app.get('/api/llm/log', authenticate, (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit, 10) || 100, LLM_LOG_MAX);
+  const entries = llmLog.slice(-limit).reverse();
+  res.json({ count: entries.length, total: llmLog.length, entries });
+});
+
+// DELETE /api/llm/log — clear the log
+app.delete('/api/llm/log', authenticate, (req, res) => {
+  llmLog.length = 0;
+  res.json({ success: true, message: 'LLM log cleared' });
 });
 
 app.get('/api/ollama/models', authenticate, async (req, res) => {
