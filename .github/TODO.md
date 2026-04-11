@@ -1,12 +1,22 @@
 # 📋 Kali-AI-term Active Task List
 
-**Last Updated**: 2026-04-11 10:15:00 UTC
-**Current Session**: GitHub Copilot Task Agent (Dual-input + LLM log)
+**Last Updated**: 2026-04-11 20:06:00 UTC
+**Current Session**: Debug Agent — Ollama multi-instance fallback
 **Repository**: Kali-AI-term
 
 ---
 
 ## Current Session Tasks
+
+| ID | Task Title | Status | Assigned | Priority | Notes |
+|:--:|-----------|--------|----------|----------|-------|
+| O1 | Orchestrator tries ALL registered providers as fallbacks | ✅ **completed** | Copilot | 🔴 CRITICAL | `_buildProviderList` includes every registered provider, not just strategy primary+fallback |
+| O2 | Direct Ollama endpoints fall back across instances | ✅ **completed** | Copilot | 🔴 CRITICAL | `/api/ollama/generate` + `/api/ollama/stream` iterate all instances |
+| O3 | Allow deleting the primary Ollama instance | ✅ **completed** | Copilot | 🔴 CRITICAL | Next instance auto-promotes; UX shows ✕ on all rows |
+| O4 | Frontend UX — delete button on all instances | ✅ **completed** | Copilot | 🟠 HIGH | Primary shows EDIT + ✕; secondary shows ✕; promotion feedback in chat |
+| O5 | Health check reports first healthy instance | ✅ **completed** | Copilot | 🟠 HIGH | `checkOllamaHealth` falls back to first connected when primary missing |
+
+## Previous Session Tasks
 
 | ID | Task Title | Status | Assigned | Priority | Notes |
 |:--:|-----------|--------|----------|----------|-------|
