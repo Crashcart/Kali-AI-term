@@ -1153,7 +1153,7 @@ app.post('/api/settings/bind-host', authenticate, (req, res) => {
 });
 
 app.post('/api/ollama/generate', authenticate, async (req, res) => {
-  const { prompt, model = DEFAULT_MODEL, temperature = 0.7, systemPrompt, useOrchestrator = false, taskType = 'default' } = req.body;
+  const { prompt, model = DEFAULT_MODEL, temperature = 0.7, systemPrompt, useOrchestrator = false, taskType = 'default', preferredProvider = null } = req.body;
 
   if (!prompt) {
     return res.status(400).json({ error: 'Prompt required' });
@@ -1170,6 +1170,7 @@ app.post('/api/ollama/generate', authenticate, async (req, res) => {
     if (useOrchestrator) {
       const response = await orchestrator.generate(prompt, {
         taskType: taskType,
+        preferredProvider: preferredProvider,
         temperature: temperature,
         systemPrompt: systemPrompt || SYSTEM_PROMPT
       });
@@ -1204,7 +1205,7 @@ app.post('/api/ollama/generate', authenticate, async (req, res) => {
 });
 
 app.post('/api/ollama/stream', authenticate, async (req, res) => {
-  const { prompt, model = DEFAULT_MODEL, temperature = 0.7, systemPrompt, useOrchestrator = false, taskType = 'default' } = req.body;
+  const { prompt, model = DEFAULT_MODEL, temperature = 0.7, systemPrompt, useOrchestrator = false, taskType = 'default', preferredProvider = null } = req.body;
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -1221,6 +1222,7 @@ app.post('/api/ollama/stream', authenticate, async (req, res) => {
     if (useOrchestrator) {
       for await (const chunk of orchestrator.streamGenerate(prompt, {
         taskType: taskType,
+        preferredProvider: preferredProvider,
         temperature: temperature,
         systemPrompt: systemPrompt || SYSTEM_PROMPT
       })) {
