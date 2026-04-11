@@ -36,6 +36,10 @@
                     <div class="led" id="target-led" title="Target Status"></div>
                     <span>TARGET</span>
                 </div>
+                <div class="led-group" id="gemini-led-group">
+                    <div class="led" id="gemini-led" title="Gemini Status"></div>
+                    <span>GEMINI</span>
+                </div>
                 <div class="uptime-display">
                     <span class="label">UP:</span>
                     <span id="uptime-value">00:00:00</span>
@@ -43,16 +47,13 @@
             </div>
             <div class="top-actions">
                 <button class="btn-icon" id="fullscreen-btn" title="Toggle Fullscreen (F11)">⛶</button>
-                <button class="btn-icon" id="notepad-btn" title="Session Notepad (Ctrl+N)">📝</button>
-                <button class="btn-icon" id="report-btn" title="Generate Report">📋</button>
-                <button class="btn-icon" id="export-btn" title="Export Session">📥</button>
                 <button class="btn-icon" id="settings-btn" title="Settings (Ctrl+,)">⚙️</button>
             </div>
         </div>
 
         <!-- Main Content Area -->
         <div class="content-area" id="content-area">
-            <!-- Left Panel: Intelligence Stream -->
+            <!-- Main Chat / Intelligence Stream -->
             <div class="panel intelligence-panel" id="intel-panel">
                 <div class="panel-header">
                     <span class="panel-title">⚡ INTELLIGENCE STREAM</span>
@@ -70,72 +71,6 @@
                         <span class="yellow">>> Type  attack &lt;ip&gt;  to start autonomous attack mode</span><br/>
                         <span class="grey">>> Shortcuts: Ctrl+L clear | ↑↓ history | Ctrl+K kill</span>
                     </div>
-                </div>
-            </div>
-
-            <!-- Resizer -->
-            <div class="panel-resizer" id="panel-resizer" title="Drag to resize"></div>
-
-            <!-- Right Panel: Live Wire Stream -->
-            <div class="panel wire-panel" id="wire-panel">
-                <div class="panel-header">
-                    <span class="panel-title">📡 LIVE WIRE STREAM</span>
-                    <div class="panel-controls">
-                        <input type="text" class="search-input" id="wire-search" placeholder="Search..." />
-                        <button class="btn-small" id="copy-wire" title="Copy All">⎘</button>
-                        <button class="btn-small" id="clear-wire" title="Clear">×</button>
-                    </div>
-                </div>
-                <div class="stream wire-stream" id="wire-stream">
-                    <div class="ready-msg">
-                        <span class="grey">>> System ready</span><br/>
-                        <span class="grey">>> Waiting for execution...</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Quick Commands Palette -->
-        <div class="quick-commands" id="quick-commands">
-            <div class="qc-header">
-                <span>⚡ QUICK COMMANDS</span>
-                <button class="btn-small" id="toggle-qc" title="Toggle Quick Commands">▼</button>
-            </div>
-            <div class="qc-body" id="qc-body">
-                <div class="qc-group">
-                    <span class="qc-label">RECON</span>
-                    <button class="qc-btn" data-cmd="nmap -sV -sC $TARGET_IP" title="Service/Version scan with scripts">nmap -sVC</button>
-                    <button class="qc-btn" data-cmd="nmap -sU --top-ports 20 $TARGET_IP" title="UDP top 20 ports">nmap UDP</button>
-                    <button class="qc-btn" data-cmd="nmap -p- --min-rate=1000 $TARGET_IP" title="All ports fast scan">nmap ALL</button>
-                    <button class="qc-btn" data-cmd="whois $TARGET_IP" title="WHOIS lookup">whois</button>
-                    <button class="qc-btn" data-cmd="dig $TARGET_IP" title="DNS lookup">dig</button>
-                </div>
-                <div class="qc-group">
-                    <span class="qc-label">WEB</span>
-                    <button class="qc-btn" data-cmd="nikto -h http://$TARGET_IP" title="Nikto web scan">nikto</button>
-                    <button class="qc-btn" data-cmd="gobuster dir -u http://$TARGET_IP -w /usr/share/wordlists/dirb/common.txt" title="Directory bruteforce">gobuster</button>
-                    <button class="qc-btn" data-cmd="curl -I http://$TARGET_IP" title="HTTP headers">curl -I</button>
-                    <button class="qc-btn" data-cmd="whatweb http://$TARGET_IP" title="Web technology fingerprint">whatweb</button>
-                </div>
-                <div class="qc-group">
-                    <span class="qc-label">EXPLOIT</span>
-                    <button class="qc-btn" data-cmd="searchsploit " title="Search exploits">searchsploit</button>
-                    <button class="qc-btn" data-cmd="sqlmap -u http://$TARGET_IP --batch --level=2" title="SQLmap injection scan">sqlmap</button>
-                    <button class="qc-btn" data-cmd="hydra -l admin -P /usr/share/wordlists/rockyou.txt $TARGET_IP ssh" title="SSH bruteforce">hydra SSH</button>
-                </div>
-                <div class="qc-group">
-                    <span class="qc-label">POST</span>
-                    <button class="qc-btn" data-cmd="cat /etc/passwd" title="Read passwd">passwd</button>
-                    <button class="qc-btn" data-cmd="uname -a" title="Kernel info">uname</button>
-                    <button class="qc-btn" data-cmd="id && whoami" title="Current user">whoami</button>
-                    <button class="qc-btn" data-cmd="find / -perm -4000 -type f 2>/dev/null" title="Find SUID binaries">SUID</button>
-                    <button class="qc-btn" data-cmd="ss -tulnp" title="Listening ports">ports</button>
-                </div>
-                <div class="qc-group">
-                    <span class="qc-label">UTIL</span>
-                    <button class="qc-btn" data-cmd="python3 -c 'import pty;pty.spawn(\"/bin/bash\")'" title="Upgrade shell">pty shell</button>
-                    <button class="qc-btn" data-cmd="nc -lvnp $LPORT" title="Netcat listener">nc listen</button>
-                    <button class="qc-btn" data-cmd="ip a" title="Network interfaces">ip addr</button>
                 </div>
             </div>
         </div>
@@ -158,10 +93,6 @@
                 <span class="label">MODEL:</span>
                 <span class="value" id="active-model">dolphin-mixtral</span>
             </div>
-            <div class="hud-variable">
-                <span class="label">SESSION:</span>
-                <span class="value" id="session-id">---</span>
-            </div>
         </div>
 
         <!-- Command Bar -->
@@ -172,26 +103,16 @@
                     type="text"
                     id="command-input"
                     class="command-input"
-                    placeholder="Enter command or natural language query... (prefix ! to force shell, ? to force AI)"
+                    placeholder="Ask a question or enter a command..."
                     autocomplete="off"
                     spellcheck="false"
                 />
             </div>
 
             <div class="command-controls">
-                <div class="toggle-group">
-                    <button class="toggle" id="autopilot-btn" title="Auto-Pilot: AI analyzes output automatically">
-                        <span class="toggle-icon">◎</span> AUTO-PILOT
-                    </button>
-                    <button class="toggle" id="livepipe-btn" title="Live-Pipe: Skip confirmation dialogs">
-                        <span class="toggle-icon">◎</span> LIVE-PIPE
-                    </button>
-                </div>
-
                 <div class="action-buttons">
                     <button class="btn btn-primary" id="send-btn">SEND</button>
                     <button class="btn btn-danger" id="kill-btn" title="Kill all processes (Ctrl+K)">⏹ KILL</button>
-                    <button class="btn btn-warning" id="burn-btn" title="Burn session - full reset">🔥 BURN</button>
                     <button class="btn btn-attack" id="attack-btn" title="Launch Autonomous Attack Mode against $TARGET_IP — AI plans and executes a full pentest sequence">⚡ ATTACK</button>
                 </div>
             </div>

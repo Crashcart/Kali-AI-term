@@ -49,16 +49,16 @@ class KaliHackerBot {
         this.bootLog = document.getElementById('boot-log');
         this.bootProgressBar = document.getElementById('boot-progress-bar');
 
-        // Streams
+        // Streams — wire stream is unified into the intelligence stream
         this.intelligenceStream = document.getElementById('intelligence-stream');
-        this.wireStream = document.getElementById('wire-stream');
+        this.wireStream = this.intelligenceStream;
         this.intelPanel = document.getElementById('intel-panel');
-        this.wirePanel = document.getElementById('wire-panel');
-        this.panelResizer = document.getElementById('panel-resizer');
+        this.wirePanel = this.intelPanel;
+        this.panelResizer = null;
 
         // Search
         this.intelSearch = document.getElementById('intel-search');
-        this.wireSearch = document.getElementById('wire-search');
+        this.wireSearch = null;
 
         // LEDs
         this.dockerLED = document.getElementById('docker-led');
