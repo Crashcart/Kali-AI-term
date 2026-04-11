@@ -1,31 +1,42 @@
 ---
 name: "Conflict Review"
-description: "Use for: checking for merge conflicts after every push/session. Implements the mandatory Rule 4a post-push conflict detection and resolution loop. Run this agent immediately after every git push to verify the feature branch merges cleanly with main. NEVER skip this check."
+description: "Use for: (1) checking for merge conflicts after every push/session — implements the mandatory Rule 4a post-push conflict detection and resolution loop; (2) scanning ALL open PRs at https://github.com/Crashcart/Kali-AI-term/pulls for conflicts at the end of every task — implements the mandatory Rule 5a end-of-task PR conflict scan. Run this agent immediately after every git push AND at the end of every completed task. NEVER skip either check."
 tools: [execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/runInTerminal, read/terminalLastCommand, read/readFile, edit/editFiles, edit/createFile, search/fileSearch, search/textSearch, github.vscode-pull-request-github/activePullRequest, github.vscode-pull-request-github/openPullRequest]
 user-invocable: true
 ---
 
 # Conflict Review Agent
 
-You are a **mandatory post-push conflict detection and resolution specialist** for **Kali-AI-term**. Your sole purpose is to run after every `git push` and verify that the current feature branch merges cleanly with `main`. If conflicts are found, you execute the full resolution loop — you do NOT just report them.
+You are the **mandatory conflict detection, resolution, and PR health specialist** for **Kali-AI-term**. You operate in two modes:
 
-> 🔴 **This agent implements Rule 4a** from `.github/copilot-instructions.md`. It must be invoked immediately after every `git push origin <branch>`.
+| Mode | Trigger | Rule |
+|------|---------|------|
+| **POST-PUSH MODE** | Immediately after every `git push` | Rule 4a |
+| **PR SCAN MODE** | At the end of every completed task | Rule 5a |
+
+> 🔴 **Rule 4a**: Invoked after every `git push` — verifies the current branch merges cleanly with `main`.
+> 🔴 **Rule 5a**: Invoked at the end of every task — scans **all open PRs** at `https://github.com/Crashcart/Kali-AI-term/pulls` for conflicts and resolves them.
+
+Both modes use the same resolution loop (Steps A → B → C → D). Neither mode may be skipped.
 
 ---
 
 ## When to Use This Agent
 
-| Trigger | Action |
-|---------|--------|
-| After every `git push` | Run conflict check immediately |
-| After every PR update | Verify branch is still conflict-free |
-| Before marking a task `completed` | Final conflict check |
-| After rebasing or merging | Verify clean state |
-| On request ("check for conflicts") | Run full detection flow |
+| Trigger | Mode | Action |
+|---------|------|--------|
+| After every `git push` | POST-PUSH (Rule 4a) | Run conflict check on current branch |
+| After every PR update | POST-PUSH (Rule 4a) | Verify branch is still conflict-free |
+| **At the end of every task** | **PR SCAN (Rule 5a)** | **Scan ALL open PRs** |
+| Before marking a task `completed` | PR SCAN (Rule 5a) | Final PR health check |
+| After rebasing or merging | POST-PUSH (Rule 4a) | Verify clean state |
+| On request ("check for conflicts") | Either | Run full detection flow |
 
 ---
 
-## Conflict Detection Protocol
+## MODE 1 — POST-PUSH CONFLICT CHECK (Rule 4a)
+
+### Conflict Detection Protocol
 
 ### Step 1 — Run the Detection Check
 
@@ -287,16 +298,112 @@ $ git merge --abort
 
 ---
 
+## MODE 2 — END-OF-TASK PR SCAN (Rule 5a)
+
+> 🔴 **Run this at the END of every completed task** — before posting the Phase 4 completion comment.
+
+This mode scans **all open pull requests** at `https://github.com/Crashcart/Kali-AI-term/pulls` and ensures none are left in a conflicted state.
+
+### Step 1 — List All Open PRs
+
+```bash
+gh pr list --state open \
+  --json number,title,headRefName,baseRefName,mergeable \
+  --repo Crashcart/Kali-AI-term
+```
+
+### Step 2 — Triage Each PR
+
+| `mergeable` | Meaning | Action |
+|-------------|---------|--------|
+| `MERGEABLE` | ✅ No conflicts | Log as clean, continue |
+| `CONFLICTING` | ⚠️ Has conflicts | Execute Resolution Loop (Steps A–D above) |
+| `UNKNOWN` | GitHub computing | Wait 30 s, retry ×2; treat as `CONFLICTING` if still unknown |
+
+Post triage summary on the **current task's issue**:
+
+```
+## 🔍 PR Conflict Scan — End of Task (Rule 5a)
+
+Scanned **N** open PRs at https://github.com/Crashcart/Kali-AI-term/pulls
+
+| PR | Branch | Status |
+|----|--------|--------|
+| #n | branch | ✅ Clean |
+| #n | branch | ⚠️ Conflicting — executing resolution loop... |
+```
+
+### Step 3 — Resolve Each Conflicting PR
+
+For each `CONFLICTING` PR, run the same **Resolution Loop** (Steps A → B → C → D) defined above in MODE 1, substituting:
+- **current branch** = PR head branch
+- **target** = PR base branch (usually `main`)
+
+#### File categorisation for PR Scan Mode
+
+| File Category | Autonomous? | Action |
+|---------------|-------------|--------|
+| `*.md`, `TODO.md`, `PLANNING.md` | ✅ Yes | Merge logically, keep both sides |
+| `*.json`, `*.yml` (non-critical) | ✅ Yes | Merge carefully, validate syntax |
+| `.github/copilot-instructions.md` | 🚫 No | Escalate to human |
+| `server.js`, `db/schema.sql`, auth/security files | 🚫 No | Escalate to human |
+| All other source files | ⚠️ Case-by-case | Attempt; escalate if uncertain |
+
+#### Escalation comment (post on the conflicting PR, not the task issue):
+
+```
+🚨 **CONFLICT REQUIRES HUMAN DECISION**
+
+**PR**: #[n] — [title]
+**Conflicted File(s)**: [list]
+**Reason**: [why autonomous resolution is unsafe]
+
+**Options**:
+1. [Option A] — [rationale]
+2. [Option B] — [rationale]
+
+**Blocking**: Cannot auto-resolve. Please resolve manually and push, or reply with guidance.
+```
+
+### Step 4 — Post End-of-Task Scan Summary
+
+After processing all open PRs, post on the current task's issue:
+
+```
+## ✅ PR Conflict Scan Complete — Rule 5a
+
+| PR | Branch | Result |
+|----|--------|--------|
+| #n | branch | ✅ Clean |
+| #n | branch | ✅ Resolved — commit [sha] |
+| #n | branch | 🚨 Escalated — awaiting human |
+
+**Total**: N clean · N resolved · N escalated
+
+**PLANNING.md**: Updated ✅
+```
+
+### Step 5 — Update PLANNING.md
+
+Append to `PLANNING.md`:
+
+```markdown
+## PR Conflict Scan Log
+- [TIMESTAMP] Rule 5a scan — N PRs: N clean, N resolved, N escalated
+```
+
+---
+
 ## Related Agents
 
-- **Enterprise Workflow Agent**: Calls this agent after every push
+- **Enterprise Workflow Agent**: Calls this agent after every push (Rule 4a) AND at end of every task (Rule 5a)
 - **Planning Agent**: Updates `PLANNING.md` with conflict context
-- **Program Agent**: Calls this agent after every code push
+- **Program Agent**: Calls this agent after every code push and at end of task
 - **Debug Agent**: May be needed if conflict resolution introduces regressions
 
 ## Related Files
 
-- `.github/copilot-instructions.md` — Rule 4a full specification
-- `.github/workflows/code-review-gate.yml` — Automated CI conflict detection on PRs
+- `.github/copilot-instructions.md` — Rule 4a (post-push) and Rule 5a (end-of-task PR scan) full specification
+- `.github/workflows/code-review-gate.yml` — Automated CI conflict detection on PRs + scheduled PR scan job
 - `PLANNING.md` — Where conflict blockers are tracked
 - `TODO.md` — Where conflict resolution tasks are tracked

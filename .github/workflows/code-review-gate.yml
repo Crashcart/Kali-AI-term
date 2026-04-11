@@ -4,6 +4,16 @@ on:
   pull_request:
     branches: [ main, test ]
     types: [ opened, synchronize, reopened ]
+  # ── Rule 5a: scheduled end-of-task PR scan ─────────────────────────────────
+  schedule:
+    # Run every 6 hours to catch conflicts that accumulate between agent sessions
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual PR conflict scan'
+        required: false
+        default: 'Manual end-of-task Rule 5a scan'
 
 permissions:
   contents: read
@@ -16,6 +26,7 @@ jobs:
   conflict-check:
     name: Conflict Detection
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
 
     steps:
       - name: Checkout PR branch (full history)
@@ -113,6 +124,7 @@ jobs:
     name: Static Code Review
     runs-on: ubuntu-latest
     needs: conflict-check
+    if: github.event_name == 'pull_request'
 
     steps:
       - name: Checkout PR branch
@@ -246,6 +258,7 @@ jobs:
     name: Test Suite
     runs-on: ubuntu-latest
     needs: conflict-check
+    if: github.event_name == 'pull_request'
 
     strategy:
       matrix:
@@ -288,6 +301,7 @@ jobs:
     name: Planning Docs Updated
     runs-on: ubuntu-latest
     needs: conflict-check
+    if: github.event_name == 'pull_request'
 
     steps:
       - name: Checkout PR branch
@@ -358,3 +372,152 @@ jobs:
                 body,
               });
             }
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 5: Rule 5a — Scan ALL open PRs for merge conflicts
+  # Runs on schedule (every 6 h) and on workflow_dispatch. Skipped for normal
+  # pull_request events (those are handled per-PR by Job 1 above).
+  # ─────────────────────────────────────────────────────────────────────────────
+  pr-conflict-scan:
+    name: Rule 5a — Open PR Conflict Scan
+    runs-on: ubuntu-latest
+    # Only run on schedule or manual dispatch, not on PR events
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout default branch (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan all open PRs for merge conflicts
+        id: scan
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pullRequests } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+
+            const results = [];
+
+            for (const pr of pullRequests) {
+              // Re-fetch single PR to get up-to-date mergeable status
+              const { data: detail } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+              });
+
+              // mergeable can be null while GitHub computes it — treat as unknown
+              const mergeable = detail.mergeable;
+              const mergeableState = detail.mergeable_state; // 'clean','dirty','unknown','blocked'
+
+              results.push({
+                number: pr.number,
+                title: pr.title,
+                head: pr.head.ref,
+                base: pr.base.ref,
+                mergeable,
+                mergeableState,
+              });
+            }
+
+            const conflicting = results.filter(r =>
+              r.mergeable === false || r.mergeableState === 'dirty'
+            );
+            const unknown = results.filter(r =>
+              r.mergeable === null || r.mergeableState === 'unknown'
+            );
+            const clean = results.filter(r =>
+              r.mergeable === true && r.mergeableState === 'clean'
+            );
+
+            // Build summary table
+            const rows = results.map(r => {
+              let status = '✅ Clean';
+              if (r.mergeable === false || r.mergeableState === 'dirty') {
+                status = '⚠️ **CONFLICTING**';
+              } else if (r.mergeable === null || r.mergeableState === 'unknown') {
+                status = '❓ Unknown (GitHub computing)';
+              }
+              return `| #${r.number} | \`${r.head}\` → \`${r.base}\` | ${status} |`;
+            });
+
+            const summary = [
+              '## 🔍 Rule 5a — Open PR Conflict Scan',
+              '',
+              `Scanned **${results.length}** open PR(s) · ✅ ${clean.length} clean · ⚠️ ${conflicting.length} conflicting · ❓ ${unknown.length} unknown`,
+              '',
+              '| PR | Branch | Status |',
+              '|----|--------|--------|',
+              ...rows,
+            ].join('\n');
+
+            console.log(summary);
+            core.setOutput('conflicting_count', conflicting.length);
+            core.setOutput('summary', summary);
+
+            // Post conflict warnings on each conflicting PR
+            for (const pr of conflicting) {
+              const body = [
+                '## ⚠️ Rule 5a — Merge Conflict Detected (Scheduled Scan)',
+                '',
+                `This PR (\`${pr.head}\` → \`${pr.base}\`) has merge conflicts that must be resolved.`,
+                '',
+                '### Resolution Steps',
+                '```bash',
+                `git fetch origin ${pr.base}`,
+                `git checkout ${pr.head}`,
+                `git merge origin/${pr.base}`,
+                '# Resolve conflicts in each file',
+                'git add <resolved-files>',
+                'git commit -m "fix(conflicts): resolve merge conflicts"',
+                'git push',
+                '```',
+                '',
+                '> **Agent Note (Rule 5a)**: Update `PLANNING.md` → "Current Blockers" before resolving.',
+                '> High-risk files (`.github/copilot-instructions.md`, `server.js`, `db/schema.sql`) require human review.',
+                '',
+                '_Auto-detected by the scheduled Rule 5a PR Conflict Scan workflow._',
+              ].join('\n');
+
+              // Upsert: avoid duplicate Rule 5a comments
+              const { data: comments } = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+              });
+
+              const existing = comments.find(c =>
+                c.user.type === 'Bot' && c.body.includes('Rule 5a — Merge Conflict Detected')
+              );
+
+              if (existing) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existing.id,
+                  body,
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body,
+                });
+              }
+            }
+
+            return { conflicting: conflicting.length, total: results.length };
+
+      - name: Fail if any open PRs have conflicts
+        if: steps.scan.outputs.conflicting_count != '0'
+        run: |
+          echo "❌ Rule 5a: ${{ steps.scan.outputs.conflicting_count }} open PR(s) have merge conflicts."
+          echo "Review the comments posted on each conflicting PR for resolution steps."
+          exit 1

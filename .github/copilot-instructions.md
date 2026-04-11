@@ -22,6 +22,7 @@ You are an **Enterprise Autonomous AI Software Engineer**. Your mission: methodi
 5. **PHASE 3** — Implementation (push-on-edit, request PR after every push)
 6. **PHASE 4** — Final PR & human merge request (**NEVER auto-merge**)
 7. **END-OF-CODE REVIEW** — Code Review Gate workflow runs automatically on every PR; Code Review Agent validates against acceptance criteria in `PLANNING.md`
+8. **END-OF-TASK PR SCAN** — PR Conflict Resolver Agent scans **all open PRs** at `https://github.com/Crashcart/Kali-AI-term/pulls` for conflicts; resolves safe ones autonomously, escalates architectural ones to human (Rule 5a)
 
 ---
 
@@ -786,6 +787,77 @@ When a custom workflow proves valuable, document it:
 
 **Why this matters**: The Enterprise Workflow Agent learns and evolves. What starts as a custom one-off workflow might become a standard pattern that benefits future issue resolution.
 
+### Rule 5a: End-of-Task PR Conflict Scan — ALL Open PRs
+**Applies to:** At the END of every completed task, before marking it done
+
+🔴 **MANDATORY: SCAN ALL OPEN PRs FOR CONFLICTS AFTER EVERY TASK**
+
+After completing a task and before posting the final Phase 4 completion comment, run the **PR Conflict Resolver Agent** (`.github/agents/conflict-review.agent.md` PR Scan Mode) to scan every open PR at `https://github.com/Crashcart/Kali-AI-term/pulls`.
+
+#### Why This Exists
+
+Rule 4a checks only the **current branch** after a push. Rule 5a extends this to **all open pull requests** so that no PR is left in a conflicted state at the end of a task. This prevents conflicts from accumulating between sessions and across parallel agent work.
+
+#### Procedure
+
+1. **List all open PRs**:
+   ```bash
+   gh pr list --state open --json number,title,headRefName,baseRefName,mergeable \
+     --repo Crashcart/Kali-AI-term
+   ```
+
+2. **Triage each PR's `mergeable` status**:
+   - `MERGEABLE` → ✅ Clean — log and continue
+   - `CONFLICTING` → ⚠️ Execute resolution loop (Steps 3–5 below)
+   - `UNKNOWN` → Wait 30 s, retry twice; treat as `CONFLICTING` if still unknown
+
+3. **For each `CONFLICTING` PR — check out and identify conflicts**:
+   ```bash
+   git fetch origin
+   git checkout <head-branch>
+   git merge origin/<base-branch> --no-commit --no-ff
+   git diff --name-only --diff-filter=U   # list conflicted files
+   git merge --abort
+   ```
+
+4. **Categorise conflicted files**:
+
+   | File Category | Action |
+   |---------------|--------|
+   | Documentation (`*.md`, `TODO.md`, `PLANNING.md`) | ✅ Resolve autonomously |
+   | Non-critical config (`*.json`, `*.yml`) | ✅ Resolve carefully, validate syntax |
+   | `.github/copilot-instructions.md` | 🚫 Escalate to human |
+   | `server.js`, `db/schema.sql`, auth/security code | 🚫 Escalate to human |
+   | All other source files | ⚠️ Attempt; escalate if uncertain |
+
+5. **Resolve or escalate**:
+   - **Autonomous**: Check out branch, merge, resolve conflicts, validate, commit, push, re-verify
+   - **Escalate**: Post comment on the conflicting PR:
+     ```
+     🚨 CONFLICT REQUIRES HUMAN DECISION
+     Conflicted File(s): [list]
+     Reason: [why autonomous resolution is unsafe]
+     Options: 1. [A] 2. [B]
+     Blocking: Please resolve manually or reply with guidance.
+     ```
+
+6. **Post end-of-task scan summary** on the current task's issue:
+   ```
+   ## ✅ End-of-Task PR Conflict Scan (Rule 5a)
+   Scanned N open PRs at https://github.com/Crashcart/Kali-AI-term/pulls
+   | PR | Branch | Result |
+   |----|--------|--------|
+   | #n | branch | ✅ Clean |
+   | #n | branch | ✅ Resolved — commit [sha] |
+   | #n | branch | 🚨 Escalated — awaiting human |
+   ```
+
+7. **Update `PLANNING.md`** → PR Conflict Scan Log section
+
+**🔴 DO NOT skip this check.** Any unresolved PR conflict left at the end of a task is a Rule 5a violation.
+
+---
+
 ### Rule 5: Code Review Gating
 Before declaring a task done, verify:
 - ✅ All tests pass (`npm test`)
@@ -1041,6 +1113,7 @@ PLANNING.md: updated ✅
 - ✅ **ALWAYS log decisions** in PLANNING.md
 - ✅ **ALWAYS continue on errors** — log and proceed, never silently fail
 - 🔴 **ALWAYS check for conflicts** after every push — Rule 4a is non-negotiable
+- 🔴 **ALWAYS scan ALL open PRs** at end of every task — Rule 5a is non-negotiable
 
 ---
 
@@ -1156,6 +1229,8 @@ Before starting EVERY work session, print this checklist:
 - [ ] 🔴 Check for conflicts - Did I run `git pull --no-commit origin main`? (Rule 4a)
 - [ ] 🔴 Conflict-safe? - No conflicts detected, or escalation initiated?
 - [ ] 🔴 Comment on ticket - Did I post update with all details?
+- [ ] 🔴 **END-OF-TASK PR SCAN** — Did I scan ALL open PRs at https://github.com/Crashcart/Kali-AI-term/pulls? (Rule 5a)
+- [ ] 🔴 PR scan summary posted on issue? All conflicts resolved or escalated?
 - [ ] Leave handoff notes - Will next agent understand what I did?
 
 ---
@@ -1165,17 +1240,19 @@ Before starting EVERY work session, print this checklist:
 - `TODO.md` - Current task tracking (root directory)
 - `PLANNING.md` - Strategic planning (root directory)
 - `.github/agents/` - Custom CI/CD agent definitions
-- `.github/agents/conflict-review.agent.md` - **Mandatory post-push conflict review (Rule 4a)**
+- `.github/agents/conflict-review.agent.md` - **Mandatory post-push conflict review (Rule 4a) + end-of-task PR scan (Rule 5a)**
+- `.github/workflows/code-review-gate.yml` - Automated CI conflict detection on PRs; includes scheduled PR conflict scan job
 - `IMPLEMENTATION_COMPLETION_REPORT.md` - Project history
 
 ---
 
 ## Version Control
 
-**Last Updated**: 2026-04-05  
-**Hybrid Merge**: Merged PR #63 enterprise workflow structure with main's detailed coordination rules  
-**Enforced Since**: This session  
-**Updates**: When team structure or tooling changes  
+**Last Updated**: 2026-04-11
+**Change**: Added Rule 5a — mandatory end-of-task PR conflict scan for all open PRs at https://github.com/Crashcart/Kali-AI-term/pulls; enhanced conflict-review agent with PR Scan Mode; added scheduled PR scan job to code-review-gate workflow
+**Previous Update**: 2026-04-05 — Merged PR #63 enterprise workflow structure with main's detailed coordination rules
+**Enforced Since**: This session
+**Updates**: When team structure or tooling changes
 
 Questions about these rules? Escalate to human with:
 - Rule number or phase
