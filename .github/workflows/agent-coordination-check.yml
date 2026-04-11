@@ -1,0 +1,173 @@
+name: Agent Coordination Check
+
+on:
+  pull_request:
+    branches: [main, test]
+    paths:
+      - '.github/agent-work-state.md'
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  coordination-validation:
+    name: Validate Agent Work-State
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate work-state format
+        id: validate
+        run: |
+          WORKSTATE=".github/agent-work-state.md"
+
+          if [ ! -f "$WORKSTATE" ]; then
+            echo "❌ agent-work-state.md not found"
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "✅ agent-work-state.md exists"
+
+          # Check that Active Locks table exists
+          if ! grep -q "## Active Locks" "$WORKSTATE"; then
+            echo "❌ Missing 'Active Locks' section"
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "✅ Active Locks section found"
+
+          # Check for stale locks (entries older than 24 hours)
+          STALE_COUNT=0
+          CURRENT_EPOCH=$(date +%s)
+          
+          # Extract dates from the Active Locks table rows (skip header and separator)
+          while IFS='|' read -r _ file branch agent claimed_at issue expected _; do
+            # Skip empty/header/separator rows
+            claimed_at=$(echo "$claimed_at" | xargs)
+            if [[ -z "$claimed_at" ]] || [[ "$claimed_at" == "Claimed At (UTC)" ]] || [[ "$claimed_at" == "---"* ]] || [[ "$claimed_at" == "—" ]] || [[ "$claimed_at" == "_"* ]]; then
+              continue
+            fi
+            
+            # Try to parse the date
+            LOCK_EPOCH=$(date -d "$claimed_at" +%s 2>/dev/null || echo "0")
+            if [ "$LOCK_EPOCH" != "0" ]; then
+              AGE_HOURS=$(( (CURRENT_EPOCH - LOCK_EPOCH) / 3600 ))
+              if [ "$AGE_HOURS" -gt 24 ]; then
+                STALE_COUNT=$((STALE_COUNT + 1))
+                file=$(echo "$file" | xargs)
+                branch=$(echo "$branch" | xargs)
+                echo "⚠️ Stale lock: $file (locked by $branch, ${AGE_HOURS}h ago)"
+              fi
+            fi
+          done < <(grep "^|" "$WORKSTATE" | grep -A999 "## Active Locks" | grep -B0 -A999 "^|" | tail -n +3)
+
+          if [ "$STALE_COUNT" -gt 0 ]; then
+            echo "stale_count=$STALE_COUNT" >> "$GITHUB_OUTPUT"
+            echo "⚠️ Found $STALE_COUNT stale lock(s)"
+          else
+            echo "stale_count=0" >> "$GITHUB_OUTPUT"
+            echo "✅ No stale locks"
+          fi
+
+          # Check that History Log section exists
+          if ! grep -q "## History Log" "$WORKSTATE"; then
+            echo "⚠️ Missing 'History Log' section (recommended)"
+          else
+            echo "✅ History Log section found"
+          fi
+
+          echo "valid=true" >> "$GITHUB_OUTPUT"
+
+      - name: Check for unreleased locks from merged branches
+        id: unreleased
+        run: |
+          WORKSTATE=".github/agent-work-state.md"
+          ORPHAN_LIST=""
+
+          # Extract branch names from Active Locks
+          while IFS='|' read -r _ file branch agent claimed_at issue expected _; do
+            branch=$(echo "$branch" | xargs)
+            if [[ -z "$branch" ]] || [[ "$branch" == "Branch" ]] || [[ "$branch" == "---"* ]] || [[ "$branch" == "—" ]] || [[ "$branch" == "_"* ]]; then
+              continue
+            fi
+
+            # Check if the branch still exists on remote
+            if ! git ls-remote --heads origin "$branch" | grep -q "$branch"; then
+              file=$(echo "$file" | xargs)
+              ORPHAN_LIST="${ORPHAN_LIST}\n- \`${file}\` locked by deleted branch \`${branch}\`"
+            fi
+          done < <(grep "^|" "$WORKSTATE" | grep -A999 "## Active Locks" | grep -B0 -A999 "^|" | tail -n +3)
+
+          if [ -n "$ORPHAN_LIST" ]; then
+            echo "orphans<<EOF" >> "$GITHUB_OUTPUT"
+            echo -e "$ORPHAN_LIST" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+            echo "has_orphans=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_orphans=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post coordination status comment
+        if: steps.validate.outputs.stale_count != '0' || steps.unreleased.outputs.has_orphans == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const staleCount = '${{ steps.validate.outputs.stale_count }}';
+            const orphans = `${{ steps.unreleased.outputs.orphans }}`;
+            const hasOrphans = '${{ steps.unreleased.outputs.has_orphans }}' === 'true';
+
+            const sections = ['## 🔒 Agent Coordination Status', ''];
+
+            if (parseInt(staleCount) > 0) {
+              sections.push(`### ⚠️ Stale Locks Detected: ${staleCount}`);
+              sections.push('Locks older than 24 hours were found. These should be reviewed and cleaned up.');
+              sections.push('');
+            }
+
+            if (hasOrphans) {
+              sections.push('### ⚠️ Orphaned Locks (Deleted Branches)');
+              sections.push(orphans.trim());
+              sections.push('');
+              sections.push('These locks reference branches that no longer exist and should be removed.');
+              sections.push('');
+            }
+
+            sections.push('---');
+            sections.push('_Generated by the Agent Coordination Check workflow._');
+            sections.push('_See `.github/agents/coordination.agent.md` for the full protocol._');
+
+            const body = sections.join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Agent Coordination Status')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

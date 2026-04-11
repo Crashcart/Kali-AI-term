@@ -199,6 +199,7 @@ After completing the highest-priority issue:
 
 - **`TODO.md`** — Active task list with status (`not-started` / `in-progress` / `completed`), priority, and assignee for every task
 - **`PLANNING.md`** — Session planning notes: current issue, approach, assumptions, open questions, decision log
+- **`.github/agent-work-state.md`** — File-level lock tracker: claim files before editing, release after pushing (Rule 8)
 
 ### TODO.md Format (Required)
 ```markdown
@@ -324,11 +325,17 @@ The **Planning Agent** (`.github/agents/planning.agent.md`) is the **first agent
 ```
 Planning Agent
     │
+    ├─► Coordination Agent             — **run before ANY file edit** (Rule 8)
+    │       └─► `.github/agents/coordination.agent.md`
+    │       └─► checks/updates `.github/agent-work-state.md`
+    │
     ├─► Enterprise Workflow Agent  — executes full 4-phase workflow
     │       └─► reads TODO.md + PLANNING.md at session start
+    │       └─► calls Coordination Agent before editing files
     │
     ├─► Program Agent              — implements subtasks
     │       └─► reads acceptance criteria before coding
+    │       └─► calls Coordination Agent before editing files
     │
     ├─► Code Review Agent          — end-of-code review after every session
     │       └─► triggered automatically by code-review-gate.yml on every PR
@@ -339,6 +346,7 @@ Planning Agent
     │
     └─► Debug Agent                — fixes failures surfaced by Code Review
             └─► reads PLANNING.md risk section for context
+            └─► calls Coordination Agent before editing files
 ```
 
 ### End-of-Code Review (Automated)
@@ -843,6 +851,45 @@ Before declaring a task done, verify:
 
 **Why:** Maintains main stability, enables parallel work
 
+### Rule 8: File Coordination Protocol (Multi-Agent Lock System)
+**🔴 MANDATORY: CHECK AND UPDATE `.github/agent-work-state.md` BEFORE EDITING ANY FILE**
+
+This rule prevents merge conflicts caused by multiple agents editing the same file simultaneously.
+
+**Before editing any file:**
+1. **Read** `.github/agent-work-state.md` — check the "Active Locks" table
+2. **If the file is locked by another agent** → Do NOT edit. Coordinate first (see Coordination Agent)
+3. **If the file is NOT locked** → Add a row to claim it:
+   ```markdown
+   | path/to/file | branch-name | Agent Name | YYYY-MM-DD HH:MM | #issue | YYYY-MM-DD HH:MM |
+   ```
+4. **Commit and push** the lock claim BEFORE editing the file
+5. **Fetch latest** to confirm no race condition with another agent
+
+**After finishing with a file:**
+1. **Remove your row** from the Active Locks table
+2. **Add an entry** to the History Log table
+3. **Commit and push** the release
+
+**Lock conflict resolution:**
+- TIER 1 work takes precedence over TIER 2/3
+- First lock wins (earliest timestamp) for same-tier work
+- If possible, split changes to different sections of the file
+- If not possible, queue the lower-priority work
+- Document all coordination decisions in PLANNING.md
+
+**Stale lock policy:**
+- Locks older than 24 hours with no branch activity are stale
+- Stale locks may be overridden after verification
+- Always check if the branch still exists before overriding
+
+**Why:** The commit history shows repeated conflict-resolution PRs (#82, #84, #88). This proactive locking prevents conflicts before they happen rather than detecting them after the fact.
+
+**Related files:**
+- `.github/agent-work-state.md` — The shared lock file
+- `.github/agents/coordination.agent.md` — The coordination agent definition
+- `.github/workflows/agent-coordination-check.yml` — CI validation for lock state
+
 ## 🧪 Testing Requirements
 - Run `npm test` before every PR
 - Run `npm audit` to check dependencies
@@ -939,6 +986,7 @@ Closes #[number]
 | `TODO.md` | Current task list — understand what's in progress |
 | `PLANNING.md` | Session planning & decision log — understand context |
 | `.github/copilot-instructions.md` | These rules — re-read each session |
+| `.github/agent-work-state.md` | File locks — check what's being edited by other agents (Rule 8) |
 
 ### Core Application Files (check for conflicts before editing)
 | File | Description |
@@ -1036,10 +1084,13 @@ PLANNING.md: updated ✅
 - 🚫 **NEVER skip tests** — run full test suite before PR
 - 🚫 **NEVER ignore CRITICAL tickets** — work on them even if vague
 - 🚫 **NEVER batch PRs** — one PR per push
+- 🚫 **NEVER edit a file locked by another agent** — check `.github/agent-work-state.md` first (Rule 8)
 - ✅ **ALWAYS update TODO.md and PLANNING.md** every session
 - ✅ **ALWAYS read ALL comments** on every issue before starting work
 - ✅ **ALWAYS log decisions** in PLANNING.md
 - ✅ **ALWAYS continue on errors** — log and proceed, never silently fail
+- ✅ **ALWAYS claim files in `agent-work-state.md`** before editing them — Rule 8
+- ✅ **ALWAYS release file locks** at end of session — Rule 8
 - 🔴 **ALWAYS check for conflicts** after every push — Rule 4a is non-negotiable
 
 ---
@@ -1128,6 +1179,9 @@ If an agent violates these rules:
 - ❌ Marks task complete with known blockers
 - ❌ Creates branches with wrong naming pattern
 - ❌ Merges to main without human approval
+- ❌ Edits a file without claiming it in `agent-work-state.md` (Rule 8)
+- ❌ Edits a file that is locked by another agent (Rule 8)
+- ❌ Leaves orphaned locks after session ends (Rule 8)
 
 **Response**: 
 1. Human will notify agent of rule violation with specific example
@@ -1143,15 +1197,18 @@ Before starting EVERY work session, print this checklist:
 
 - [ ] Read `TODO.md` - What's the current status?
 - [ ] Read `PLANNING.md` - Any blockers, handoffs, or decisions I need?
+- [ ] Read `.github/agent-work-state.md` - Are any files I need locked by other agents? (Rule 8)
 - [ ] Read ALL ticket comments - What context do I need?
 - [ ] Re-check ticket comments after each new user update before proceeding
 - [ ] Verify my assigned task - Is it in the todo list with status `not-started`?
 - [ ] Mark task `in-progress` - Did I update the todo list?
+- [ ] 🔴 Claim files in `agent-work-state.md` - Did I lock all files I plan to edit? (Rule 8)
 - [ ] Plan multi-step work - Should I update `PLANNING.md` first?
 - [ ] Complete work - Did I run tests and check for errors?
 - [ ] Mark task complete - Are blockers resolved, or should I flag them?
 - [ ] Commit properly - Did I use correct prefix and issue reference?
 - [ ] 🔴 Push immediately - Did I push to origin?
+- [ ] 🔴 Release files in `agent-work-state.md` - Did I remove my locks? (Rule 8)
 - [ ] 🔴 Run Conflict Review Agent - Did I invoke `.github/agents/conflict-review.agent.md` (Rule 4a)?
 - [ ] 🔴 Check for conflicts - Did I run `git pull --no-commit origin main`? (Rule 4a)
 - [ ] 🔴 Conflict-safe? - No conflicts detected, or escalation initiated?
@@ -1166,14 +1223,17 @@ Before starting EVERY work session, print this checklist:
 - `PLANNING.md` - Strategic planning (root directory)
 - `.github/agents/` - Custom CI/CD agent definitions
 - `.github/agents/conflict-review.agent.md` - **Mandatory post-push conflict review (Rule 4a)**
+- `.github/agents/coordination.agent.md` - **Mandatory pre-edit file coordination (Rule 8)**
+- `.github/agent-work-state.md` - **Multi-agent file lock tracker (Rule 8)**
+- `.github/workflows/agent-coordination-check.yml` - CI validation for lock state
 - `IMPLEMENTATION_COMPLETION_REPORT.md` - Project history
 
 ---
 
 ## Version Control
 
-**Last Updated**: 2026-04-05  
-**Hybrid Merge**: Merged PR #63 enterprise workflow structure with main's detailed coordination rules  
+**Last Updated**: 2026-04-11  
+**Added**: Rule 8 — Multi-Agent File Coordination Protocol (agent-work-state.md + coordination agent)  
 **Enforced Since**: This session  
 **Updates**: When team structure or tooling changes  
 

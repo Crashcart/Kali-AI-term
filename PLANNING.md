@@ -1,15 +1,47 @@
 # 📊 Kali-AI-term Strategic Planning & Coordination
 
-**Last Updated**: 2026-04-11 05:39:00 UTC  
+**Last Updated**: 2026-04-11 06:10:00 UTC  
 **Document Purpose**: Centralized planning for multi-agent coordination, architectural decisions, and project context
 
 ---
 
 ## 🎯 Active Initiatives
 
-### Conflict Review Agent (copilot/add-review-conflicts-to-github)
+### Multi-Agent File Coordination System (copilot/resolve-conflicts-multi-agent)
 
 **Status**: ✅ **Complete** — PR ready for human review  
+**Branch**: `copilot/resolve-conflicts-multi-agent`  
+**Assigned To**: Debug Agent  
+**Issue**: PR #90 — Resolve conflicts and prevent multi-agent code conflicts
+
+**Summary**: Created a proactive file-locking coordination system to prevent merge conflicts between parallel agents. The commit history (PRs #82, #84, #88) showed a recurring pattern of conflicts from agents editing the same files simultaneously. Rule 4a (Conflict Review) detects conflicts *after* they happen; this new Rule 8 (File Coordination) prevents them *before* they happen.
+
+**Changes Made**:
+- `.github/agent-work-state.md` — New shared lock file: tracks which files are being edited by which agent/branch
+- `.github/agents/coordination.agent.md` — New agent: manages file claim/release lifecycle, stale lock detection, conflict resolution
+- `.github/workflows/agent-coordination-check.yml` — New CI workflow: validates lock state, detects stale/orphaned locks on PRs
+- `.github/copilot-instructions.md` — Added Rule 8 (File Coordination Protocol), updated agent invocation order, strict constraints, violation handling, quick reference checklist, session-start checklist, and related documents
+- `TODO.md` / `PLANNING.md` — Updated with session state
+
+**Decisions Log**:
+- [2026-04-11 06:02] Chose markdown-based lock file over JSON for human readability and easy Git diffing
+- [2026-04-11 06:02] 24-hour stale lock policy balances safety (no permanent orphans) with flexibility (long-running sessions)
+- [2026-04-11 06:02] Priority-based conflict resolution (TIER 1 > TIER 2 > TIER 3) aligns with existing issue prioritization scheme
+- [2026-04-11 06:02] CI workflow triggers only on `agent-work-state.md` changes to avoid unnecessary runs
+- [2026-04-11 06:02] Coordination Agent placed first in agent invocation order (before Program/Debug) since it must run before any file edits
+
+**Architecture Decision**:
+- **ADR: Proactive vs Reactive Conflict Prevention**
+  - **Context**: Rule 4a (conflict-review) is reactive — it detects conflicts after code is pushed. This leads to costly resolution loops.
+  - **Decision**: Add a proactive layer (Rule 8) that prevents conflicts by coordinating file access before editing begins.
+  - **Tradeoff**: Small overhead per edit (check + claim + release) but eliminates the much larger overhead of conflict resolution.
+  - **Alternatives Considered**: Git-based advisory locks, GitHub branch protection rules, separate coordination repo. All rejected as too complex or not visible to agents.
+
+---
+
+### Conflict Review Agent (copilot/add-review-conflicts-to-github)
+
+**Status**: ✅ **Complete** — Merged  
 **Branch**: `copilot/add-review-conflicts-to-github`  
 **Assigned To**: GitHub Copilot Task Agent  
 
