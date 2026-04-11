@@ -119,7 +119,7 @@
                 <div class="qc-group">
                     <span class="qc-label">EXPLOIT</span>
                     <button class="qc-btn" data-cmd="searchsploit " title="Search exploits">searchsploit</button>
-                    <button class="qc-btn" data-cmd="msfconsole -q -x 'search '" title="Metasploit search">msf search</button>
+                    <button class="qc-btn" data-cmd="sqlmap -u http://$TARGET_IP --batch --level=2" title="SQLmap injection scan">sqlmap</button>
                     <button class="qc-btn" data-cmd="hydra -l admin -P /usr/share/wordlists/rockyou.txt $TARGET_IP ssh" title="SSH bruteforce">hydra SSH</button>
                 </div>
                 <div class="qc-group">
