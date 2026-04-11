@@ -18,7 +18,7 @@ class KaliHackerBot {
         this.showTimestamps = true;
         this.soundEnabled = true;
         this.ollamaUrl = 'http://localhost:11434';
-        this.ollamaModel = 'phi3:mini';
+        this.ollamaModel = 'smollm2:135m';
         this.ollamaTemp = 0.7;
         this.aiProvider = 'auto';
         this.aiTaskType = 'default';
@@ -29,12 +29,16 @@ class KaliHackerBot {
         this.plugins = new Map();
         this.enabledPlugins = [];
         this.defaultModels = [
-            { id: 'phi4-mini:3.8b', name: 'Phi-4 Mini 3.8B (~2.5 GiB, great reasoning)', recommended: true },
+            { id: 'smollm2:135m', name: 'SmolLM2 135M ⭐ (Ultra-light, 512MB RAM)', recommended: true },
             { id: 'phi3:mini', name: 'Phi-3 Mini (~2.2 GiB, proven lightweight)', recommended: true },
-            { id: 'gemma3:4b', name: 'Gemma 3 4B (~3 GiB, excellent quality)', recommended: true },
-            { id: 'qwen2.5:3b', name: 'Qwen 2.5 3B (~2 GiB, strong coding)', recommended: true },
-            { id: 'llama3.2:3b', name: 'Llama 3.2 3B (~2 GiB, well-rounded)', recommended: true },
-            { id: 'tinyllama', name: 'TinyLlama (~637 MiB, ultra-lightweight)', recommended: true }
+            { id: 'phi4-mini:3.8b', name: 'Phi-4 Mini 3.8B (~2.5 GiB, great reasoning)', recommended: true },
+            { id: 'llama3.2:1b', name: 'Llama 3.2 1B (Balanced, 2-3GB RAM)', recommended: true },
+            { id: 'gemma3:4b', name: 'Gemma 3 4B (~3 GiB, excellent quality)', recommended: false },
+            { id: 'qwen2.5:3b', name: 'Qwen 2.5 3B (~2 GiB, strong coding)', recommended: false },
+            { id: 'llama3.2:3b', name: 'Llama 3.2 3B (~2 GiB, well-rounded)', recommended: false },
+            { id: 'mistral:7b', name: 'Mistral 7B (Powerful, 6GB RAM)', recommended: false },
+            { id: 'neural-chat:7b', name: 'Neural Chat 7B (Quality, 6GB RAM)', recommended: false },
+            { id: 'tinyllama', name: 'TinyLlama (~637 MiB, ultra-lightweight)', recommended: false }
         ];
 
         this.initializeElements();
@@ -577,7 +581,7 @@ class KaliHackerBot {
         this.localIP = saved.localIP || '192.168.1.50';
         this.listeningPort = saved.listeningPort || '4444';
         this.ollamaUrl = saved.ollamaUrl || 'http://localhost:11434';
-        this.ollamaModel = saved.ollamaModel || 'phi3:mini';
+        this.ollamaModel = saved.ollamaModel || 'smollm2:135m';
         this.ollamaTemp = saved.ollamaTemp || 0.7;
         this.aiProvider = saved.aiProvider || 'auto';
         this.aiTaskType = saved.aiTaskType || 'default';
@@ -1695,24 +1699,53 @@ Keep it under 150 words. Be educational and specific.`;
     }
 
     async refreshOllamaModels() {
+<<<<<<< HEAD
+=======
         const url = this.ollamaUrl;
+>>>>>>> origin/main
         this.refreshModelsBtn.textContent = '⏳';
         this.refreshModelsBtn.disabled = true;
 
         try {
+<<<<<<< HEAD
+            // Use our app's API endpoint instead of direct Ollama URL
+            const response = await axios.get('/api/ollama/models', {
+                headers: { 'Authorization': `Bearer ${this.sessionToken}` }
+            });
+
+            if (response.data.models && response.data.models.length > 0) {
+                // Sort models by name
+                const sortedModels = response.data.models.sort((a, b) => {
+                    const aName = typeof a === 'string' ? a : a.name;
+                    const bName = typeof b === 'string' ? b : b.name;
+                    return aName.localeCompare(bName);
+                });
+
+                this.ollamaModelInput.innerHTML = '';
+                sortedModels.forEach(model => {
+=======
             const response = await this.apiCall('GET', `/api/ollama/models?url=${encodeURIComponent(url)}`);
             const models = response.models || [];
             if (models.length > 0) {
                 this.ollamaModelInput.innerHTML = '';
                 models.forEach(model => {
+>>>>>>> origin/main
                     const option = document.createElement('option');
-                    option.value = model.name;
-                    option.textContent = model.name;
+                    const modelName = typeof model === 'string' ? model : model.name;
+                    const modelSize = typeof model === 'string' ? '' : ` (${this.formatBytes(model.size)})`;
+                    option.value = modelName;
+                    option.textContent = modelName + modelSize;
                     this.ollamaModelInput.appendChild(option);
                 });
+<<<<<<< HEAD
+                this.addIntelligenceMessage(`✓ Models refreshed - ${sortedModels.length} model(s) available`, 'green');
+            } else {
+                this.addIntelligenceMessage('⚠️ No models available. Pull a model first: smollm2:135m recommended', 'yellow');
+=======
                 this.addIntelligenceMessage('✓ Models refreshed', 'green');
             } else {
                 this.addIntelligenceMessage('⚠ No models found at that URL', 'yellow');
+>>>>>>> origin/main
             }
         } catch (err) {
             this.addIntelligenceMessage(`❌ Failed to fetch models: ${err.message}`, 'red');
@@ -1722,6 +1755,15 @@ Keep it under 150 words. Be educational and specific.`;
         }
     }
 
+<<<<<<< HEAD
+    // Helper function to format bytes
+    formatBytes(bytes) {
+        if (!bytes) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+=======
     // ============================================
     // OLLAMA INSTANCE MANAGEMENT
     // ============================================
@@ -1933,6 +1975,7 @@ Keep it under 150 words. Be educational and specific.`;
         } catch (err) {
             this.addIntelligenceMessage(`❌ Failed to add instance: ${err.message}`, 'red');
         }
+>>>>>>> origin/main
     }
 
     async pullModel() {

@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   app:
     build: .
@@ -8,44 +10,60 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - BIND_HOST=0.0.0.0
-      - OLLAMA_URL=http://host.docker.internal:11434
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-phi3:mini}
-      - LLM_FROZEN=${LLM_FROZEN:-false}
+      - OLLAMA_URL=http://ollama:11434
+      - DEFAULT_OLLAMA_MODEL=smollm2:135m
       - KALI_CONTAINER=kali-ai-term-kali
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-kalibot}
-      - AUTH_SECRET=${AUTH_SECRET:-changeme-local-dev}
       - LOG_LEVEL=info
     volumes:
-      - type: bind
-        source: "${DOCKER_SOCKET:-/var/run/docker.sock}"
-        target: /var/run/docker.sock
-        bind:
-          propagation: private
-      - type: bind
-        source: ./data
-        target: /app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data:/app/data
     depends_on:
       - kali
+      - ollama
     networks:
       - kali-ai-term-net
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/system/status"]
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 30s
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: kali-ai-term-ollama
+    ports:
+      - "0.0.0.0:11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_MAX_QUEUE=100
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_KEEP_ALIVE=-1
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KV_CACHE_TYPE=q8_0
+    volumes:
+      - ollama-data:/root/.ollama
+      - /dev/dri:/dev/dri
+    networks:
+      - kali-ai-term-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    # Auto-pull smollm2:135m on startup
+    entrypoint: /bin/sh
+    command: -c "ollama serve & sleep 5 && ollama pull smollm2:135m && wait"
+
   kali:
-    build:
-      context: .
-      dockerfile: Dockerfile.kali
+    image: kalilinux/kali-rolling:latest
     container_name: kali-ai-term-kali
     stdin_open: true
     tty: true
-    cap_add:
-      - NET_RAW
-      - NET_ADMIN
     networks:
       - kali-ai-term-net
     command: /bin/bash
@@ -55,7 +73,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-      start_period: 30s
+      start_period: 10s
+
+volumes:
+  ollama-data:
+    driver: local
 
 networks:
   kali-ai-term-net:
