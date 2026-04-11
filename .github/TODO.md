@@ -21,6 +21,7 @@ They have been moved here for planning purposes while implementation is on hold.
 | F-6 | **Multi-user support with role-based access** | Support multiple concurrent users with distinct roles (admin, operator, viewer) | ❄️ FROZEN |
 | F-7 | **Custom payload generation** | In-terminal generation and management of custom payloads (shellcode, scripts, etc.) | ❄️ FROZEN |
 | F-8 | **Vulnerability scanning integration** | Integrate with scanners (e.g. OpenVAS, Nuclei) to feed scan results into the AI context | ❄️ FROZEN |
+| F-9 | **Multi-target support** | Allow specifying and managing multiple simultaneous target IPs/hosts as a session option, with per-target output routing and variable substitution | ❄️ FROZEN |
 
 ---
 
@@ -69,6 +70,14 @@ They have been moved here for planning purposes while implementation is on hold.
 - Candidates: Nuclei (fast, template-based), OpenVAS/GVM (comprehensive), nmap NSE scripts.
 - Integration point: scan job runner in backend, results parsed and stored in DB, fed into AI context window.
 - UI: scan configuration form, live output stream, findings panel with severity badges.
+
+### F-9 — Multi-target support
+- Allow users to define a list of target IPs/hostnames in addition to the single `$TARGET_IP` variable.
+- UI: a target list manager in the TARGET settings tab — add/remove/label targets, select the "active" target, or broadcast to all.
+- Variable substitution: `$TARGET_IP` resolves to the currently active target; a `$TARGETS` array can be iterated in batch commands.
+- Backend: batch command runner that fans out a single command across all targets and streams per-target output back to the wire panel with target-prefixed labels.
+- Per-target state: each target maintains its own scan history, found credentials, and open ports in the session DB.
+- Security concern: ensure target list is validated (IP/hostname format) to prevent command injection via the target variable.
 
 ---
 
