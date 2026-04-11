@@ -29,6 +29,9 @@ const PORT = process.env.PORT || 31337;
 const BIND_HOST = process.env.BIND_HOST || '0.0.0.0';
 let OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const KALI_CONTAINER = process.env.KALI_CONTAINER || 'kali-ai-term-kali';
+// Lightweight model default — dolphin-mixtral requires 24.8 GiB and OOMs on systems with <24.8 GiB.
+// phi3:mini (~2.2 GiB) runs on any system with 4+ GiB RAM.  Override via OLLAMA_MODEL env var.
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'phi3:mini';
 // Network scan for Ollama instances: disable by default (opt-in)
 let ollamaNetworkScanEnabled = (process.env.OLLAMA_NETWORK_SCAN || 'false').toLowerCase() === 'true';
 
@@ -44,6 +47,25 @@ appLogger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
 appLogger.info(`Port: ${PORT}`);
 appLogger.info(`Ollama URL: ${OLLAMA_URL}`);
 appLogger.info(`Kali Container: ${KALI_CONTAINER}`);
+
+// Load LLM frozen state from config file (set frozen:true to disable LLM calls without crashing)
+let llmState = { frozen: false, model: OLLAMA_MODEL, reason: '' };
+try {
+  const llmStateFile = path.join(__dirname, 'config', 'llm-state.json');
+  if (fs.existsSync(llmStateFile)) {
+    llmState = { ...llmState, ...JSON.parse(fs.readFileSync(llmStateFile, 'utf8')) };
+  }
+} catch (e) {
+  appLogger.warn(`Could not load config/llm-state.json: ${e.message}`);
+}
+const LLM_FROZEN = (process.env.LLM_FROZEN || String(llmState.frozen)).toLowerCase() === 'true';
+const DEFAULT_MODEL = process.env.OLLAMA_MODEL || llmState.model || OLLAMA_MODEL;
+if (LLM_FROZEN) {
+  appLogger.warn(`LLM processing is FROZEN. Model calls are disabled. Reason: ${llmState.reason}`);
+  appLogger.warn(`Scheduled unfreeze check: ${llmState.nextUnfreezeCheck || 'see .github/workflows/unfreeze-llm.yml'}`);
+} else {
+  appLogger.info(`LLM model: ${DEFAULT_MODEL}`);
+}
 
 // Pentesting system prompt for Ollama
 const SYSTEM_PROMPT = `You are an elite penetration testing AI assistant embedded in a Kali Linux terminal. You have deep expertise in:
@@ -1040,10 +1062,19 @@ app.post('/api/settings/bind-host', authenticate, (req, res) => {
 });
 
 app.post('/api/ollama/generate', authenticate, async (req, res) => {
-  const { prompt, model = 'dolphin-mixtral', temperature = 0.7, systemPrompt, useOrchestrator = false, taskType = 'default' } = req.body;
+  const { prompt, model = DEFAULT_MODEL, temperature = 0.7, systemPrompt, useOrchestrator = false, taskType = 'default' } = req.body;
 
   if (!prompt) {
     return res.status(400).json({ error: 'Prompt required' });
+  }
+
+  if (LLM_FROZEN) {
+    return res.status(503).json({
+      error: 'LLM processing is currently frozen',
+      reason: llmState.reason,
+      model: DEFAULT_MODEL,
+      nextUnfreezeCheck: llmState.nextUnfreezeCheck || 'see .github/workflows/unfreeze-llm.yml'
+    });
   }
 
   try {
@@ -1085,11 +1116,16 @@ app.post('/api/ollama/generate', authenticate, async (req, res) => {
 });
 
 app.post('/api/ollama/stream', authenticate, async (req, res) => {
-  const { prompt, model = 'dolphin-mixtral', temperature = 0.7, systemPrompt, useOrchestrator = false, taskType = 'default' } = req.body;
+  const { prompt, model = DEFAULT_MODEL, temperature = 0.7, systemPrompt, useOrchestrator = false, taskType = 'default' } = req.body;
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
+
+  if (LLM_FROZEN) {
+    res.write(`data: ${JSON.stringify({ done: true, frozen: true, reason: llmState.reason, nextUnfreezeCheck: llmState.nextUnfreezeCheck })}\n\n`);
+    return res.end();
+  }
 
   try {
     // If useOrchestrator is true, route through the multi-LLM orchestrator
