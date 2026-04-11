@@ -1,7 +1,41 @@
 -- Kali Hacker Bot Database Schema
 -- SQLite database for persistent session and finding storage
 
--- Sessions table
+-- ============================================================
+-- HOSTS (CORE FEATURE — processed first, 3-day retention rule)
+-- Host records are kept for 3 days since last_seen, then purged.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS hosts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ip TEXT NOT NULL UNIQUE,
+  hostname TEXT,
+  os TEXT,
+  status TEXT NOT NULL DEFAULT 'unknown',
+  notes TEXT DEFAULT '',
+  first_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS host_ports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  host_id INTEGER NOT NULL,
+  port INTEGER NOT NULL,
+  protocol TEXT NOT NULL DEFAULT 'tcp',
+  state TEXT NOT NULL DEFAULT 'open',
+  service TEXT,
+  version TEXT,
+  discovered_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(host_id, port, protocol),
+  FOREIGN KEY (host_id) REFERENCES hosts(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_hosts_last_seen ON hosts(last_seen);
+CREATE INDEX IF NOT EXISTS idx_host_ports_host ON host_ports(host_id);
+
+-- ============================================================
+
+
 CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
   token TEXT NOT NULL UNIQUE,

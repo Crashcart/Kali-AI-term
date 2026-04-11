@@ -1,0 +1,154 @@
+name: Process Feature Queue (3-Day Freeze Rule)
+
+# Runs daily at midnight UTC.
+# Any feature in .github/feature-queue.json with status "frozen" whose
+# unfreezeAt date has passed is promoted to "ready" and a tracking issue
+# is created so an agent/developer knows to start work.
+#
+# NEW FEATURE RULE:
+#   1. Add the feature to .github/feature-queue.json with status "frozen"
+#      and unfreezeAt = today + 3 days.
+#   2. This workflow will automatically open a GitHub Issue after 3 days.
+#   3. Agents pick up "ready" features from the issue queue.
+#   4. Mark status "in-progress" when work begins, "done" when merged.
+
+on:
+  schedule:
+    - cron: '0 0 * * *'   # Daily at midnight UTC
+  workflow_dispatch:       # Allow manual trigger from the Actions tab
+
+jobs:
+  process-queue:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+
+      - name: Check for features ready to unfreeze
+        id: check
+        run: |
+          node -e "
+            const fs = require('fs');
+            const queuePath = '.github/feature-queue.json';
+            const queue = JSON.parse(fs.readFileSync(queuePath, 'utf8'));
+            const now = new Date();
+            let changed = false;
+            const ready = [];
+
+            queue.features = queue.features.map(f => {
+              if (f.status === 'frozen' && new Date(f.unfreezeAt) <= now) {
+                console.log('READY: ' + f.id + ' — ' + f.title);
+                ready.push(f);
+                changed = true;
+                return { ...f, status: 'ready' };
+              }
+              return f;
+            });
+
+            if (changed) {
+              fs.writeFileSync(queuePath, JSON.stringify(queue, null, 2) + '\n');
+              console.log('Updated feature-queue.json');
+            }
+
+            // Write ready features to a temp file for downstream steps
+            fs.writeFileSync('/tmp/ready-features.json', JSON.stringify(ready, null, 2));
+            process.stdout.write('');
+          "
+          READY_COUNT=$(node -e "const f=require('/tmp/ready-features.json'); console.log(f.length)")
+          echo "ready_count=$READY_COUNT" >> "\$GITHUB_OUTPUT"
+          echo "Features ready to unfreeze: \$READY_COUNT"
+
+      - name: Commit updated feature-queue.json
+        if: steps.check.outputs.ready_count > 0
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/feature-queue.json
+          git commit -m "chore(features): unfreeze $(cat /tmp/ready-features.json | node -e \"const f=require('/dev/stdin'); console.log(f.map(x=>x.id).join(', '))\") (3-day rule)"
+          git push
+
+      - name: Open GitHub Issues for newly ready features
+        if: steps.check.outputs.ready_count > 0
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const features = JSON.parse(fs.readFileSync('/tmp/ready-features.json', 'utf8'));
+
+            for (const feature of features) {
+              const frozenDate = new Date(feature.frozenAt).toDateString();
+              const unfreezeDate = new Date(feature.unfreezeAt).toDateString();
+
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `[FEATURE READY] ${feature.title}`,
+                body: [
+                  `## 🔓 Feature Unfrozen — Ready to Implement`,
+                  ``,
+                  `**Feature ID:** \`${feature.id}\``,
+                  `**Frozen on:** ${frozenDate}`,
+                  `**Unfrozen on:** ${unfreezeDate}`,
+                  ``,
+                  `### Description`,
+                  feature.description,
+                  ``,
+                  `### 3-Day Freeze Rule`,
+                  `This feature was held frozen for 3 days before being queued for implementation.`,
+                  `This ensures no feature is rushed into the codebase without a review window.`,
+                  ``,
+                  `### Next Steps`,
+                  `1. Assign to an agent or developer`,
+                  `2. Update \`.github/feature-queue.json\` — set \`status: "in-progress"\``,
+                  `3. Create a feature branch: \`feat/${feature.id}\``,
+                  `4. Implement, test, and open a PR`,
+                  `5. On merge, update \`.github/feature-queue.json\` — set \`status: "done"\``,
+                  ``,
+                  `### Adding New Features`,
+                  `To queue a new feature, add an entry to \`.github/feature-queue.json\`:`,
+                  `\`\`\`json`,
+                  `{`,
+                  `  "id": "my-feature",`,
+                  `  "title": "My Feature Title",`,
+                  `  "description": "What it does and why.",`,
+                  `  "status": "frozen",`,
+                  `  "frozenAt": "<today ISO date>",`,
+                  `  "unfreezeAt": "<today + 3 days ISO date>",`,
+                  `  "completedAt": null,`,
+                  `  "branch": null,`,
+                  `  "issueRef": null`,
+                  `}`,
+                  `\`\`\``,
+                ].join('\n'),
+                labels: ['feature', 'ready', 'automated'],
+              });
+
+              console.log(`Opened issue for feature: ${feature.id}`);
+            }
+
+      - name: Report — nothing to unfreeze
+        if: steps.check.outputs.ready_count == 0
+        run: |
+          echo "✅ No features ready to unfreeze today."
+          node -e "
+            const queue = require('./.github/feature-queue.json');
+            const frozen = queue.features.filter(f => f.status === 'frozen');
+            if (frozen.length === 0) {
+              console.log('No features currently frozen.');
+            } else {
+              frozen.forEach(f => {
+                const days = Math.ceil((new Date(f.unfreezeAt) - new Date()) / 86400000);
+                console.log('  🧊 ' + f.id + ' — unfreezes in ' + days + ' day(s)');
+              });
+            }
+          "

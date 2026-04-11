@@ -49,21 +49,22 @@ class KaliHackerBot {
         this.bootLog = document.getElementById('boot-log');
         this.bootProgressBar = document.getElementById('boot-progress-bar');
 
-        // Streams
+        // Streams — wire stream is unified into the intelligence stream
         this.intelligenceStream = document.getElementById('intelligence-stream');
-        this.wireStream = document.getElementById('wire-stream');
+        this.wireStream = this.intelligenceStream;
         this.intelPanel = document.getElementById('intel-panel');
-        this.wirePanel = document.getElementById('wire-panel');
-        this.panelResizer = document.getElementById('panel-resizer');
+        this.wirePanel = this.intelPanel;
+        this.panelResizer = null;
 
         // Search
         this.intelSearch = document.getElementById('intel-search');
-        this.wireSearch = document.getElementById('wire-search');
+        this.wireSearch = null;
 
         // LEDs
         this.dockerLED = document.getElementById('docker-led');
         this.ollamaLED = document.getElementById('ollama-led');
         this.targetLED = document.getElementById('target-led');
+        this.geminiLED = document.getElementById('gemini-led');
         this.uptimeValue = document.getElementById('uptime-value');
 
         // HUD
@@ -79,30 +80,35 @@ class KaliHackerBot {
         this.modeIndicator = document.getElementById('mode-indicator');
         this.sendBtn = document.getElementById('send-btn');
         this.killBtn = document.getElementById('kill-btn');
-        this.burnBtn = document.getElementById('burn-btn');
+        this.burnBtn = null;        // removed from UI
         this.attackBtn = document.getElementById('attack-btn');
-        this.autoPilotBtn = document.getElementById('autopilot-btn');
-        this.livePipeBtn = document.getElementById('livepipe-btn');
+        this.autoPilotBtn = null;   // removed from UI
+        this.livePipeBtn = null;    // removed from UI
 
         // Top actions
         this.fullscreenBtn = document.getElementById('fullscreen-btn');
-        this.notepadBtn = document.getElementById('notepad-btn');
-        this.reportBtn = document.getElementById('report-btn');
-        this.exportBtn = document.getElementById('export-btn');
+        this.notepadBtn = null;     // removed from UI
+        this.reportBtn = null;      // removed from UI
+        this.exportBtn = null;      // removed from UI
         this.settingsBtn = document.getElementById('settings-btn');
 
         // Copy buttons
         this.copyIntelBtn = document.getElementById('copy-intel');
-        this.copyWireBtn = document.getElementById('copy-wire');
+        this.copyWireBtn = null;    // removed from UI
 
         // Clear buttons
         this.clearIntelBtn = document.getElementById('clear-intel');
-        this.clearWireBtn = document.getElementById('clear-wire');
+        this.clearWireBtn = null;   // removed from UI
 
-        // Quick commands
-        this.quickCommands = document.getElementById('quick-commands');
-        this.toggleQcBtn = document.getElementById('toggle-qc');
-        this.qcBody = document.getElementById('qc-body');
+        // Quick commands (removed from UI)
+        this.quickCommands = null;
+        this.toggleQcBtn = null;
+        this.qcBody = null;
+
+        // Hosts modal
+        this.hostsModal = document.getElementById('hosts-modal');
+        this.hostsBtn = document.getElementById('hosts-btn');
+        this.hostsList = document.getElementById('hosts-list');
 
         // Modals
         this.loginModal = document.getElementById('login-modal');
@@ -197,41 +203,25 @@ class KaliHackerBot {
         // Buttons
         this.sendBtn.addEventListener('click', () => this.executeCommand());
         this.killBtn.addEventListener('click', () => this.killAllProcesses());
-        this.burnBtn.addEventListener('click', () => this.burnSession());
         this.attackBtn.addEventListener('click', () => this.startAutonomousAttack(this.targetIP));
-
-        // Toggles
-        this.autoPilotBtn.addEventListener('click', () => this.toggleAutoPilot());
-        this.livePipeBtn.addEventListener('click', () => this.toggleLivePipe());
 
         // Clear
         this.clearIntelBtn.addEventListener('click', () => { this.intelligenceStream.innerHTML = ''; });
-        this.clearWireBtn.addEventListener('click', () => { this.wireStream.innerHTML = ''; });
 
         // Copy
         this.copyIntelBtn.addEventListener('click', () => this.copyToClipboard(this.intelligenceStream));
-        this.copyWireBtn.addEventListener('click', () => this.copyToClipboard(this.wireStream));
 
         // Search
         this.intelSearch.addEventListener('input', (e) => this.searchStream(this.intelligenceStream, e.target.value));
-        this.wireSearch.addEventListener('input', (e) => this.searchStream(this.wireStream, e.target.value));
 
         // Top actions
         this.fullscreenBtn.addEventListener('click', () => this.toggleFullscreen());
-        this.notepadBtn.addEventListener('click', () => this.openNotepad());
-        this.reportBtn.addEventListener('click', () => this.generateReport());
-        this.exportBtn.addEventListener('click', () => this.exportSession());
         this.settingsBtn.addEventListener('click', () => this.openSettings());
 
-        // Quick commands
-        this.toggleQcBtn.addEventListener('click', () => this.toggleQuickCommands());
-        document.querySelectorAll('.qc-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const cmd = btn.getAttribute('data-cmd');
-                this.commandInput.value = cmd;
-                this.commandInput.focus();
-            });
-        });
+        // Hosts
+        if (this.hostsBtn) {
+            this.hostsBtn.addEventListener('click', () => this.openHostsModal());
+        }
 
         // Login
         this.loginForm.addEventListener('submit', (e) => {
@@ -297,9 +287,6 @@ class KaliHackerBot {
             btn.addEventListener('click', (e) => this.switchSettingsTab(e.target.dataset.tab));
         });
 
-        // Panel resizer
-        this.setupPanelResizer();
-
         // Global keyboard shortcuts
         document.addEventListener('keydown', (e) => this.handleGlobalShortcuts(e));
 
@@ -310,6 +297,7 @@ class KaliHackerBot {
                 this.confirmModal.classList.remove('active');
                 this.settingsModal.classList.remove('active');
                 this.notepadModal.classList.remove('active');
+                if (this.hostsModal) this.hostsModal.classList.remove('active');
             }
         });
 
@@ -548,18 +536,6 @@ class KaliHackerBot {
         this.localIPDisplay.value = this.localIP;
         this.listeningPortDisplay.value = this.listeningPort;
         this.activeModelDisplay.textContent = this.ollamaModel;
-        this.intelPanel.style.flex = this.panelSplitRatio;
-        this.wirePanel.style.flex = 1 - this.panelSplitRatio;
-
-        if (this.quickCmdsCollapsed) {
-            this.qcBody.classList.add('collapsed');
-        }
-
-        if (this.livePipe) {
-            this.livePipeBtn.classList.add('active');
-            this.modeIndicator.textContent = '⚡';
-            this.modeIndicator.title = 'Mode: Direct Execution';
-        }
 
         this.loadSessionNotes();
         this.loadCommandHistory();

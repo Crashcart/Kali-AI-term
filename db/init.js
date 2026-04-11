@@ -42,6 +42,161 @@ function initializeDatabase() {
   }
 }
 
+// ============================================================
+// HOST FUNCTIONS (core feature — 3-day retention rule)
+// ============================================================
+
+/**
+ * Insert or update a host record. Updates last_seen on every call.
+ */
+function upsertHost(ip, { hostname = null, os = null, status = 'up' } = {}) {
+  const database = getDatabase();
+  const stmt = database.prepare(`
+    INSERT INTO hosts (ip, hostname, os, status, first_seen, last_seen)
+    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ON CONFLICT(ip) DO UPDATE SET
+      hostname = COALESCE(excluded.hostname, hostname),
+      os       = COALESCE(excluded.os, os),
+      status   = excluded.status,
+      last_seen = CURRENT_TIMESTAMP
+  `);
+  return stmt.run(ip, hostname || null, os || null, status);
+}
+
+/**
+ * Add or update a port on a host (identified by IP).
+ * Creates the host row if it does not exist.
+ */
+function upsertHostPort(ip, port, protocol = 'tcp', state = 'open', service = null, version = null) {
+  upsertHost(ip);
+  const database = getDatabase();
+  const host = database.prepare('SELECT id FROM hosts WHERE ip = ?').get(ip);
+  if (!host) return null;
+  const stmt = database.prepare(`
+    INSERT INTO host_ports (host_id, port, protocol, state, service, version, discovered_at)
+    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(host_id, port, protocol) DO UPDATE SET
+      state   = excluded.state,
+      service = COALESCE(excluded.service, service),
+      version = COALESCE(excluded.version, version),
+      discovered_at = CURRENT_TIMESTAMP
+  `);
+  return stmt.run(host.id, port, protocol, state, service || null, version || null);
+}
+
+/**
+ * Return a host record with all its ports.
+ */
+function getHost(ip) {
+  const database = getDatabase();
+  const host = database.prepare('SELECT * FROM hosts WHERE ip = ?').get(ip);
+  if (!host) return null;
+  host.ports = database.prepare('SELECT * FROM host_ports WHERE host_id = ? ORDER BY port').all(host.id);
+  return host;
+}
+
+/**
+ * Return all known hosts with a port count.
+ */
+function getAllHosts() {
+  const database = getDatabase();
+  return database.prepare(`
+    SELECT h.*, COUNT(p.id) AS port_count
+    FROM hosts h
+    LEFT JOIN host_ports p ON p.host_id = h.id
+    GROUP BY h.id
+    ORDER BY h.last_seen DESC
+  `).all();
+}
+
+/**
+ * Update free-text notes for a host.
+ */
+function updateHostNotes(ip, notes) {
+  const database = getDatabase();
+  return database.prepare('UPDATE hosts SET notes = ? WHERE ip = ?').run(notes, ip);
+}
+
+/**
+ * Delete a host and all its ports.
+ */
+function deleteHost(ip) {
+  const database = getDatabase();
+  return database.prepare('DELETE FROM hosts WHERE ip = ?').run(ip);
+}
+
+/**
+ * 3-DAY RETENTION RULE: remove hosts not seen in the past 3 days.
+ */
+function cleanupStaleHosts() {
+  try {
+    const database = getDatabase();
+    const stmt = database.prepare(
+      "DELETE FROM hosts WHERE last_seen < datetime('now', '-3 days')"
+    );
+    const result = stmt.run();
+    if (result.changes > 0) {
+      console.log(`Cleaned up ${result.changes} stale host(s) (3-day rule)`);
+    }
+  } catch (err) {
+    console.error('Host cleanup failed:', err);
+  }
+}
+
+/**
+ * Parse nmap output text and persist any discovered hosts/ports.
+ * Returns an array of { ip, ports[] } objects that were saved.
+ */
+function parseAndSaveNmapOutput(output) {
+  const saved = [];
+  if (!output || typeof output !== 'string') return saved;
+
+  // Split into per-host blocks on "Nmap scan report for"
+  const blocks = output.split(/(?=Nmap scan report for )/i);
+
+  for (const block of blocks) {
+    // Extract IP (and optional hostname)
+    const hostMatch = block.match(/Nmap scan report for (?:([^\s(]+)\s+\()?([0-9]{1,3}(?:\.[0-9]{1,3}){3})\)?/i);
+    if (!hostMatch) continue;
+
+    const hostname = hostMatch[1] || null;
+    const ip = hostMatch[2];
+
+    // Status: "Host is up" vs "Host is down" / filtered
+    const isDown = /Host is down|filtered/i.test(block);
+    const status = isDown ? 'down' : 'up';
+
+    upsertHost(ip, { hostname, status });
+
+    // Extract OS guess
+    const osMatch = block.match(/OS details?:\s*(.+)/i) ||
+                    block.match(/Running(?: \(JUST GUESSING\))?:\s*(.+)/i);
+    if (osMatch) {
+      upsertHost(ip, { hostname, os: osMatch[1].trim(), status });
+    }
+
+    // Extract open ports: "80/tcp   open  http   Apache httpd 2.4.41"
+    const portRegex = /^(\d+)\/(tcp|udp)\s+(\S+)\s+(\S+)(?:\s+(.+))?$/gim;
+    const ports = [];
+    let m;
+    while ((m = portRegex.exec(block)) !== null) {
+      const port = parseInt(m[1], 10);
+      const protocol = m[2];
+      const state = m[3];
+      const service = m[4] !== '?' ? m[4] : null;
+      const version = m[5] ? m[5].trim() : null;
+      upsertHostPort(ip, port, protocol, state, service, version);
+      ports.push({ port, protocol, state, service, version });
+    }
+
+    saved.push({ ip, hostname, status, ports });
+  }
+
+  return saved;
+}
+
+// ============================================================
+
 /**
  * Get database instance
  */
@@ -389,6 +544,16 @@ module.exports = {
   closeDatabase,
   cleanupExpiredSessions,
   healthCheck,
+
+  // Host functions (core — 3-day retention rule)
+  upsertHost,
+  upsertHostPort,
+  getHost,
+  getAllHosts,
+  updateHostNotes,
+  deleteHost,
+  cleanupStaleHosts,
+  parseAndSaveNmapOutput,
 
   // Session functions
   createSession,
