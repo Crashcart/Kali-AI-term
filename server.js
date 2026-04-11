@@ -567,6 +567,7 @@ app.post('/api/docker/exec', authenticate, async (req, res) => {
       AttachStdout: true,
       AttachStderr: true,
       Tty: true,
+      User: 'root',
     });
 
     const execId = exec.id;
