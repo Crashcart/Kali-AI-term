@@ -1,8 +1,8 @@
 # 📋 Kali-AI-term Active Task List
 
-**Last Updated**: 2026-04-11 05:39:00 UTC  
-**Current Session**: GitHub Copilot Task Agent (Conflict Review Agent implementation)  
-**Repository**: Kali-AI-term (copilot/add-review-conflicts-to-github branch)
+**Last Updated**: 2026-04-11 06:28:00 UTC  
+**Current Session**: GitHub Copilot Task Agent (Terminal connection fix + security patch)  
+**Repository**: Kali-AI-term (copilot/debug-terminal-connection branch)
 
 ---
 
@@ -10,12 +10,11 @@
 
 | ID | Task Title | Status | Assigned | Priority | Notes |
 |:--:|-----------|--------|----------|----------|-------|
-| P1 | Create `.github/agents/planning.agent.md` | ✅ **completed** | Copilot | 🔴 HIGH | Previous session |
-| P2 | Create `.github/workflows/code-review-gate.yml` | ✅ **completed** | Copilot | 🔴 HIGH | Previous session |
-| P3 | Update `.github/pull_request_template.md` | ✅ **completed** | Copilot | 🟡 MEDIUM | Previous session |
-| P4 | Update `.github/copilot-instructions.md` | ✅ **completed** | Copilot | 🟡 MEDIUM | Previous session + this session |
-| P5 | Create `.github/agents/conflict-review.agent.md` | ✅ **completed** | Copilot | 🔴 HIGH | Rule 4a — post-push conflict review agent |
-
+| D1 | Fix `isNaturalLanguage()` false-positive hijacking shell cmds | ✅ **completed** | Copilot | 🔴 CRITICAL | Removed find/scan/test/check/search/show/list/get; added shell syntax escape |
+| D2 | Fix Docker exec stream multiplexed binary headers | ✅ **completed** | Copilot | 🔴 CRITICAL | Added `Tty: true` to all 3 container.exec() calls |
+| D3 | Fix `livePipe` not persisted across page reloads | ✅ **completed** | Copilot | 🟠 HIGH | Added to saveUserSettings/loadUserSettings + UI restore |
+| D4 | Patch axios SSRF + metadata exfiltration CVEs | ✅ **completed** | Copilot | 🔴 CRITICAL | ^1.6.0 → ^1.15.0; lockfile regenerated; 0 vulns |
+| D5 | Create PR for copilot/debug-terminal-connection | ✅ **completed** | Copilot | 🟡 MEDIUM | PR created, awaiting human review |
 
 
 ## Current Tasks
