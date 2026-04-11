@@ -411,5 +411,7 @@ module.exports = {
   getDockerSocketPath
 };
 
-// Run installation
-runInstallation();
+// Run installation only when executed directly
+if (require.main === module) {
+  runInstallation();
+}
