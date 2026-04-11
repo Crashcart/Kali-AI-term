@@ -273,12 +273,15 @@
                     </div>
 
                     <div class="setting-group">
-                        <label>Ollama URL</label>
-                        <div class="input-with-action">
-                            <input type="text" id="ollama-url" placeholder="http://localhost:11434" class="setting-input" />
-                            <button class="btn btn-small" id="test-ollama">TEST</button>
+                        <label>Ollama Instances</label>
+                        <div id="ollama-instances-list" class="instances-list">
+                            <p class="loading">Loading instances...</p>
                         </div>
-                        <small>Base URL for Ollama API</small>
+                        <div class="input-with-action" style="margin-top:6px;">
+                            <input type="text" id="new-ollama-url" placeholder="http://192.168.1.x:11434" class="setting-input" />
+                            <button class="btn btn-small" id="add-ollama-instance-btn">ADD</button>
+                        </div>
+                        <small>Manage multiple Ollama servers. The first entry is the primary.</small>
                     </div>
 
                     <div class="setting-group">
@@ -315,6 +318,19 @@
                         <label>Custom System Prompt</label>
                         <textarea id="system-prompt" class="setting-input setting-textarea" placeholder="Leave empty to use default pentesting prompt..."></textarea>
                         <small>Override the AI's system instructions</small>
+                    </div>
+
+                    <div class="setting-group">
+                        <label>Network Discovery</label>
+                        <div class="input-with-action">
+                            <select id="network-scan-toggle" class="setting-input">
+                                <option value="false">Disabled (default)</option>
+                                <option value="true">Enabled</option>
+                            </select>
+                            <button class="btn btn-small" id="scan-ollama-btn">SCAN</button>
+                        </div>
+                        <div id="scan-results" class="scan-results" style="display:none;"></div>
+                        <small>Scan the local /24 subnet for Ollama servers. Enable first, then click SCAN.</small>
                     </div>
 
                     <div class="setting-group">
