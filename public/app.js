@@ -966,7 +966,18 @@ Format: <one-liner command suggestion>`;
     }
 
     saveSettings() {
-        this.ollamaUrl = this.ollamaUrlInput.value.trim();
+        const rawUrl = this.ollamaUrlInput.value.trim();
+        const urlError = this._validateOllamaUrlInput(rawUrl);
+        if (urlError) {
+            // Show the validation error in the Ollama status box so the user
+            // sees it immediately without leaving the settings modal.
+            this.ollamaStatusBox.textContent = `✗ ${urlError}`;
+            this.ollamaStatusBox.classList.add('disconnected');
+            this.ollamaStatusBox.classList.remove('connected');
+            this.ollamaUrlInput.focus();
+            return;
+        }
+        this.ollamaUrl = rawUrl;
         this.ollamaModel = this.ollamaModelInput.value;
         this.ollamaTemp = parseInt(this.ollmaTempInput.value) / 100;
         this.targetIP = this.targetIPInput.value;
@@ -1191,6 +1202,18 @@ Format: <one-liner command suggestion>`;
         this.ollamaStatusBox.textContent = '⏳ Testing connection...';
         this.ollamaStatusBox.classList.remove('connected', 'disconnected');
 
+        // Validate URL locally before hitting the server
+        const urlError = this._validateOllamaUrlInput(url);
+        if (urlError) {
+            this.ollamaStatusBox.textContent = `✗ ${urlError}`;
+            this.ollamaStatusBox.classList.add('disconnected');
+            return;
+        }
+
+        // Kick off Gemini status independently so it always resolves
+        // regardless of whether the Ollama check succeeds or fails.
+        this._updateGeminiStatus();
+
         try {
             const result = await this.apiCall('GET', `/api/ollama/status?url=${encodeURIComponent(url)}`);
 
@@ -1219,32 +1242,64 @@ Format: <one-liner command suggestion>`;
                 this.ollamaStatusBox.classList.remove('connected');
                 this.ollamaStatusBox.classList.add('disconnected');
             }
-
-            // Keep Gemini status updated via the /api/llm/health fallback
-            if (this.geminiStatusBox) {
-                try {
-                    const health = await this.apiCall('GET', '/api/llm/health');
-                    const gemini = (health.health || {}).gemini;
-                    if (gemini && gemini.available) {
-                        const geminiModel = (gemini.models || [])[0] || 'gemini';
-                        this.geminiStatusBox.textContent = `✓ Connected — ${geminiModel}`;
-                        this.geminiStatusBox.classList.add('connected');
-                        this.geminiStatusBox.classList.remove('disconnected');
-                    } else {
-                        this.geminiStatusBox.textContent = '✗ Not configured — add GEMINI_API_KEY to server environment';
-                        this.geminiStatusBox.classList.remove('connected');
-                        this.geminiStatusBox.classList.add('disconnected');
-                    }
-                } catch (_) { }
-            }
         } catch (err) {
             this.ollamaStatusBox.textContent = [
                 `✗ Status check failed`,
                 `Error: ${err.message}`,
-                `Tip: Ensure the server is running and you are authenticated.`
+                err.status === 401
+                    ? `Tip: Your session expired — please log in again.`
+                    : `Tip: Ensure the server is running and you are authenticated.`
             ].join('\n');
             this.ollamaStatusBox.classList.remove('connected');
             this.ollamaStatusBox.classList.add('disconnected');
+        }
+    }
+
+    // Validate the Ollama URL input value before sending it to the server.
+    // Returns an error string if invalid, or null if the URL looks good.
+    _validateOllamaUrlInput(url) {
+        if (!url) return 'URL is required';
+        // Catch the common mistake of typing commas instead of dots in an IPv4 address
+        if (/\d+,\d+,\d+,\d+/.test(url)) {
+            const suggested = url.replace(/,/g, '.');
+            return `IP address contains commas — did you mean ${suggested}?`;
+        }
+        try {
+            const parsed = new URL(url);
+            if (!['http:', 'https:'].includes(parsed.protocol)) {
+                return 'URL must start with http:// or https://';
+            }
+        } catch (e) {
+            return 'Invalid URL — example: http://192.168.1.4:11434';
+        }
+        return null;
+    }
+
+    // Fetch Gemini status independently so it always resolves even when the
+    // Ollama status check fails.
+    async _updateGeminiStatus() {
+        if (!this.geminiStatusBox) return;
+        this.geminiStatusBox.textContent = '⏳ Checking...';
+        this.geminiStatusBox.classList.remove('connected', 'disconnected');
+        try {
+            const health = await this.apiCall('GET', '/api/llm/health');
+            const gemini = (health.health || {}).gemini;
+            if (gemini && gemini.available) {
+                const geminiModel = (gemini.models || [])[0] || 'gemini';
+                this.geminiStatusBox.textContent = `✓ Connected — ${geminiModel}`;
+                this.geminiStatusBox.classList.add('connected');
+                this.geminiStatusBox.classList.remove('disconnected');
+            } else {
+                this.geminiStatusBox.textContent = '✗ Not configured — add GEMINI_API_KEY to server environment';
+                this.geminiStatusBox.classList.remove('connected');
+                this.geminiStatusBox.classList.add('disconnected');
+            }
+        } catch (err) {
+            this.geminiStatusBox.textContent = err.status === 401
+                ? '✗ Session expired — please log in again.'
+                : '✗ Status unavailable';
+            this.geminiStatusBox.classList.remove('connected');
+            this.geminiStatusBox.classList.add('disconnected');
         }
     }
 
@@ -1710,6 +1765,16 @@ Format: <one-liner command suggestion>`;
             const err = new Error(payload.error || payload.message || `HTTP ${response.status}`);
             err.status = response.status;
             err.payload = payload;
+            // When the server rejects our token (expired session or server restart),
+            // clear the stale credentials and prompt re-login instead of silently failing.
+            if (response.status === 401 && this.token) {
+                this.token = null;
+                this.sessionId = null;
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('session_id');
+                this.closeSettings();
+                this.showLoginModal();
+            }
             throw err;
         }
 

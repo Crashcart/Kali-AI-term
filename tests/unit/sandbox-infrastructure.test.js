@@ -432,4 +432,296 @@ describe('Sandbox Infrastructure', () => {
   });
 });
 
+// ── OllamaProvider ────────────────────────────────────────────────────────────
+
+const OllamaProvider = require('../../lib/ollama-provider');
+
+describe('OllamaProvider', () => {
+  let provider;
+
+  beforeEach(() => {
+    provider = new OllamaProvider('http://localhost:11434', null);
+    axios.get.mockReset();
+    axios.post.mockReset();
+  });
+
+  describe('constructor', () => {
+    test('sets name to ollama', () => {
+      expect(provider.name).toBe('ollama');
+    });
+
+    test('stores the URL', () => {
+      expect(provider.url).toBe('http://localhost:11434');
+    });
+
+    test('initialises an empty cache', () => {
+      expect(provider.cache.size).toBe(0);
+    });
+  });
+
+  describe('healthCheck()', () => {
+    test('returns healthy=true when /api/tags responds', async () => {
+      axios.get.mockResolvedValue({ data: { models: [] }, status: 200 });
+      const result = await provider.healthCheck();
+      expect(result.healthy).toBe(true);
+      expect(result.url).toBe('http://localhost:11434');
+    });
+
+    test('returns healthy=false on network error', async () => {
+      axios.get.mockRejectedValue(new Error('ECONNREFUSED'));
+      const result = await provider.healthCheck();
+      expect(result.healthy).toBe(false);
+      expect(result.error).toBe('ECONNREFUSED');
+    });
+  });
+
+  describe('getModels()', () => {
+    test('returns mapped model objects', async () => {
+      axios.get.mockResolvedValue({
+        data: {
+          models: [
+            { name: 'dolphin-mixtral', size: 4000000, modified_at: '2024-01-01', digest: 'abc123' }
+          ]
+        }
+      });
+      const models = await provider.getModels();
+      expect(models).toHaveLength(1);
+      expect(models[0].name).toBe('dolphin-mixtral');
+      expect(models[0].provider).toBe('ollama');
+    });
+
+    test('caches model list and avoids second HTTP call', async () => {
+      axios.get.mockResolvedValue({ data: { models: [{ name: 'test-model', size: 0 }] } });
+      await provider.getModels();
+      await provider.getModels(); // second call should hit cache
+      expect(axios.get).toHaveBeenCalledTimes(1);
+    });
+
+    test('re-fetches after clearCache()', async () => {
+      axios.get.mockResolvedValue({ data: { models: [{ name: 'test-model', size: 0 }] } });
+      await provider.getModels();
+      provider.clearCache();
+      await provider.getModels();
+      expect(axios.get).toHaveBeenCalledTimes(2);
+    });
+
+    test('throws on HTTP error', async () => {
+      axios.get.mockRejectedValue(new Error('Network Error'));
+      await expect(provider.getModels()).rejects.toThrow('Network Error');
+    });
+  });
+
+  describe('generate()', () => {
+    test('returns provider, model, response, and context on success', async () => {
+      axios.post.mockResolvedValue({
+        data: { response: 'hello world', context: [1, 2, 3] }
+      });
+      const result = await provider.generate('say hello', { model: 'dolphin-mixtral' });
+      expect(result.provider).toBe('ollama');
+      expect(result.model).toBe('dolphin-mixtral');
+      expect(result.response).toBe('hello world');
+      expect(result.context).toEqual([1, 2, 3]);
+    });
+
+    test('uses default model when none specified', async () => {
+      axios.post.mockResolvedValue({ data: { response: 'ok', context: [] } });
+      await provider.generate('prompt');
+      const call = axios.post.mock.calls[0];
+      expect(call[1].model).toBe('dolphin-mixtral');
+    });
+
+    test('passes temperature option through to Ollama', async () => {
+      axios.post.mockResolvedValue({ data: { response: 'ok', context: [] } });
+      await provider.generate('prompt', { temperature: 0.3 });
+      const body = axios.post.mock.calls[0][1];
+      expect(body.options.temperature).toBe(0.3);
+    });
+
+    test('throws on HTTP error', async () => {
+      axios.post.mockRejectedValue(new Error('Timeout'));
+      await expect(provider.generate('prompt')).rejects.toThrow('Timeout');
+    });
+  });
+
+  describe('getStatus()', () => {
+    test('returns available=true when Ollama is healthy', async () => {
+      axios.get.mockResolvedValue({ data: { models: [{ name: 'model1', size: 0 }] } });
+      const status = await provider.getStatus();
+      expect(status.available).toBe(true);
+      expect(status.name).toBe('ollama');
+      expect(status.type).toBe('local');
+    });
+
+    test('returns available=false when Ollama is down', async () => {
+      axios.get.mockRejectedValue(new Error('ECONNREFUSED'));
+      const status = await provider.getStatus();
+      expect(status.available).toBe(false);
+      expect(status.name).toBe('ollama');
+    });
+  });
+
+  describe('clearCache()', () => {
+    test('empties the model cache', async () => {
+      axios.get.mockResolvedValue({ data: { models: [{ name: 'test', size: 0 }] } });
+      await provider.getModels(); // populate cache
+      provider.clearCache();
+      expect(provider.cache.size).toBe(0);
+    });
+  });
+});
+
+// ── GeminiProvider ────────────────────────────────────────────────────────────
+
+const GeminiProvider = require('../../lib/gemini-provider');
+
+describe('GeminiProvider', () => {
+  let provider;
+
+  beforeEach(() => {
+    provider = new GeminiProvider('test-api-key', null);
+    axios.get.mockReset();
+    axios.post.mockReset();
+  });
+
+  describe('constructor', () => {
+    test('sets name to gemini', () => {
+      expect(provider.name).toBe('gemini');
+    });
+
+    test('stores apiKey', () => {
+      expect(provider.apiKey).toBe('test-api-key');
+    });
+
+    test('defaults model to gemini-pro', () => {
+      expect(provider.model).toBe('gemini-pro');
+    });
+
+    test('initialises request and error counts to zero', () => {
+      expect(provider.requestCount).toBe(0);
+      expect(provider.errorCount).toBe(0);
+    });
+  });
+
+  describe('healthCheck()', () => {
+    test('returns healthy=true when models endpoint responds', async () => {
+      axios.get.mockResolvedValue({ data: { models: [] } });
+      const result = await provider.healthCheck();
+      expect(result.healthy).toBe(true);
+      expect(result.model).toBe('gemini-pro');
+    });
+
+    test('returns healthy=false on API error', async () => {
+      axios.get.mockRejectedValue(new Error('401 Unauthorized'));
+      const result = await provider.healthCheck();
+      expect(result.healthy).toBe(false);
+      expect(result.hint).toBeDefined();
+    });
+  });
+
+  describe('getModels()', () => {
+    test('returns filtered generative models', async () => {
+      axios.get.mockResolvedValue({
+        data: {
+          models: [
+            { name: 'models/gemini-generative-pro', displayName: 'Gemini Pro', description: 'Best model', inputTokenLimit: 30720, outputTokenLimit: 2048 },
+            { name: 'models/embedding-001', displayName: 'Embedding', description: 'Embedding model', inputTokenLimit: 2048, outputTokenLimit: 1 }
+          ]
+        }
+      });
+      const models = await provider.getModels();
+      // Only models whose name includes 'generative' should be returned
+      expect(models.length).toBe(1);
+      expect(models[0].name).toBe('Gemini Pro');
+      expect(models[0].provider).toBe('gemini');
+    });
+
+    test('throws when API call fails', async () => {
+      axios.get.mockRejectedValue(new Error('API Error'));
+      await expect(provider.getModels()).rejects.toThrow('API Error');
+    });
+  });
+
+  describe('generate()', () => {
+    function mockGenerateResponse(text = 'hello') {
+      return {
+        data: {
+          candidates: [{ content: { parts: [{ text }] } }],
+          usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5 }
+        }
+      };
+    }
+
+    test('returns provider, model, response, and tokens on success', async () => {
+      axios.post.mockResolvedValue(mockGenerateResponse('Pentest response'));
+      const result = await provider.generate('scan ports');
+      expect(result.provider).toBe('gemini');
+      expect(result.model).toBe('gemini-pro');
+      expect(result.response).toBe('Pentest response');
+      expect(result.tokens.input).toBe(10);
+      expect(result.tokens.output).toBe(5);
+    });
+
+    test('increments requestCount on success', async () => {
+      axios.post.mockResolvedValue(mockGenerateResponse());
+      await provider.generate('prompt');
+      expect(provider.requestCount).toBe(1);
+    });
+
+    test('increments errorCount on failure', async () => {
+      axios.post.mockRejectedValue(new Error('API quota exceeded'));
+      await expect(provider.generate('prompt')).rejects.toThrow('API quota exceeded');
+      expect(provider.errorCount).toBe(1);
+    });
+
+    test('includes systemPrompt as first messages when provided', async () => {
+      axios.post.mockResolvedValue(mockGenerateResponse());
+      await provider.generate('prompt', { systemPrompt: 'You are a hacker' });
+      const body = axios.post.mock.calls[0][1];
+      expect(body.contents[0].parts[0].text).toBe('You are a hacker');
+      expect(body.contents[0].role).toBe('user');
+    });
+
+    test('returns empty string when no candidates in response', async () => {
+      axios.post.mockResolvedValue({ data: { candidates: [], usageMetadata: {} } });
+      const result = await provider.generate('prompt');
+      expect(result.response).toBe('');
+    });
+  });
+
+  describe('getStatus()', () => {
+    test('returns available=true when API is reachable', async () => {
+      axios.get.mockResolvedValue({ data: { models: [] } });
+      const status = await provider.getStatus();
+      expect(status.available).toBe(true);
+      expect(status.name).toBe('gemini');
+      expect(status.type).toBe('cloud');
+      expect(status.metrics).toBeDefined();
+    });
+
+    test('returns available=false when API is unreachable', async () => {
+      axios.get.mockRejectedValue(new Error('Network Error'));
+      const status = await provider.getStatus();
+      expect(status.available).toBe(false);
+      expect(status.error).toBeDefined();
+    });
+
+    test('metrics show correct error rate after failures', async () => {
+      axios.post.mockRejectedValue(new Error('fail'));
+      await provider.generate('p1').catch(() => {});
+      await provider.generate('p2').catch(() => {});
+      axios.get.mockResolvedValue({ data: { models: [] } });
+      const status = await provider.getStatus();
+      expect(status.metrics.errorCount).toBe(2);
+      expect(status.metrics.requestCount).toBe(0);
+    });
+  });
+
+  describe('setModel()', () => {
+    test('updates the active model', () => {
+      provider.setModel('gemini-1.5-pro');
+      expect(provider.model).toBe('gemini-1.5-pro');
+    });
+  });
+});
+
 module.exports = {};
