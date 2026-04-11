@@ -278,7 +278,8 @@
                             <p class="loading">Loading instances...</p>
                         </div>
                         <div class="input-with-action" style="margin-top:6px;">
-                            <input type="text" id="new-ollama-url" placeholder="http://192.168.1.x:11434" class="setting-input" />
+                            <input type="text" id="new-ollama-host" placeholder="localhost or 192.168.1.x" class="setting-input" style="flex:3;" />
+                            <input type="number" id="new-ollama-port" placeholder="11434" value="11434" min="1" max="65535" class="setting-input" style="flex:1;min-width:70px;max-width:90px;" />
                             <button class="btn btn-small" id="add-ollama-instance-btn">ADD</button>
                         </div>
                         <small>Manage multiple Ollama servers. The first entry is the primary.</small>
