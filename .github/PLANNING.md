@@ -26,7 +26,7 @@
 - Remove Ollama from docker-compose.yml entirely
 - Simplify install.sh to only manage app + kali containers
 - Point to external Ollama via OLLAMA_URL env var (default: `http://host.docker.internal:11434`)
-- Users install Ollama separately from Crashcart/Ollama-intelgpu repo
+- Users run Ollama on any system: local Docker, native installation, remote server, or custom setups
 
 **Changes Made**:
 - `docker-compose.yml` — Removed ollama service, ollama-data volume, ollama dependency
@@ -34,10 +34,11 @@
 - App container OLLAMA_URL — Changed from internal `http://ollama:11434` to external `http://host.docker.internal:11434`
 
 **Decisions Log**:
-- [2026-04-12 22:15] Ollama managed in separate Crashcart/Ollama-intelgpu repo
+- [2026-04-12 22:15] Ollama managed as external service (user can run anywhere)
 - [2026-04-12 22:15] Kali bot connects via OLLAMA_URL env var (user-configurable)
 - [2026-04-12 22:15] Default points to host.docker.internal for Docker Desktop compatibility
 - [2026-04-12 22:20] Commit: 03fa078 — Ollama decoupling complete
+- [2026-04-12 22:25] Ollama-intelgpu is optional — users can use any Ollama setup
 
 ---
 

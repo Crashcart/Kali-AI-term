@@ -1,6 +1,6 @@
 # 🎯 Kali Hacker Bot
 
-Elite browser-based penetration testing terminal that bridges an external Ollama LLM service (for AI reasoning) with a Kali Linux Docker container (for live execution).
+Elite browser-based penetration testing terminal that bridges any Ollama LLM service (for AI reasoning) with a Kali Linux Docker container (for live execution). Run Ollama locally, remotely, or on any system.
 
 ## Features
 
@@ -179,7 +179,7 @@ By default, **`smollm2:135m`** is pre-configured (91 MB, ultra-light):
 
 #### Switching Models
 
-⚠️ **IMPORTANT**: Ollama is managed separately. Install from [Crashcart/Ollama-intelgpu](https://github.com/Crashcart/Ollama-intelgpu)
+⚠️ **IMPORTANT**: Ollama is run separately on any system. See [Ollama docs](https://ollama.ai) for installation options.
 
 1. **Via Web UI:**
    - Open Settings (⚙️) → OLLAMA tab
@@ -206,24 +206,26 @@ By default, **`smollm2:135m`** is pre-configured (91 MB, ultra-light):
    ollama rm mistral
    ```
 
-#### External Ollama Service
+#### Running Ollama
 
-Ollama runs as a separate service (not bundled with Kali bot). See [Crashcart/Ollama-intelgpu](https://github.com/Crashcart/Ollama-intelgpu) for:
+Ollama runs as a separate service (not bundled with Kali bot). Choose any option:
 
-- Intel GPU acceleration setup
-- Model management and performance tuning
-- Multi-instance configuration
-- Hardware requirements
+- **Docker**: Run Ollama in a container on any system
+- **Local Installation**: Windows, Mac, or Linux native installation
+- **Remote Server**: Run Ollama on a different machine, point `OLLAMA_URL` to it
+- **Intel GPU Optimized**: Use [Crashcart/Ollama-intelgpu](https://github.com/Crashcart/Ollama-intelgpu) for Intel hardware
+
+See [Ollama Documentation](https://ollama.ai) for setup instructions.
 
 #### Troubleshooting Model Issues
 
 | Problem                            | Solution                                                                                                       |
 | ---------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| "Model not found" error            | Pull the model in your external Ollama: `ollama pull smollm2:135m`                                             |
-| Can't connect to Ollama            | Check OLLAMA_URL in .env points to running Ollama instance; verify network connectivity                        |
+| "Model not found" error            | Pull the model in your Ollama instance: `ollama pull smollm2:135m`                                             |
+| Can't connect to Ollama            | Verify OLLAMA_URL in .env matches your Ollama's address; check network connectivity                           |
 | Slow responses                     | Check model size vs available VRAM, or switch to smaller model in Ollama                                       |
-| Out of memory errors               | Configure Ollama settings in Crashcart/Ollama-intelgpu repo                                                    |
-| Ollama not running                 | Start Ollama service from Crashcart/Ollama-intelgpu; check OLLAMA_URL in .env                                  |
+| Out of memory errors               | Reduce Ollama parallel requests or use smaller model; see Ollama docs for tuning                               |
+| Ollama not running                 | Start Ollama service (local, Docker, or remote); verify OLLAMA_URL in .env is correct                          |
 
 ### Manual Installation
 
@@ -231,7 +233,7 @@ Ollama runs as a separate service (not bundled with Kali bot). See [Crashcart/Ol
 
 - Docker & Docker Compose installed
 - Port 31337 (Web UI) available
-- Ollama installed separately (see [Crashcart/Ollama-intelgpu](https://github.com/Crashcart/Ollama-intelgpu))
+- Ollama running on any system (local, remote, or Docker) — see [Ollama docs](https://ollama.ai)
 - 512 MB free RAM minimum (Kali bot; Ollama has separate requirements)
 - 2+ GB free disk space for LLM models (in Ollama service)
 
