@@ -117,53 +117,27 @@ fi
 # Docker setup
 echo "✓ Setting up Docker containers..."
 
-# Aggressive cleanup: remove all kali-ai-term containers
+# Clean up old containers
 echo "  Cleaning up old containers..."
 docker ps -a --filter "name=kali-ai-term" --format "{{.ID}}" 2>/dev/null | xargs -r docker rm -f >/dev/null 2>&1 || true
 
-# Stop and remove all related resources
+# Stop and remove
 docker_down=$(docker compose down -v 2>&1 || docker-compose down -v 2>&1 || echo "")
-echo "  ✓ Stopped and removed old containers/volumes"
+echo "  ✓ Stopped and removed old containers"
 log_info "Docker compose down completed"
 track_command "docker compose down" "$docker_down" 0
 
-# Check if OLLAMA port is in use (configurable, defaults to 11434)
-OLLAMA_PORT=${OLLAMA_PORT:-11434}
-if command -v lsof &>/dev/null; then
-  if lsof -Pi :$OLLAMA_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
-    echo "  ⚠️  Port $OLLAMA_PORT is still in use by another process"
-    echo "      Run: docker ps -a | grep -i ollama"
-    echo "      Or: lsof -i :$OLLAMA_PORT"
-    sleep 2
-  fi
-fi
-
-# Retry logic for docker compose up
-echo "  Starting containers..."
-docker_up=""
-docker_up_exit=1
-max_attempts=3
-attempt=1
-
-while [ $attempt -le $max_attempts ] && [ $docker_up_exit -ne 0 ]; do
-  docker_up=$(docker compose up -d 2>&1 || docker-compose up -d 2>&1)
-  docker_up_exit=$?
-
-  if [ $docker_up_exit -ne 0 ]; then
-    if [ $attempt -lt $max_attempts ]; then
-      echo "  Retry $attempt/$max_attempts in 3 seconds..."
-      sleep 3
-    fi
-  fi
-  attempt=$((attempt + 1))
-done
+# Start app and kali containers (Ollama is external)
+echo "  Starting Kali bot containers..."
+docker_up=$(docker compose up -d 2>&1 || docker-compose up -d 2>&1)
+docker_up_exit=$?
 
 if [ $docker_up_exit -eq 0 ]; then
   echo "  ✓ Started containers"
   log_success "Docker containers started"
   track_command "docker compose up -d" "$docker_up" 0
 else
-  echo "  ❌ Failed to start containers after $max_attempts attempts"
+  echo "  ❌ Failed to start containers"
   log_error "Docker containers failed to start"
   track_command "docker compose up -d" "$docker_up" $docker_up_exit
   exit 1
