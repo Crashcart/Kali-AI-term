@@ -300,8 +300,8 @@ jobs:
         run: |
           git fetch origin ${{ github.base_ref }}
 
-          TODO_CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -c "^TODO\.md$" || true)
-          PLANNING_CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -c "^PLANNING\.md$" || true)
+          TODO_CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -c "^\.github/TODO\.md$" || true)
+          PLANNING_CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -c "^\.github/PLANNING\.md$" || true)
 
           echo "todo_changed=${TODO_CHANGED}" >> "$GITHUB_OUTPUT"
           echo "planning_changed=${PLANNING_CHANGED}" >> "$GITHUB_OUTPUT"
