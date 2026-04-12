@@ -84,7 +84,7 @@ describe('Database Persistence', () => {
     beforeAll(() => {
       sessionId = 'cmd-test-' + Date.now();
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-      db.createSession(sessionId, 'token', 'secret', expiresAt);
+      db.createSession(sessionId, 'token-' + sessionId, 'secret', expiresAt);
     });
 
     test('add and retrieve commands', () => {
@@ -121,7 +121,7 @@ describe('Database Persistence', () => {
     beforeAll(() => {
       sessionId = 'finding-test-' + Date.now();
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-      db.createSession(sessionId, 'token', 'secret', expiresAt);
+      db.createSession(sessionId, 'token-' + sessionId, 'secret', expiresAt);
     });
 
     test('add and retrieve findings', () => {
@@ -185,7 +185,7 @@ describe('Database Persistence', () => {
     beforeAll(() => {
       sessionId = 'ioc-test-' + Date.now();
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-      db.createSession(sessionId, 'token', 'secret', expiresAt);
+      db.createSession(sessionId, 'token-' + sessionId, 'secret', expiresAt);
     });
 
     test('add and retrieve IOCs', () => {
@@ -210,7 +210,7 @@ describe('Database Persistence', () => {
     beforeAll(() => {
       sessionId = 'stats-test-' + Date.now();
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-      db.createSession(sessionId, 'token', 'secret', expiresAt);
+      db.createSession(sessionId, 'token-' + sessionId, 'secret', expiresAt);
 
       // Add some data
       db.addCommand(sessionId, 'test command', 10, 'output', '', true);
@@ -232,7 +232,7 @@ describe('Database Persistence', () => {
     beforeAll(() => {
       sessionId = 'export-test-' + Date.now();
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-      db.createSession(sessionId, 'token', 'secret', expiresAt);
+      db.createSession(sessionId, 'token-' + sessionId, 'secret', expiresAt);
       db.updateSessionNotes(sessionId, 'Test notes');
 
       db.addCommand(sessionId, 'nmap test', 15, 'Nmap output', '', true);

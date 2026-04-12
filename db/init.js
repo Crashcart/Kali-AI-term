@@ -7,15 +7,17 @@ const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
 
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../data/kalibot.db');
+const DEFAULT_DB_PATH = path.join(__dirname, '../data/kalibot.db');
 const SCHEMA_PATH = path.join(__dirname, 'schema.sql');
 
 let db = null;
+let currentDbPath = null;
 
 /**
  * Initialize the database connection and create tables
  */
 function initializeDatabase() {
+  const DB_PATH = process.env.DB_PATH || DEFAULT_DB_PATH;
   try {
     // Ensure data directory exists
     const dataDir = path.dirname(DB_PATH);
@@ -25,6 +27,7 @@ function initializeDatabase() {
 
     // Open or create database
     db = new Database(DB_PATH);
+    currentDbPath = DB_PATH;
     db.pragma('journal_mode = WAL');
 
     // Read and execute schema
@@ -38,6 +41,161 @@ function initializeDatabase() {
     throw err;
   }
 }
+
+// ============================================================
+// HOST FUNCTIONS (core feature — 3-day retention rule)
+// ============================================================
+
+/**
+ * Insert or update a host record. Updates last_seen on every call.
+ */
+function upsertHost(ip, { hostname = null, os = null, status = 'up' } = {}) {
+  const database = getDatabase();
+  const stmt = database.prepare(`
+    INSERT INTO hosts (ip, hostname, os, status, first_seen, last_seen)
+    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ON CONFLICT(ip) DO UPDATE SET
+      hostname = COALESCE(excluded.hostname, hostname),
+      os       = COALESCE(excluded.os, os),
+      status   = excluded.status,
+      last_seen = CURRENT_TIMESTAMP
+  `);
+  return stmt.run(ip, hostname || null, os || null, status);
+}
+
+/**
+ * Add or update a port on a host (identified by IP).
+ * Creates the host row if it does not exist.
+ */
+function upsertHostPort(ip, port, protocol = 'tcp', state = 'open', service = null, version = null) {
+  upsertHost(ip);
+  const database = getDatabase();
+  const host = database.prepare('SELECT id FROM hosts WHERE ip = ?').get(ip);
+  if (!host) return null;
+  const stmt = database.prepare(`
+    INSERT INTO host_ports (host_id, port, protocol, state, service, version, discovered_at)
+    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(host_id, port, protocol) DO UPDATE SET
+      state   = excluded.state,
+      service = COALESCE(excluded.service, service),
+      version = COALESCE(excluded.version, version),
+      discovered_at = CURRENT_TIMESTAMP
+  `);
+  return stmt.run(host.id, port, protocol, state, service || null, version || null);
+}
+
+/**
+ * Return a host record with all its ports.
+ */
+function getHost(ip) {
+  const database = getDatabase();
+  const host = database.prepare('SELECT * FROM hosts WHERE ip = ?').get(ip);
+  if (!host) return null;
+  host.ports = database.prepare('SELECT * FROM host_ports WHERE host_id = ? ORDER BY port').all(host.id);
+  return host;
+}
+
+/**
+ * Return all known hosts with a port count.
+ */
+function getAllHosts() {
+  const database = getDatabase();
+  return database.prepare(`
+    SELECT h.*, COUNT(p.id) AS port_count
+    FROM hosts h
+    LEFT JOIN host_ports p ON p.host_id = h.id
+    GROUP BY h.id
+    ORDER BY h.last_seen DESC
+  `).all();
+}
+
+/**
+ * Update free-text notes for a host.
+ */
+function updateHostNotes(ip, notes) {
+  const database = getDatabase();
+  return database.prepare('UPDATE hosts SET notes = ? WHERE ip = ?').run(notes, ip);
+}
+
+/**
+ * Delete a host and all its ports.
+ */
+function deleteHost(ip) {
+  const database = getDatabase();
+  return database.prepare('DELETE FROM hosts WHERE ip = ?').run(ip);
+}
+
+/**
+ * 3-DAY RETENTION RULE: remove hosts not seen in the past 3 days.
+ */
+function cleanupStaleHosts() {
+  try {
+    const database = getDatabase();
+    const stmt = database.prepare(
+      "DELETE FROM hosts WHERE last_seen < datetime('now', '-3 days')"
+    );
+    const result = stmt.run();
+    if (result.changes > 0) {
+      console.log(`Cleaned up ${result.changes} stale host(s) (3-day rule)`);
+    }
+  } catch (err) {
+    console.error('Host cleanup failed:', err);
+  }
+}
+
+/**
+ * Parse nmap output text and persist any discovered hosts/ports.
+ * Returns an array of { ip, ports[] } objects that were saved.
+ */
+function parseAndSaveNmapOutput(output) {
+  const saved = [];
+  if (!output || typeof output !== 'string') return saved;
+
+  // Split into per-host blocks on "Nmap scan report for"
+  const blocks = output.split(/(?=Nmap scan report for )/i);
+
+  for (const block of blocks) {
+    // Extract IP (and optional hostname)
+    const hostMatch = block.match(/Nmap scan report for (?:([^\s(]+)\s+\()?([0-9]{1,3}(?:\.[0-9]{1,3}){3})\)?/i);
+    if (!hostMatch) continue;
+
+    const hostname = hostMatch[1] || null;
+    const ip = hostMatch[2];
+
+    // Status: "Host is up" vs "Host is down" / filtered
+    const isDown = /Host is down|filtered/i.test(block);
+    const status = isDown ? 'down' : 'up';
+
+    upsertHost(ip, { hostname, status });
+
+    // Extract OS guess
+    const osMatch = block.match(/OS details?:\s*(.+)/i) ||
+                    block.match(/Running(?: \(JUST GUESSING\))?:\s*(.+)/i);
+    if (osMatch) {
+      upsertHost(ip, { hostname, os: osMatch[1].trim(), status });
+    }
+
+    // Extract open ports: "80/tcp   open  http   Apache httpd 2.4.41"
+    const portRegex = /^(\d+)\/(tcp|udp)\s+(\S+)\s+(\S+)(?:\s+(.+))?$/gim;
+    const ports = [];
+    let m;
+    while ((m = portRegex.exec(block)) !== null) {
+      const port = parseInt(m[1], 10);
+      const protocol = m[2];
+      const state = m[3];
+      const service = m[4] !== '?' ? m[4] : null;
+      const version = m[5] ? m[5].trim() : null;
+      upsertHostPort(ip, port, protocol, state, service, version);
+      ports.push({ port, protocol, state, service, version });
+    }
+
+    saved.push({ ip, hostname, status, ports });
+  }
+
+  return saved;
+}
+
+// ============================================================
 
 /**
  * Get database instance
@@ -75,7 +233,8 @@ function createSession(sessionId, token, authSecret, expiresAt) {
     INSERT INTO sessions (id, token, auth_secret, expires_at, last_activity)
     VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
   `);
-  return stmt.run(sessionId, token, authSecret, new Date(expiresAt).toISOString());
+  const expiresAtSqlite = new Date(expiresAt).toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
+  return stmt.run(sessionId, token, authSecret, expiresAtSqlite);
 }
 
 function getSession(sessionId) {
@@ -86,7 +245,7 @@ function getSession(sessionId) {
 
 function updateSessionActivity(sessionId) {
   const database = getDatabase();
-  const stmt = database.prepare('UPDATE sessions SET last_activity = CURRENT_TIMESTAMP WHERE id = ?');
+  const stmt = database.prepare("UPDATE sessions SET last_activity = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?");
   return stmt.run(sessionId);
 }
 
@@ -119,7 +278,7 @@ function addCommand(sessionId, command, durationSeconds, output, errorOutput, su
     INSERT INTO commands (session_id, command, duration_seconds, output, error_output, success, executed_at)
     VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
   `);
-  return stmt.run(sessionId, command, durationSeconds, output || '', errorOutput || '', success);
+  return stmt.run(sessionId, command, durationSeconds, output || '', errorOutput || '', success ? 1 : 0);
 }
 
 function getCommandHistory(sessionId, limit = 100) {
@@ -128,7 +287,7 @@ function getCommandHistory(sessionId, limit = 100) {
     SELECT id, command, executed_at, duration_seconds, success
     FROM commands
     WHERE session_id = ?
-    ORDER BY executed_at DESC
+    ORDER BY executed_at DESC, id DESC
     LIMIT ?
   `);
   return stmt.all(sessionId, limit);
@@ -150,8 +309,7 @@ function addFinding(sessionId, severity, description, query, rawData) {
     INSERT INTO findings (session_id, severity, description, query, raw_data, timestamp)
     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
   `);
-  const result = stmt.run(sessionId, severity, description, query || '', rawData || '');
-  return result.lastInsertRowid;
+  return stmt.run(sessionId, severity, description, query || '', rawData || '');
 }
 
 function addCVEToFinding(findingId, cveId) {
@@ -362,7 +520,7 @@ function healthCheck() {
   try {
     const database = getDatabase();
     database.prepare('SELECT 1').get();
-    return { status: 'ok', location: DB_PATH };
+    return { status: 'ok', location: currentDbPath || DEFAULT_DB_PATH };
   } catch (err) {
     return { status: 'error', error: err.message };
   }
@@ -386,6 +544,16 @@ module.exports = {
   closeDatabase,
   cleanupExpiredSessions,
   healthCheck,
+
+  // Host functions (core — 3-day retention rule)
+  upsertHost,
+  upsertHostPort,
+  getHost,
+  getAllHosts,
+  updateHostNotes,
+  deleteHost,
+  cleanupStaleHosts,
+  parseAndSaveNmapOutput,
 
   // Session functions
   createSession,

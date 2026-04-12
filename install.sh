@@ -1,5 +1,7 @@
 #!/bin/bash
 set -e
+export PS4='+ [${BASH_SOURCE##*/}:${LINENO}] '
+set -x
 
 echo "💉 ═══════════════════════════════════════════════════════════════════ 💉"
 echo "    Kali Hacker Bot - Installation"

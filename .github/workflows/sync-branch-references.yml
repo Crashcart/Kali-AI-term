@@ -1,0 +1,96 @@
+name: Sync Branch References
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'README.md'
+      - 'install.sh'
+      - 'uninstall.sh'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync-refs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create sync branch
+        run: |
+          BRANCH="sync/branch-refs-$(date +%s)"
+          git checkout -b $BRANCH
+          echo "SYNC_BRANCH=$BRANCH" >> $GITHUB_ENV
+
+      - name: Update test→main references
+        run: |
+          echo "🔄 Syncing branch references from test to main..."
+          sed -i 's|/test/|/main/|g' README.md install.sh uninstall.sh
+          echo "✅ Update complete"
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "✓ No changes needed"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "✓ Changes detected"
+            git diff --stat
+          fi
+
+      - name: Commit changes to sync branch
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          git config user.name "🤖 GitHub Actions"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md install.sh uninstall.sh
+          git commit -m "chore: sync branch references from test to main
+
+Updated documentation and scripts to reference main branch instead of test"
+
+      - name: Push sync branch and create PR
+        if: steps.changes.outputs.has_changes == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git push origin $SYNC_BRANCH
+
+          gh pr create \
+            --base main \
+            --head $SYNC_BRANCH \
+            --title "chore: sync branch references to main" \
+            --body "Automated PR to update branch references
+
+This PR updates all references from test branch to main branch in:
+- README.md
+- install.sh
+- uninstall.sh
+
+**Action Required:** Review and approve to merge.
+
+---
+Created by: Sync Branch References workflow
+Triggered by: Push to main branch" \
+            --label "automated" \
+            --label "documentation"
+
+      - name: Workflow Summary
+        if: always()
+        run: |
+          echo "📋 Sync Workflow Summary"
+          echo "========================"
+          if [ "${{ steps.changes.outputs.has_changes }}" = "true" ]; then
+            echo "Status: ✅ PR Created"
+            echo "Branch: $SYNC_BRANCH"
+            echo "Action: PR awaiting manual review"
+          else
+            echo "Status: ℹ️ No Changes"
+            echo "Action: No PR needed"
+          fi

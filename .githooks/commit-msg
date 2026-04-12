@@ -1,0 +1,64 @@
+#!/bin/bash
+# Commit message hook for Kali Hacker Bot
+# Enforces conventional commit format for better changelog generation
+# Install with: git config core.hooksPath .githooks
+
+COMMIT_MSG_FILE=$1
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Extract the first line (subject)
+SUBJECT=$(echo "$COMMIT_MSG" | head -n 1)
+
+# Conventional commit format: type(scope): description
+# type: feat, fix, docs, style, refactor, perf, test, chore, ci
+# scope: optional but recommended
+# description: required, starts with lowercase
+
+# Regex patterns
+CONVENTIONAL_COMMIT_PATTERN="^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\(.+\))?!?: .{1,}"
+URL_PATTERN="https://claude\.ai/code/session_"
+
+# Check if commit message matches conventional commit format
+if ! [[ $SUBJECT =~ $CONVENTIONAL_COMMIT_PATTERN ]]; then
+  echo "❌ Invalid commit message format"
+  echo ""
+  echo "Commit message must follow conventional commits:"
+  echo "  type(scope): description"
+  echo ""
+  echo "Valid types:"
+  echo "  feat     - A new feature"
+  echo "  fix      - A bug fix"
+  echo "  docs     - Documentation only changes"
+  echo "  style    - Code style changes (formatting, missing semicolons, etc)"
+  echo "  refactor - Code changes that neither fixes a bug nor adds a feature"
+  echo "  perf     - Code changes that improve performance"
+  echo "  test     - Adding missing tests or correcting existing tests"
+  echo "  chore    - Changes to build process, dependencies, etc"
+  echo "  ci       - Changes to CI/CD configuration"
+  echo ""
+  echo "Example:"
+  echo "  feat(auth): add login functionality"
+  echo "  fix(docker): correct port mapping in compose file"
+  echo ""
+  exit 1
+fi
+
+# Check if it includes session reference
+if ! [[ $COMMIT_MSG =~ $URL_PATTERN ]]; then
+  echo "⚠️  Warning: Commit message should include Claude Code session URL"
+  echo ""
+  echo "Add a line like this to your commit message:"
+  echo "  https://claude.ai/code/session_XXXXX"
+  echo ""
+  # Don't fail, just warn
+fi
+
+# Check message length
+SUBJECT_LENGTH=${#SUBJECT}
+if [ $SUBJECT_LENGTH -gt 72 ]; then
+  echo "⚠️  Warning: Commit subject is too long ($SUBJECT_LENGTH chars)"
+  echo "   Keep subject line to 72 characters or less"
+  # Don't fail, just warn
+fi
+
+echo "✓ Commit message format is valid"

@@ -1,0 +1,156 @@
+name: Auto-merge test→main on approval
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [ opened, reopened, synchronize, review_requested ]
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    if: github.head_ref == 'test'
+    permissions:
+      pull-requests: write
+      contents: write
+      issues: write
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Check PR details
+      run: |
+        echo "PR Head Ref: ${{ github.head_ref }}"
+        echo "PR Base Ref: ${{ github.base_ref }}"
+        echo "PR Number: ${{ github.event.pull_request.number }}"
+
+    - name: Check approval status
+      uses: actions/github-script@v6
+      id: approval
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const pr = context.payload.pull_request;
+          const { data: reviews } = await github.rest.pulls.listReviews({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: pr.number,
+          });
+
+          const approvals = reviews.filter(r => r.state === 'APPROVED').length;
+          const changes = reviews.filter(r => r.state === 'CHANGES_REQUESTED').length;
+
+          console.log(`Approvals: ${approvals}, Changes Requested: ${changes}`);
+          core.setOutput('has_approval', approvals > 0);
+          core.setOutput('has_changes', changes > 0);
+
+    - name: Get check runs status
+      uses: actions/github-script@v6
+      id: checks
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const pr = context.payload.pull_request;
+          const { data: checkRuns } = await github.rest.checks.listForRef({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: pr.head.sha,
+          });
+
+          const passed = checkRuns.check_runs.filter(c => c.conclusion === 'success').length;
+          const failed = checkRuns.check_runs.filter(c => c.conclusion === 'failure').length;
+
+          console.log(`Checks Passed: ${passed}, Failed: ${failed}`);
+          checkRuns.check_runs.forEach(c => {
+            console.log(`  ${c.name}: ${c.conclusion}`);
+          });
+
+          core.setOutput('all_passed', failed === 0 && passed > 0);
+
+    - name: Verify approval and checks
+      if: steps.approval.outputs.has_approval == 'true' && steps.approval.outputs.has_changes == 'false' && steps.checks.outputs.all_passed == 'true'
+      run: |
+        echo "✅ All conditions met for auto-merge:"
+        echo "  ✓ Has approval"
+        echo "  ✓ No changes requested"
+        echo "  ✓ All checks passed"
+
+    - name: Auto-merge PR
+      if: steps.approval.outputs.has_approval == 'true' && steps.approval.outputs.has_changes == 'false' && steps.checks.outputs.all_passed == 'true'
+      uses: actions/github-script@v6
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const pr = context.payload.pull_request;
+          try {
+            await github.rest.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              merge_method: 'squash',
+            });
+            console.log('✅ PR merged successfully');
+          } catch (error) {
+            console.log('ℹ️ Auto-merge not available, may need manual merge');
+            console.log(error.message);
+          }
+
+    - name: Create Release
+      if: steps.approval.outputs.has_approval == 'true' && steps.approval.outputs.has_changes == 'false' && steps.checks.outputs.all_passed == 'true'
+      uses: actions/github-script@v6
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const date = new Date().toISOString().split('T')[0];
+          const tag = `release-${date}`;
+
+          try {
+            const { data: release } = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              name: `Release ${tag}`,
+              body: '## Production Release\n\n✅ All checks passed\n✅ Code reviewed and approved\n✅ Ready for deployment',
+              draft: false,
+            });
+            console.log(`✅ Release created: ${release.html_url}`);
+          } catch (error) {
+            console.log('ℹ️ Release creation skipped');
+          }
+
+    - name: Post comment
+      if: always()
+      uses: actions/github-script@v6
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const pr = context.payload.pull_request;
+          const approval = '${{ steps.approval.outputs.has_approval }}';
+          const checks = '${{ steps.checks.outputs.all_passed }}';
+
+          let message = '';
+          if (approval === 'true' && checks === 'true') {
+            message = '✅ Auto-merge complete! Release created.';
+          } else {
+            message = '⏳ Waiting for approval and all checks to pass.';
+          }
+
+          try {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body: message,
+            });
+          } catch (error) {
+            console.log('Could not post comment');
+          }

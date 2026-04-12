@@ -1,0 +1,458 @@
+name: Code Review Gate
+
+on:
+  pull_request:
+    branches: [ main, test ]
+    types: [ opened, synchronize, reopened ]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 1: Conflict detection — verify the PR branch merges cleanly with target
+  # ─────────────────────────────────────────────────────────────────────────────
+  conflict-check:
+    name: Conflict Detection
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR branch (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Fetch target branch
+        run: |
+          git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
+
+      - name: Check for merge conflicts
+        id: conflict
+        run: |
+          echo "🔍 Checking for merge conflicts between PR branch and ${{ github.base_ref }}..."
+
+          # Attempt a dry-run merge (no commit, no index changes via --no-commit)
+          git config user.email "ci-bot@kali-ai-term.local"
+          git config user.name "CI Bot"
+
+          # Use a temporary worktree so we don't disturb the checked-out branch
+          git worktree add /tmp/conflict-check origin/${{ github.base_ref }}
+          cd /tmp/conflict-check
+
+          if git merge --no-commit --no-ff ${{ github.event.pull_request.head.sha }} 2>&1; then
+            CONFLICT_STATUS="none"
+            echo "✅ No merge conflicts detected"
+          else
+            CONFLICT_STATUS="detected"
+            echo "⚠️ Merge conflicts detected"
+            git diff --name-only --diff-filter=U | tee /tmp/conflicted-files.txt
+          fi
+
+          git merge --abort 2>/dev/null || true
+          echo "conflict_status=${CONFLICT_STATUS}" >> "$GITHUB_OUTPUT"
+
+          # Collect conflicted file list for the summary
+          if [ -f /tmp/conflicted-files.txt ]; then
+            echo "conflicted_files<<EOF" >> "$GITHUB_OUTPUT"
+            cat /tmp/conflicted-files.txt >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+          else
+            echo "conflicted_files=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post conflict summary comment
+        if: steps.conflict.outputs.conflict_status == 'detected'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const conflictedFiles = `${{ steps.conflict.outputs.conflicted_files }}`;
+            const fileList = conflictedFiles.trim()
+              ? conflictedFiles.trim().split('\n').map(f => `- \`${f}\``).join('\n')
+              : '_Unable to list conflicted files_';
+
+            const body = [
+              '## ⚠️ Merge Conflict Detected',
+              '',
+              `This PR has merge conflicts with \`${{ github.base_ref }}\` that must be resolved before merging.`,
+              '',
+              '### Conflicted Files',
+              fileList,
+              '',
+              '### Resolution Steps',
+              '```bash',
+              `git fetch origin ${{ github.base_ref }}`,
+              `git merge origin/${{ github.base_ref }}`,
+              '# Resolve conflicts in each file listed above',
+              'git add <resolved-files>',
+              'git commit -m "fix(conflicts): resolve merge conflicts"',
+              'git push',
+              '```',
+              '',
+              '> **Planning Agent Note**: Update `PLANNING.md` → "Current Blockers" with the conflict details before attempting resolution.',
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      - name: Fail if conflicts exist
+        if: steps.conflict.outputs.conflict_status == 'detected'
+        run: |
+          echo "❌ Merge conflicts must be resolved before this PR can be merged."
+          exit 1
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 2: Static code review — lint, formatting, security audit, secret scan
+  # ─────────────────────────────────────────────────────────────────────────────
+  static-review:
+    name: Static Code Review
+    runs-on: ubuntu-latest
+    needs: conflict-check
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        id: eslint
+        run: |
+          npm run lint:check 2>&1 | tee /tmp/eslint-output.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+        continue-on-error: true
+
+      - name: Check Prettier formatting
+        id: prettier
+        run: |
+          npm run format:check 2>&1 | tee /tmp/prettier-output.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+        continue-on-error: true
+
+      - name: Run security audit
+        id: audit
+        run: |
+          npm audit --audit-level=high 2>&1 | tee /tmp/audit-output.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+        continue-on-error: true
+
+      - name: Scan for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --only-verified
+        continue-on-error: true
+
+      - name: Collect changed files
+        id: changed
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | head -50)
+          echo "files<<EOF" >> "$GITHUB_OUTPUT"
+          echo "${CHANGED}" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Post end-of-code review summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const eslintExit   = '${{ steps.eslint.outputs.exit_code }}';
+            const prettierExit = '${{ steps.prettier.outputs.exit_code }}';
+            const auditExit    = '${{ steps.audit.outputs.exit_code }}';
+            const changedFiles = `${{ steps.changed.outputs.files }}`;
+
+            const status = (code) => code === '0' ? '✅ Pass' : '❌ Fail';
+            const fileList = changedFiles.trim()
+              ? changedFiles.trim().split('\n').map(f => `- \`${f}\``).join('\n')
+              : '_No files changed_';
+
+            const allPass = eslintExit === '0' && prettierExit === '0';
+
+            const body = [
+              `## 🔍 End-of-Code Review Summary`,
+              '',
+              `| Check | Result |`,
+              `|-------|--------|`,
+              `| ESLint | ${status(eslintExit)} |`,
+              `| Prettier formatting | ${status(prettierExit)} |`,
+              `| npm audit (high+) | ${status(auditExit)} |`,
+              '',
+              '### Changed Files in This PR',
+              fileList,
+              '',
+              allPass
+                ? '### ✅ All static checks passed — ready for human review'
+                : '### ⚠️ Issues found — please review the details above and address before merging',
+              '',
+              '---',
+              '_Generated by the Code Review Gate workflow. Triggered on every PR against `main` or `test`._',
+              '_See `.github/agents/planning.agent.md` and `.github/agents/code-review.agent.md` for manual review guidance._',
+            ].join('\n');
+
+            // Upsert: update existing bot comment or create a new one
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('End-of-Code Review Summary')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Fail if ESLint errors
+        if: steps.eslint.outputs.exit_code != '0'
+        run: |
+          echo "❌ ESLint violations found. Run 'npm run lint' to fix."
+          cat /tmp/eslint-output.txt
+          exit 1
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 3: Test suite — unit + integration tests
+  # ─────────────────────────────────────────────────────────────────────────────
+  test-suite:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    needs: conflict-check
+
+    strategy:
+      matrix:
+        node-version: [ '18.x' ]
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+      - name: Run integration tests
+        run: npm run test:integration
+
+      - name: Run full test suite with coverage
+        run: npm test
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage/lcov.info
+          flags: pr-review
+          fail_ci_if_error: false
+        continue-on-error: true
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 4: Planning agent gate — verify TODO.md + PLANNING.md were updated
+  # ─────────────────────────────────────────────────────────────────────────────
+  planning-docs-check:
+    name: Planning Docs Updated
+    runs-on: ubuntu-latest
+    needs: conflict-check
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check TODO.md and PLANNING.md were updated
+        id: docs_check
+        run: |
+          git fetch origin ${{ github.base_ref }}
+
+          TODO_CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -c "^TODO\.md$" || true)
+          PLANNING_CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -c "^PLANNING\.md$" || true)
+
+          echo "todo_changed=${TODO_CHANGED}" >> "$GITHUB_OUTPUT"
+          echo "planning_changed=${PLANNING_CHANGED}" >> "$GITHUB_OUTPUT"
+
+          if [ "${TODO_CHANGED}" -eq 0 ] || [ "${PLANNING_CHANGED}" -eq 0 ]; then
+            echo "⚠️  WARNING: TODO.md and/or PLANNING.md were not updated in this PR."
+            echo "    These files must be updated every session per project standards."
+            # Warning only — does not fail the gate (may be a docs-only PR, etc.)
+          else
+            echo "✅ TODO.md and PLANNING.md both updated"
+          fi
+
+      - name: Post planning docs warning (if needed)
+        if: steps.docs_check.outputs.todo_changed == '0' || steps.docs_check.outputs.planning_changed == '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const todoChanged    = '${{ steps.docs_check.outputs.todo_changed }}' !== '0';
+            const planningChanged = '${{ steps.docs_check.outputs.planning_changed }}' !== '0';
+
+            const missing = [];
+            if (!todoChanged) missing.push('`TODO.md`');
+            if (!planningChanged) missing.push('`PLANNING.md`');
+
+            const body = [
+              '## 📋 Planning Docs Reminder',
+              '',
+              `The following mandatory planning files were **not updated** in this PR: ${missing.join(', ')}`,
+              '',
+              'Per project standards (see `.github/copilot-instructions.md`), every PR must update:',
+              '- **`TODO.md`** — mark completed tasks, add any new tasks',
+              '- **`PLANNING.md`** — log decisions, update status, record handoff notes',
+              '',
+              'Please update these files and push an additional commit before merging.',
+              '',
+              '> This check is a **warning**, not a hard gate. Human reviewer decides whether to waive it.',
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Planning Docs Reminder')
+            );
+
+            if (!existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 5: UX Review gate — request UX agent review when UI files change
+  # Soft gate (warning only). Fires whenever public/ files are modified.
+  # ─────────────────────────────────────────────────────────────────────────────
+  ux-review:
+    name: UX Review
+    runs-on: ubuntu-latest
+    needs: conflict-check
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect UI file changes
+        id: ui_changes
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          UI_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '^public/' || true)
+          if [ -n "${UI_FILES}" ]; then
+            echo "ui_changed=true" >> "$GITHUB_OUTPUT"
+            echo "ui_files<<EOF" >> "$GITHUB_OUTPUT"
+            echo "${UI_FILES}" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+          else
+            echo "ui_changed=false" >> "$GITHUB_OUTPUT"
+            echo "ui_files=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post UX review request
+        if: steps.ui_changes.outputs.ui_changed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const uiFiles = `${{ steps.ui_changes.outputs.ui_files }}`;
+            const fileList = uiFiles.trim()
+              .split('\n')
+              .filter(Boolean)
+              .map(f => `- \`${f}\``)
+              .join('\n');
+
+            const body = [
+              '## 🎨 UX Review Required',
+              '',
+              'This PR modifies UI files. A **UX Engineer review** is required before merging.',
+              '',
+              '### Changed UI Files',
+              fileList,
+              '',
+              '### How to trigger the UX review',
+              'Open Copilot Chat in VS Code and run:',
+              '```',
+              '@UXEngineer Review this PR — does it maintain the hacker aesthetic? Score each changed component and provide APPROVE or REQUEST-CHANGES.',
+              '```',
+              '',
+              '### UX Review Checklist',
+              'The UX Engineer will verify:',
+              '- [ ] Color palette compliance (no off-palette colors)',
+              '- [ ] Monospace fonts used throughout',
+              '- [ ] New inputs/buttons have neon glow focus states',
+              '- [ ] Hover states defined and animated',
+              '- [ ] No accidental light backgrounds or white fills',
+              '- [ ] New components score ≥ 7/10 on the Hacker Glitz Scale',
+              '- [ ] ASCII/Unicode decorations used where applicable',
+              '- [ ] Buttons use existing `.btn` classes',
+              '',
+              '> **This is a warning gate, not a hard block.** Human reviewer decides whether to waive it.',
+              '> See `.github/agents/ux-engineer.agent.md` for the full UX review process.',
+            ].join('\n');
+
+            // Upsert: update existing UX review comment or create new
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('UX Review Required')
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
