@@ -1099,12 +1099,10 @@ app.post('/api/ollama/scan/settings', authenticate, (req, res) => {
  */
 app.post('/api/ollama/scan', authenticate, async (req, res) => {
   if (!ollamaNetworkScanEnabled) {
-    return res
-      .status(403)
-      .json({
-        success: false,
-        error: 'Network scanning is disabled. Enable it in Settings → AI/LLM → Network Discovery.',
-      });
+    return res.status(403).json({
+      success: false,
+      error: 'Network scanning is disabled. Enable it in Settings → AI/LLM → Network Discovery.',
+    });
   }
 
   // Detect the best local subnet if none provided
@@ -1132,11 +1130,9 @@ app.post('/api/ollama/scan', authenticate, async (req, res) => {
   }
 
   if (!subnet || !/^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(subnet)) {
-    return res
-      .status(400)
-      .json({
-        error: 'Could not determine subnet. Provide subnet in body, e.g. { "subnet": "192.168.1" }',
-      });
+    return res.status(400).json({
+      error: 'Could not determine subnet. Provide subnet in body, e.g. { "subnet": "192.168.1" }',
+    });
   }
 
   appLogger.info(`Ollama network scan starting on ${subnet}.0/24 port ${port}`);
@@ -1432,12 +1428,10 @@ app.post('/api/ollama/generate', authenticate, async (req, res) => {
     logEntry.error = lastErr ? lastErr.message : 'No Ollama instances available';
     addLLMLogEntry(logEntry);
     console.error('Ollama error:', lastErr ? lastErr.message : 'No instances');
-    res
-      .status(500)
-      .json({
-        error: 'LLM generation failed',
-        details: lastErr ? lastErr.message : 'No Ollama instances available',
-      });
+    res.status(500).json({
+      error: 'LLM generation failed',
+      details: lastErr ? lastErr.message : 'No Ollama instances available',
+    });
   } catch (err) {
     logEntry.status = 'error';
     logEntry.durationMs = Date.now() - t0;

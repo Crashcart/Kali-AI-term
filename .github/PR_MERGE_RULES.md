@@ -70,11 +70,13 @@ Before declaring PR ready, update:
 ## Rule 4: No Premature Declarations
 
 ❌ DO NOT say:
+
 - "PR ready" before protocol completes
 - "All tests passing" before waiting
 - "Ready for merge" without green verification
 
 ✅ DO say (only after ALL phases):
+
 - "Protocol complete - all green"
 - "145/145 tests passing, 0 failures"
 - "All .github documentation updated"
@@ -87,6 +89,7 @@ Before declaring PR ready, update:
 ## Rule 5: .github as Source of Truth
 
 All PR status is documented in `.github/`:
+
 - Test results in TODO.md
 - Decisions in PLANNING.md
 - Protocol logs in TEST_COMPLETION_PROTOCOL.md
@@ -99,6 +102,7 @@ All PR status is documented in `.github/`:
 ## Enforcement
 
 These rules are enforced by:
+
 1. **code-review-gate.yml** — Automated checks
 2. **PR Template** — Manual checklist
 3. **Branch Protection** — Required status checks
@@ -153,6 +157,7 @@ RESULT: PR #114 Ready for Merge ✅
 ## Violation Consequences
 
 If rules violated:
+
 1. PR returned to "Needs Work"
 2. Must restart from Rule 1 (Protocol)
 3. Cannot merge until FULL protocol re-executed

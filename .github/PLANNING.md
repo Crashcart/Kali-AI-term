@@ -16,12 +16,14 @@
 **Assigned To**: Claude (Main Agent)
 
 **Problem**: Deployment pipeline had multiple blockers:
+
 1. **Merge conflicts** (12+ files) preventing PR from being mergeable
 2. **ESLint 10 incompatibility** — project still using legacy `.eslintrc.json` format
 3. **Code formatting issues** — 72 files with Prettier violations
 4. **Docker configuration gaps** — Missing Ollama service integration
 
 **Root Causes**:
+
 1. Branch diverged significantly from main with 4 unrelated commits
 2. ESLint upgraded to v10.0.0 which requires `eslint.config.js` (not `.eslintrc.*`)
 3. Docker Compose configuration incomplete for multi-service setup
@@ -37,6 +39,7 @@
 - All project files — Applied consistent Prettier formatting (72 files)
 
 **Decisions Log**:
+
 - [2026-04-12 21:19] Used ESLint 10 flat config format for forward compatibility
 - [2026-04-12 21:20] Resolved merge conflicts using `git merge main -X ours` for stability
 - [2026-04-12 21:25] Applied automatic Prettier formatting to entire codebase for consistency
