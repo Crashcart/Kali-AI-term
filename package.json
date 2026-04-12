@@ -1,6 +1,7 @@
 {
   "name": "kali-hacker-bot",
   "version": "1.0.0",
+  "type": "module",
   "description": "Elite browser-based penetration testing terminal with Ollama and Kali Linux integration",
   "main": "server.js",
   "engines": {
