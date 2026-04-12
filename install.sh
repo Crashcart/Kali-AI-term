@@ -127,12 +127,13 @@ echo "  ✓ Stopped and removed old containers/volumes"
 log_info "Docker compose down completed"
 track_command "docker compose down" "$docker_down" 0
 
-# Check if port 11434 is in use
+# Check if OLLAMA port is in use (configurable, defaults to 11434)
+OLLAMA_PORT=${OLLAMA_PORT:-11434}
 if command -v lsof &>/dev/null; then
-  if lsof -Pi :11434 -sTCP:LISTEN -t >/dev/null 2>&1; then
-    echo "  ⚠️  Port 11434 is still in use by another process"
+  if lsof -Pi :$OLLAMA_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
+    echo "  ⚠️  Port $OLLAMA_PORT is still in use by another process"
     echo "      Run: docker ps -a | grep -i ollama"
-    echo "      Or: lsof -i :11434"
+    echo "      Or: lsof -i :$OLLAMA_PORT"
     sleep 2
   fi
 fi
