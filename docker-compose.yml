@@ -10,6 +10,8 @@ services:
       - BIND_HOST=0.0.0.0
       - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}
       - DEFAULT_OLLAMA_MODEL=${DEFAULT_OLLAMA_MODEL:-smollm2:135m}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-kalibot}
+      - AUTH_SECRET=${AUTH_SECRET:-changeme-local-dev}
       - KALI_CONTAINER=kali-ai-term-kali
       - LOG_LEVEL=${LOG_LEVEL:-info}
     volumes:
