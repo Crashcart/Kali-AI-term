@@ -106,7 +106,14 @@ describe('Database Persistence', () => {
     });
 
     test('retrieve full command output', () => {
-      const result = db.addCommand(sessionId, 'test-cmd', 5, 'Full output content', 'Error output', true);
+      const result = db.addCommand(
+        sessionId,
+        'test-cmd',
+        5,
+        'Full output content',
+        'Error output',
+        true
+      );
       const commandId = result.lastInsertRowid;
 
       const output = db.getFullCommandOutput(commandId);
@@ -147,7 +154,7 @@ describe('Database Persistence', () => {
       db.addCVEToFinding(findingId, 'CVE-2024-0002');
 
       const findings = db.getFindingsWithCVEs(sessionId);
-      const testFinding = findings.find(f => f.id === findingId);
+      const testFinding = findings.find((f) => f.id === findingId);
       expect(testFinding.cves).toContain('CVE-2024-0001');
       expect(testFinding.cves).toContain('CVE-2024-0002');
     });
@@ -200,7 +207,7 @@ describe('Database Persistence', () => {
 
     test('filter IOCs by type', () => {
       const ipIOCs = db.getIOCs(sessionId, 'IP');
-      expect(ipIOCs.every(ioc => ioc.ioc_type === 'IP')).toBe(true);
+      expect(ipIOCs.every((ioc) => ioc.ioc_type === 'IP')).toBe(true);
     });
   });
 

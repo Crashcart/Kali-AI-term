@@ -24,12 +24,14 @@ The UI (`public/app.js` line 920) only shows `err.message` which maps to `payloa
 ### Attempt 1 — PR #102 (`copilot/fix-gemini-attack-plan-generation`, commit `38418f2`)
 
 **What was changed:**
+
 - Replaced deprecated `gemini-pro` default model with `gemini-1.5-flash`
 - Fixed `getModels()` filter: old code checked `m.name.includes('generative')` which never matched anything; corrected to check `supportedGenerationMethods.includes('generateContent')`
 - Replaced fake system-prompt workaround with proper `systemInstruction` field in `generate()` and `streamGenerate()` in `lib/gemini-provider.js`
 - Threaded `preferredProvider` through `/api/ollama/generate` and `/api/ollama/stream` so AI analysis calls respect the Gemini provider selection
 
 **What it did NOT fix:**
+
 - The attack plan endpoint (`/api/autonomous/plan`) still returns 500 in practice
 - The fix assumed Gemini was at fault, but the real failure provider is unknown because the UI hides `details`
 - No test coverage was added for the autonomous plan endpoint
@@ -42,6 +44,7 @@ The UI (`public/app.js` line 920) only shows `err.message` which maps to `payloa
 The server at `server.js:1932` calls `orchestrator.generate(planPrompt, { ... })`.
 
 The orchestrator (`lib/llm-orchestrator.js`) tries providers in order:
+
 1. **Ollama** (primary) — fails if Ollama is not running, the model is not loaded, or times out
 2. **Gemini** (fallback) — fails if `GEMINI_API_KEY` is not set at startup (provider never registered) or if the API key is invalid
 
@@ -49,13 +52,13 @@ If **both** fail, orchestrator throws: `All providers failed. Last error: <Ollam
 
 ### Most likely failure scenarios (in priority order):
 
-| # | Scenario | How to confirm |
-|---|----------|---------------|
-| 1 | Ollama container not running / not reachable at `OLLAMA_URL` | `curl http://localhost:11434/api/tags` |
-| 2 | The model in `this.ollamaModel` (sent as `model` in request body) is not pulled in Ollama | `curl http://localhost:11434/api/tags \| jq '.models[].name'` |
-| 3 | `GEMINI_API_KEY` not set so Gemini fallback was never registered | Check server startup log for `⚠ GEMINI_API_KEY not set` |
-| 4 | Gemini API key set but invalid / quota exceeded | Check `details` field in API response |
-| 5 | JSON parse failure — AI wrapped response in markdown fences | `details` will say `Failed to parse AI plan` or `AI did not return a valid JSON plan` |
+| #   | Scenario                                                                                  | How to confirm                                                                        |
+| --- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 1   | Ollama container not running / not reachable at `OLLAMA_URL`                              | `curl http://localhost:11434/api/tags`                                                |
+| 2   | The model in `this.ollamaModel` (sent as `model` in request body) is not pulled in Ollama | `curl http://localhost:11434/api/tags \| jq '.models[].name'`                         |
+| 3   | `GEMINI_API_KEY` not set so Gemini fallback was never registered                          | Check server startup log for `⚠ GEMINI_API_KEY not set`                               |
+| 4   | Gemini API key set but invalid / quota exceeded                                           | Check `details` field in API response                                                 |
+| 5   | JSON parse failure — AI wrapped response in markdown fences                               | `details` will say `Failed to parse AI plan` or `AI did not return a valid JSON plan` |
 
 ---
 
@@ -64,14 +67,18 @@ If **both** fail, orchestrator throws: `All providers failed. Last error: <Ollam
 ### Fix 1 — Surface `details` in the UI (EASY, high value)
 
 In `public/app.js` line 920, change:
+
 ```js
 this.addIntelligenceMessage(`❌ Failed to generate plan: ${err.message}`, 'red');
 ```
+
 to also show `err.payload?.details`:
+
 ```js
 const detail = err.payload?.details ? ` — ${err.payload.details}` : '';
 this.addIntelligenceMessage(`❌ Failed to generate plan: ${err.message}${detail}`, 'red');
 ```
+
 This alone will reveal the actual error without any server changes.
 
 ### Fix 2 — The failing unit test (`gemini-config.test.js` line 277)
@@ -84,9 +91,13 @@ Fix: reorder the validation in `server.js` — check individual field emptiness 
 ### Fix 3 — Provider registration logging at plan time (EASY)
 
 At `server.js:1933` (the `orchestrator.generate` call), log which providers are actually registered before attempting:
+
 ```js
-appLogger.debug(`Plan attempt — providers registered: ${[...orchestrator.providers.keys()].join(', ')}`);
+appLogger.debug(
+  `Plan attempt — providers registered: ${[...orchestrator.providers.keys()].join(', ')}`
+);
 ```
+
 This will confirm whether Gemini/Ollama are both available when the call is made.
 
 ---
@@ -126,11 +137,11 @@ curl -s -X POST http://localhost:3000/api/autonomous/plan \
 
 ## 📁 Key Files
 
-| File | Relevance |
-|------|-----------|
-| `server.js:1890–1966` | `POST /api/autonomous/plan` handler |
-| `lib/llm-orchestrator.js:generate()` | Provider routing + fallback logic |
-| `lib/ollama-provider.js:generate()` | Ollama API call |
-| `lib/gemini-provider.js:generate()` | Gemini API call |
-| `public/app.js:912–925` | Frontend plan call + error display |
+| File                                       | Relevance                                      |
+| ------------------------------------------ | ---------------------------------------------- |
+| `server.js:1890–1966`                      | `POST /api/autonomous/plan` handler            |
+| `lib/llm-orchestrator.js:generate()`       | Provider routing + fallback logic              |
+| `lib/ollama-provider.js:generate()`        | Ollama API call                                |
+| `lib/gemini-provider.js:generate()`        | Gemini API call                                |
+| `public/app.js:912–925`                    | Frontend plan call + error display             |
 | `tests/unit/gemini-config.test.js:270–278` | Failing test for empty-string model validation |

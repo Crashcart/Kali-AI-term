@@ -9,9 +9,11 @@ All code has been implemented, tested, and committed to the feature branch `clau
 ## What Was Built
 
 ### Phase 1: Core Logging Modules ✅
+
 Three production-ready Node.js modules providing comprehensive logging infrastructure:
 
 **lib/install-logger.js** (268 lines)
+
 - Centralized logging with multiple output destinations
 - Log rotation with timestamp-based archival (keeps last 5 runs)
 - Sensitive data masking (passwords, secrets, tokens, API keys)
@@ -22,6 +24,7 @@ Three production-ready Node.js modules providing comprehensive logging infrastru
 - Factory export: `createLogger(scriptName, options)`
 
 **lib/diagnostic-analyzer.js** (244 lines)
+
 - Parses diagnostic JSON files for error analysis
 - Categorizes errors: npm, Docker, network, containers, system
 - Generates specific fix suggestions for each error
@@ -29,6 +32,7 @@ Three production-ready Node.js modules providing comprehensive logging infrastru
 - Standalone CLI mode: `node lib/diagnostic-analyzer.js install.diagnostic`
 
 **lib/install-menu.js** (200 lines)
+
 - Interactive CLI menu for post-installation troubleshooting
 - 5-option menu: error details, Docker status, system info, summary, exit
 - Real-time Docker container inspection
@@ -36,9 +40,11 @@ Three production-ready Node.js modules providing comprehensive logging infrastru
 - Usage: `node lib/install-menu.js install.diagnostic install.log`
 
 ### Phase 2-6: Installation & Management Scripts ✅
+
 Four Node.js-based installation/management scripts replacing bash equivalents:
 
 **install.js** (11.7 KB)
+
 - Basic installation with logging
 - Prerequisite checks (Docker, Node.js, Compose, Ollama)
 - .env generation with secure secrets
@@ -48,6 +54,7 @@ Four Node.js-based installation/management scripts replacing bash equivalents:
 - Usage: `node install.js`
 
 **install-full.js** (17.7 KB)
+
 - Advanced installation with detailed diagnostics
 - System information gathering (platform, memory, CPUs, disk)
 - Docker system analysis
@@ -58,6 +65,7 @@ Four Node.js-based installation/management scripts replacing bash equivalents:
 - Usage: `node install-full.js`
 
 **uninstall.js** (8.1 KB)
+
 - Safe uninstallation with confirmation
 - Container stopping and removal
 - Volume cleanup
@@ -67,6 +75,7 @@ Four Node.js-based installation/management scripts replacing bash equivalents:
 - Usage: `node uninstall.js`
 
 **update.js** (10.9 KB)
+
 - Installation verification
 - Configuration backup with timestamp
 - Git code update (if available)
@@ -79,6 +88,7 @@ Four Node.js-based installation/management scripts replacing bash equivalents:
 ### Configuration & Deployment ✅
 
 **docker-compose.yml** - Enhanced with:
+
 - Updated container naming: `kali-ai-term-app`, `kali-ai-term-kali`
 - Health checks for both containers
 - Port binding on all interfaces: `0.0.0.0:31337`
@@ -86,11 +96,13 @@ Four Node.js-based installation/management scripts replacing bash equivalents:
 - Network naming: `kali-ai-term-net`
 
 **server.js** - Enhanced with:
+
 - InstallLogger initialization
 - Startup logging with configuration
 - LOG_LEVEL environment variable integration
 
 **.env.example** - Comprehensive documentation:
+
 - All configuration options documented
 - Helpful comments for each setting
 - LOG_LEVEL options (debug, info, warn, error)
@@ -98,6 +110,7 @@ Four Node.js-based installation/management scripts replacing bash equivalents:
 - Optional settings section
 
 **README.md** - Extensive additions:
+
 - Installation Methods section (all 4 scripts explained)
 - Troubleshooting & Log Files section (700+ lines)
 - Log analysis instructions
@@ -110,19 +123,23 @@ Four Node.js-based installation/management scripts replacing bash equivalents:
 ## Key Features Implemented
 
 ### ✅ Comprehensive Logging
+
 - Every command logged with exit codes and output
 - Console and file output simultaneously
 - Sensitive data automatically masked
 - ISO 8601 timestamps on all entries
 
 ### ✅ Silent Failure Prevention
+
 - npm output no longer suppressed
 - Docker container health verification (not fixed 3-second wait)
 - Explicit success/failure messages
 - Clear error context and suggestions
 
 ### ✅ Sensitive Data Masking
+
 Automatically masked in logs:
+
 ```
 ADMIN_PASSWORD=ded6dc0daf2ad058 → ADMIN_PASSWORD=***
 AUTH_SECRET=bec79f11-8006-4973... → AUTH_SECRET=***
@@ -130,19 +147,23 @@ API_KEY, TOKEN, SECRET values → ***
 ```
 
 ### ✅ Log Rotation
+
 - Keep last 5 installation/update/uninstall runs
 - Automatic deletion of older logs
 - Timestamp-based naming: `install-2024-04-01-10-30-45.log`
 - Symlink to latest: `install.log`
 
 ### ✅ Docker Health Checks
+
 - Real health verification instead of sleep(5)
 - Health checks defined in docker-compose.yml
 - Monitoring loop with configurable timeout
 - Container state tracking
 
 ### ✅ Diagnostic Reports
+
 JSON diagnostic files contain:
+
 - Timestamp and installation stage
 - System information (platform, Node version, etc.)
 - All executed commands with exit codes
@@ -151,7 +172,9 @@ JSON diagnostic files contain:
 - Environment variables (masked)
 
 ### ✅ Error Analysis & Suggestions
+
 Automatic detection and fixes for:
+
 - npm ERESOLVE conflicts → suggest `--legacy-peer-deps`
 - Docker socket errors → suggest `systemctl start docker`
 - Docker permission errors → suggest `usermod -aG docker`
@@ -159,7 +182,9 @@ Automatic detection and fixes for:
 - Network connection failures → suggest firewall check
 
 ### ✅ Interactive Troubleshooting
+
 Post-installation menu allows users to:
+
 - View detailed error messages
 - Check Docker container status
 - See system information
@@ -171,6 +196,7 @@ Post-installation menu allows users to:
 ## Git Commits
 
 **Commit 1:** `c41cb8d` - Core modules
+
 ```
 feat: add comprehensive logging and diagnostic system modules
 - InstallLogger: centralized logging with rotation and masking
@@ -179,6 +205,7 @@ feat: add comprehensive logging and diagnostic system modules
 ```
 
 **Commit 2:** `cafa158` - Integration
+
 ```
 feat: integrate logging system into installation and management scripts
 - install.js: basic installation with logging
@@ -216,6 +243,7 @@ feat: integrate logging system into installation and management scripts
 The code is ready to be pushed. Since the local Git server is not network-accessible from this environment, you'll need to push using your token:
 
 ### Option 1: Using HTTPS with Token
+
 ```bash
 cd /tmp/Kali-AI-term
 
@@ -227,6 +255,7 @@ git push -u origin claude/logging-diagnostic-system
 ```
 
 ### Option 2: Copy Files Locally and Push
+
 ```bash
 # Copy all new/modified files from /tmp/Kali-AI-term to your local repo
 cp -v /tmp/Kali-AI-term/install.js ./
@@ -248,6 +277,7 @@ git push -u origin claude/logging-diagnostic-system
 ```
 
 ### Option 3: Create Pull Request from GitHub
+
 1. Go to https://github.com/Crashcart/Kali-AI-term
 2. You should see the branch `claude/logging-diagnostic-system` listed
 3. Click "New Pull Request"
@@ -289,6 +319,7 @@ node uninstall.js
 ## What Users Will See
 
 ### During Installation
+
 ```
 ╔════════════════════════════════════════════════╗
 ║  Kali Hacker Bot - Full Installation         ║
@@ -304,6 +335,7 @@ node uninstall.js
 ```
 
 ### Log Files Created
+
 ```
 install-2024-04-01-10-30-45.log    # Timestamped log
 install.log                         # Symlink to latest
@@ -311,6 +343,7 @@ install.diagnostic                  # JSON diagnostic report
 ```
 
 ### If Something Fails
+
 ```
 ✗ Installation Failed
 
@@ -323,6 +356,7 @@ Diagnostics:
 ```
 
 ### Post-Installation Menu
+
 ```
 ╔════════════════════════════════════════════╗
 ║    Installation Diagnostic Menu            ║

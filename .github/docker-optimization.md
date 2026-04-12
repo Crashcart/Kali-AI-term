@@ -4,29 +4,33 @@ Reduce Docker image size from GB to MB using proven techniques. Target: 90%+ siz
 
 ## Quick Wins
 
-| Technique | Impact | Effort |
-|-----------|--------|--------|
+| Technique          | Impact | Effort |
+| ------------------ | ------ | ------ |
 | Multi-stage builds | 50-80% | Medium |
-| Alpine base image | 30-50% | Low |
-| Remove build tools | 20-40% | Low |
-| Clean caches | 10-30% | Low |
-| .dockerignore | 5-20% | Low |
+| Alpine base image  | 30-50% | Low    |
+| Remove build tools | 20-40% | Low    |
+| Clean caches       | 10-30% | Low    |
+| .dockerignore      | 5-20%  | Low    |
 
 ---
 
 ## 1. Use Lightweight Base Images
 
 ### Alpine Linux (5MB)
+
 ```dockerfile
 FROM alpine:3.19
 ```
+
 - 95% smaller than ubuntu
 - Ideal for most applications
 
 ### Distroless (10-50MB)
+
 ```dockerfile
 FROM gcr.io/distroless/base
 ```
+
 - No shell, no package manager
 - Maximum security and minimal size
 
@@ -35,6 +39,7 @@ FROM gcr.io/distroless/base
 ## 2. Multi-Stage Builds
 
 ### Before (500MB)
+
 ```dockerfile
 FROM ubuntu:22.04
 RUN apt-get update && apt-get install -y gcc make cmake
@@ -45,6 +50,7 @@ CMD ["./app"]
 ```
 
 ### After (25MB)
+
 ```dockerfile
 # Stage 1: Build
 FROM ubuntu:22.04 AS builder
@@ -117,6 +123,7 @@ CMD ["python3", "app.py"]
 ## 6. Language Examples
 
 ### Node.js
+
 ```dockerfile
 FROM node:20-alpine AS builder
 WORKDIR /app
@@ -131,6 +138,7 @@ CMD ["node", "index.js"]
 ```
 
 ### Python
+
 ```dockerfile
 FROM python:3.11-alpine AS builder
 RUN apk add --no-cache gcc musl-dev
@@ -146,6 +154,7 @@ CMD ["python", "app.py"]
 ```
 
 ### Go
+
 ```dockerfile
 FROM golang:1.21-alpine AS builder
 WORKDIR /app
@@ -179,16 +188,19 @@ ENTRYPOINT ["/app"]
 ## 8. Verification
 
 ### Check Size
+
 ```bash
 docker images | grep your-image
 ```
 
 ### Analyze Layers
+
 ```bash
 docker history your-image
 ```
 
 ### Dive Analysis
+
 ```bash
 dive your-image
 ```

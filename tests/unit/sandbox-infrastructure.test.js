@@ -15,7 +15,7 @@ describe('Sandbox Infrastructure', () => {
       info: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
-      debug: jest.fn()
+      debug: jest.fn(),
     };
   });
 
@@ -147,7 +147,7 @@ describe('Sandbox Infrastructure', () => {
         const sandbox = config.createStandardSandbox();
         config.updateSandbox(sandbox.id, { status: 'running' });
         const running = config.getSandboxesByStatus('running');
-        expect(running.some(s => s.id === sandbox.id)).toBe(true);
+        expect(running.some((s) => s.id === sandbox.id)).toBe(true);
       });
     });
 
@@ -162,37 +162,37 @@ describe('Sandbox Infrastructure', () => {
       it('should reject excessive CPU limits', () => {
         const sandbox = config.createStandardSandbox();
         config.updateSandbox(sandbox.id, {
-          resources: { cpuLimit: '32' }
+          resources: { cpuLimit: '32' },
         });
         const verification = config.verifySandboxConstraints(sandbox.id);
         expect(verification.valid).toBe(false);
-        expect(verification.errors.some(e => e.includes('CPU'))).toBe(true);
+        expect(verification.errors.some((e) => e.includes('CPU'))).toBe(true);
       });
 
       it('should reject excessive memory limits', () => {
         const sandbox = config.createStandardSandbox();
         config.updateSandbox(sandbox.id, {
-          resources: { memoryLimit: '64g' }
+          resources: { memoryLimit: '64g' },
         });
         const verification = config.verifySandboxConstraints(sandbox.id);
         expect(verification.valid).toBe(false);
-        expect(verification.errors.some(e => e.includes('Memory'))).toBe(true);
+        expect(verification.errors.some((e) => e.includes('Memory'))).toBe(true);
       });
 
       it('should reject access to system directories', () => {
         const sandbox = config.createStandardSandbox();
         config.updateSandbox(sandbox.id, {
-          isolation: { allowedPaths: ['/etc', '/workspace'] }
+          isolation: { allowedPaths: ['/etc', '/workspace'] },
         });
         const verification = config.verifySandboxConstraints(sandbox.id);
         expect(verification.valid).toBe(false);
-        expect(verification.errors.some(e => e.includes('system directories'))).toBe(true);
+        expect(verification.errors.some((e) => e.includes('system directories'))).toBe(true);
       });
 
       it('should reject out-of-range timeouts', () => {
         const sandbox = config.createStandardSandbox();
         config.updateSandbox(sandbox.id, {
-          execution: { timeout: 500 } // Too short
+          execution: { timeout: 500 }, // Too short
         });
         const verification = config.verifySandboxConstraints(sandbox.id);
         expect(verification.valid).toBe(false);
@@ -301,10 +301,10 @@ describe('Sandbox Infrastructure', () => {
       it('should timeout long-running executions', async () => {
         const sandbox = config.createStandardSandbox();
         config.updateSandbox(sandbox.id, {
-          execution: { timeout: 10 } // 10ms timeout
+          execution: { timeout: 10 }, // 10ms timeout
         });
         await manager.startSandbox(sandbox.id);
-        
+
         // This test would need a long-running command
         // For MVP, we're just verifying the timeout logic exists
         expect(sandbox.execution.timeout).toBe(10);

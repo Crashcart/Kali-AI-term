@@ -11,9 +11,11 @@ Docker Sandboxes provide isolated, secure execution environments for autonomous 
 ### Core Components
 
 #### 1. **SandboxDetector** (`lib/sandbox-detector.js`)
+
 Detects and verifies Docker Sandboxes availability on the developer's system.
 
 **Features:**
+
 - Cross-platform support (macOS, Windows, Linux)
 - Automatic installation instruction generation
 - 5-minute result caching
@@ -21,13 +23,14 @@ Detects and verifies Docker Sandboxes availability on the developer's system.
 
 **Installation Instructions:**
 
-| Platform | Command |
-|----------|---------|
-| macOS | `brew install docker/tap/sbx` |
-| Windows | `winget install Docker.sbx` |
-| Linux | `docker plugin install docker/sbx:latest` |
+| Platform | Command                                   |
+| -------- | ----------------------------------------- |
+| macOS    | `brew install docker/tap/sbx`             |
+| Windows  | `winget install Docker.sbx`               |
+| Linux    | `docker plugin install docker/sbx:latest` |
 
 #### 2. **SandboxConfig** (`lib/sandbox-config.js`)
+
 Manages sandbox configurations and security constraints.
 
 **Sandbox Templates:**
@@ -43,7 +46,7 @@ Manages sandbox configurations and security constraints.
   id: "unique-uuid",
   name: "sandbox-name",
   status: "created|running|stopped|error",
-  
+
   // Isolation settings
   isolation: {
     hostFilesystemAccess: false,
@@ -53,7 +56,7 @@ Manages sandbox configurations and security constraints.
     dockerSocketAccess: false,
     environmentVariables: {}
   },
-  
+
   // Resource limits
   resources: {
     cpuLimit: "2",
@@ -61,7 +64,7 @@ Manages sandbox configurations and security constraints.
     diskLimit: "10g",
     processLimit: 100
   },
-  
+
   // Security constraints
   security: {
     readOnlyFilesystem: false,
@@ -69,7 +72,7 @@ Manages sandbox configurations and security constraints.
     seccompProfile: "default",
     noNewPrivileges: true
   },
-  
+
   // Execution context
   execution: {
     workingDirectory: "/workspace",
@@ -77,7 +80,7 @@ Manages sandbox configurations and security constraints.
     timeout: 3600000, // 1 hour
     autoCleanup: true
   },
-  
+
   // Observability
   observability: {
     enableLogging: true,
@@ -89,9 +92,11 @@ Manages sandbox configurations and security constraints.
 ```
 
 #### 3. **SandboxManager** (`lib/sandbox-manager.js`)
+
 Orchestrates sandbox lifecycle, execution, and constraint enforcement.
 
 **Key Operations:**
+
 - Start/stop sandboxes
 - Execute commands safely within constraints
 - Monitor execution metrics
@@ -101,6 +106,7 @@ Orchestrates sandbox lifecycle, execution, and constraint enforcement.
 **Command Constraint Verification:**
 
 The manager blocks dangerous operations:
+
 - `rm -rf /` - Recursive deletion of root
 - `dd if=/dev/` - Low-level disk operations
 - `mkfs` - Filesystem creation
@@ -109,6 +115,7 @@ The manager blocks dangerous operations:
 - Restricted system directories (when not allowed)
 
 #### 4. **Sandbox API Routes** (`lib/sandbox-api-routes.js`)
+
 RESTful endpoints for sandbox management and execution.
 
 ### API Endpoints
@@ -137,11 +144,7 @@ Get installation instructions for the current platform.
 {
   "instructions": {
     "title": "Install Docker Sandboxes on macOS",
-    "commands": [
-      "brew tap docker/tap",
-      "brew install docker/tap/sbx",
-      "docker-sbx --version"
-    ]
+    "commands": ["brew tap docker/tap", "brew install docker/tap/sbx", "docker-sbx --version"]
   }
 }
 ```
@@ -250,6 +253,7 @@ curl -X POST http://localhost:31337/api/sandbox/$SANDBOX_ID/execute \
 ```
 
 **Response (rejected command):**
+
 ```json
 {
   "execution": {
@@ -268,6 +272,7 @@ curl http://localhost:31337/api/sandbox/$SANDBOX_ID \
 ```
 
 **Sample Output:**
+
 ```json
 {
   "id": "sandbox-uuid",
@@ -327,18 +332,16 @@ The sandbox manager validates all commands before execution:
 ```javascript
 // Blocked patterns
 const dangerousPatterns = [
-  /rm\s+-rf\s+\//,           // rm -rf /
-  /dd\s+if=\/dev/,           // Low-level disk write
-  /mkfs/,                    // Format filesystem
-  /fdisk/,                   // Partition modification
-  /etc\/shadow/,             // Shadow file
-  /etc\/passwd/              // Password file
+  /rm\s+-rf\s+\//, // rm -rf /
+  /dd\s+if=\/dev/, // Low-level disk write
+  /mkfs/, // Format filesystem
+  /fdisk/, // Partition modification
+  /etc\/shadow/, // Shadow file
+  /etc\/passwd/, // Password file
 ];
 
 // Blocked restricted paths (when hostFilesystemAccess = false)
-const restrictedPaths = [
-  '/etc', '/root', '.ssh', 'authorized_keys'
-];
+const restrictedPaths = ['/etc', '/root', '.ssh', 'authorized_keys'];
 ```
 
 ## Compliance with Issue #44 Requirements
@@ -357,6 +360,7 @@ const restrictedPaths = [
 ### MVP Scope
 
 This MVP implementation provides:
+
 1. ✓ Sandbox detection and auto-installation instructions
 2. ✓ Three security presets (restrictive, standard, permissive)
 3. ✓ Command constraint verification
@@ -384,6 +388,7 @@ npm test tests/unit/sandbox-infrastructure.test.js
 ### Test Coverage
 
 The test suite covers:
+
 - Platform detection (macOS, Windows, Linux)
 - Caching behavior and cache expiry
 - Sandbox creation and management
@@ -413,7 +418,10 @@ sandboxConfig.loadPersistedConfigs();
 
 // Register API routes
 const sandboxRoutes = createSandboxRoutes(
-  sandboxDetector, sandboxConfig, sandboxManager, appLogger
+  sandboxDetector,
+  sandboxConfig,
+  sandboxManager,
+  appLogger
 );
 app.use(sandboxRoutes);
 
@@ -451,19 +459,22 @@ INFO: Execution completed in sandbox {sandboxId}: {executionId}
 **Problem:** `sandboxAvailable: false`
 
 **Solution:**
+
 1. Check installation status:
+
    ```bash
    docker-sbx version
    ```
 
 2. Install if missing:
+
    ```bash
    # macOS
    brew install docker/tap/sbx
-   
+
    # Windows
    winget install Docker.sbx
-   
+
    # Linux
    docker plugin install docker/sbx:latest
    ```
@@ -480,12 +491,15 @@ INFO: Execution completed in sandbox {sandboxId}: {executionId}
 **Reason:** Command violates sandbox security policy (contains dangerous pattern or accesses restricted path)
 
 **Solution:**
+
 1. Check the sandbox configuration:
+
    ```bash
    curl http://localhost:31337/api/sandbox/{sandboxId}
    ```
 
 2. Verify command constraints:
+
    ```bash
    curl -X POST http://localhost:31337/api/sandbox/verify \
      -d '{"sandboxId": "{sandboxId}"}'
@@ -502,6 +516,7 @@ INFO: Execution completed in sandbox {sandboxId}: {executionId}
 **Problem:** `await manager.startSandbox()` fails
 
 **Solution:**
+
 1. Verify Docker is running
 2. Check Docker socket permissions: `ls -la /var/run/docker.sock`
 3. Review server logs for error details

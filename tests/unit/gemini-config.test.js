@@ -112,7 +112,9 @@ function createTestApp({ withGeminiProvider = true } = {}) {
 
     if (!geminiProvider) {
       if (!apiKey) {
-        return res.status(400).json({ error: 'apiKey is required to initialise the Gemini provider' });
+        return res
+          .status(400)
+          .json({ error: 'apiKey is required to initialise the Gemini provider' });
       }
       geminiProvider = new GeminiProviderClass(apiKey.trim());
       orchestrator.registerProvider('gemini', geminiProvider);
@@ -130,7 +132,7 @@ function createTestApp({ withGeminiProvider = true } = {}) {
       success: true,
       configured: true,
       apiKeySet: !!geminiProvider.apiKey,
-      model: geminiProvider.model
+      model: geminiProvider.model,
     });
   });
 
@@ -235,7 +237,9 @@ describe('Gemini Settings API', () => {
 
     test('returns 400 when no apiKey supplied and provider does not exist', async () => {
       const freshApp = createTestApp({ withGeminiProvider: false });
-      const loginRes = await request(freshApp).post('/api/auth/login').send({ password: 'kalibot' });
+      const loginRes = await request(freshApp)
+        .post('/api/auth/login')
+        .send({ password: 'kalibot' });
       const freshToken = loginRes.body.token;
 
       const res = await request(freshApp)
@@ -278,9 +282,7 @@ describe('Gemini Settings API', () => {
     });
 
     test('rejects unauthenticated request', async () => {
-      const res = await request(app)
-        .post('/api/gemini/config')
-        .send({ apiKey: 'test-key' });
+      const res = await request(app).post('/api/gemini/config').send({ apiKey: 'test-key' });
 
       expect(res.status).toBe(401);
     });

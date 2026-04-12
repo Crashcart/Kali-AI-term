@@ -18,7 +18,7 @@ COPY lib ./lib
 COPY plugins ./plugins
 COPY public ./public
 
-# Create data directory
+# Create data directory (socket mount handled by docker-compose)
 RUN mkdir -p /app/data
 
 # Expose port

@@ -40,7 +40,7 @@ process.chdir(projectDir);
 const logger = createLogger('update', {
   logDir: process.cwd(),
   verbose: true,
-  maskSensitive: true
+  maskSensitive: true,
 });
 
 // ============================================
@@ -53,16 +53,19 @@ async function checkInstallation() {
   const requirements = {
     '.env': () => fs.existsSync('.env'),
     'docker-compose.yml': () => fs.existsSync('docker-compose.yml'),
-    'node_modules': () => fs.existsSync('node_modules'),
-    'Containers': () => {
+    node_modules: () => fs.existsSync('node_modules'),
+    Containers: () => {
       try {
-        const output = execSync('docker ps -a --format "{{.Names}}" | grep -i kali',
-          { encoding: 'utf8', shell: true, stdio: 'pipe' }).trim();
+        const output = execSync('docker ps -a --format "{{.Names}}" | grep -i kali', {
+          encoding: 'utf8',
+          shell: true,
+          stdio: 'pipe',
+        }).trim();
         return output.length > 0;
       } catch (err) {
         return false;
       }
-    }
+    },
   };
 
   let allPresent = true;
@@ -136,14 +139,16 @@ async function updateSourceCode() {
       logger.trackCommand('git pull', 0, gitOutput);
       logger.success('Code updated from git');
     } else {
-      logger.warn('Not a git repository, refreshing full project snapshot from fix/issue-41 branch');
+      logger.warn(
+        'Not a git repository, refreshing full project snapshot from fix/issue-41 branch'
+      );
 
       const tmpDir = execSync('mktemp -d', { encoding: 'utf8' }).trim();
       const downloadCmd = [
         `curl -fsSL https://codeload.github.com/Crashcart/Kali-AI-term/tar.gz/refs/heads/fix/issue-41 -o ${tmpDir}/project.tar.gz`,
         `tar -xzf ${tmpDir}/project.tar.gz -C ${tmpDir}`,
         `rsync -a --delete --exclude '.env' --exclude 'data/' --exclude '.backup-*' ${tmpDir}/Kali-AI-term-fix-issue-41/ ./`,
-        `rm -rf ${tmpDir}`
+        `rm -rf ${tmpDir}`,
       ].join(' && ');
 
       execSync(downloadCmd, { shell: true, stdio: 'pipe' });
@@ -163,7 +168,7 @@ async function validateComposeConfig() {
 
   try {
     execSync('docker compose config >/dev/null 2>&1 || docker-compose config >/dev/null 2>&1', {
-      shell: true
+      shell: true,
     });
     logger.success('docker-compose.yml is valid');
   } catch (err) {
@@ -191,7 +196,10 @@ async function updateDependencies() {
     // Try npm install to ensure all deps
     try {
       logger.info('Attempting npm install to ensure all dependencies...');
-      const installOutput = execSync('npm install', { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
+      const installOutput = execSync('npm install', {
+        encoding: 'utf8',
+        maxBuffer: 10 * 1024 * 1024,
+      });
       logger.trackCommand('npm install', 0, installOutput);
       logger.success('Dependencies verified');
     } catch (installErr) {
@@ -209,13 +217,15 @@ async function stopContainers() {
   logger.info('Stopping running containers...');
 
   try {
-    execSync('docker-compose down 2>/dev/null || docker compose down 2>/dev/null',
-      { shell: true, stdio: 'ignore' });
+    execSync('docker-compose down 2>/dev/null || docker compose down 2>/dev/null', {
+      shell: true,
+      stdio: 'ignore',
+    });
     logger.trackCommand('docker-compose down', 0);
     logger.success('Containers stopped');
 
     // Wait a moment
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise((resolve) => setTimeout(resolve, 2000));
   } catch (err) {
     logger.warn('docker-compose down failed', { error: err.message });
   }
@@ -232,7 +242,7 @@ async function rebuildDockerImage() {
     logger.info('Building application image (this may take a minute)...');
     const buildOutput = execSync('docker build -t kali-hacker-bot:latest .', {
       encoding: 'utf8',
-      maxBuffer: 10 * 1024 * 1024
+      maxBuffer: 10 * 1024 * 1024,
     });
     logger.trackCommand('docker build', 0, buildOutput);
     logger.success('Docker image rebuilt');
@@ -250,8 +260,10 @@ async function startContainers() {
   logger.info('Starting updated containers...');
 
   try {
-    const upOutput = execSync('docker-compose up -d --build --force-recreate 2>/dev/null || docker compose up -d --build --force-recreate',
-      { encoding: 'utf8', shell: true, maxBuffer: 10 * 1024 * 1024 });
+    const upOutput = execSync(
+      'docker-compose up -d --build --force-recreate 2>/dev/null || docker compose up -d --build --force-recreate',
+      { encoding: 'utf8', shell: true, maxBuffer: 10 * 1024 * 1024 }
+    );
     logger.trackCommand('docker-compose up -d --build --force-recreate', 0, upOutput);
     logger.success('Containers built and started');
 
@@ -263,19 +275,22 @@ async function startContainers() {
 
     while (!healthy && attempts < maxAttempts) {
       try {
-        const psOutput = execSync('docker ps --format "{{.Names}}\t{{.State}}"',
-          { encoding: 'utf8' });
+        const psOutput = execSync('docker ps --format "{{.Names}}\t{{.State}}"', {
+          encoding: 'utf8',
+        });
 
         const lines = psOutput.trim().split('\n');
-        const appRunning = lines.some(line =>
-          line.includes('kali-ai-term-app') && line.includes('running'));
-        const kaliRunning = lines.some(line =>
-          line.includes('kali-ai-term-kali') && line.includes('running'));
+        const appRunning = lines.some(
+          (line) => line.includes('kali-ai-term-app') && line.includes('running')
+        );
+        const kaliRunning = lines.some(
+          (line) => line.includes('kali-ai-term-kali') && line.includes('running')
+        );
 
         if (appRunning && kaliRunning) {
           healthy = true;
           logger.success('Containers are running and healthy');
-          lines.forEach(line => {
+          lines.forEach((line) => {
             if (line.trim()) {
               const [name, state] = line.split('\t');
               logger.trackContainer(name, state === 'running' ? 'running' : 'created', { state });
@@ -286,18 +301,17 @@ async function startContainers() {
           if (attempts % 5 === 0) {
             logger.debug(`Waiting for containers (${attempts}s)`);
           }
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise((resolve) => setTimeout(resolve, 2000));
         }
       } catch (err) {
         attempts++;
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
     }
 
     if (!healthy) {
       logger.warn('Containers did not become healthy within timeout');
     }
-
   } catch (err) {
     logger.error('Failed to start containers', { error: err.message });
     throw err;
@@ -313,8 +327,10 @@ async function verifyUpdate() {
 
   // Health check API
   try {
-    execSync('curl -f http://localhost:3000/api/system/status >/dev/null 2>&1',
-      { shell: true, timeout: 5000 });
+    execSync('curl -f http://localhost:3000/api/system/status >/dev/null 2>&1', {
+      shell: true,
+      timeout: 5000,
+    });
     logger.success('Application API is responding');
   } catch (err) {
     logger.warn('Health check failed (application may still be starting)');
@@ -322,8 +338,10 @@ async function verifyUpdate() {
 
   // Check logs
   try {
-    const appLogs = execSync('docker logs kali-ai-term-app 2>&1 | tail -5',
-      { encoding: 'utf8', shell: true });
+    const appLogs = execSync('docker logs kali-ai-term-app 2>&1 | tail -5', {
+      encoding: 'utf8',
+      shell: true,
+    });
     logger.debug('Recent app logs', { logs: appLogs });
   } catch (err) {
     logger.debug('Could not fetch logs');
@@ -373,7 +391,6 @@ async function runUpdate() {
     console.log(`  App logs: docker logs -f kali-ai-term-app\n`);
 
     logger.success('Update completed successfully');
-
   } catch (err) {
     logger.error('Update failed', { error: err.message });
     logger.generateDiagnostic('failed', 'update', err.message);

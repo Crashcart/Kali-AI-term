@@ -2,7 +2,7 @@
 
 > **Scope**: These rules apply to **ALL AI agents** (Copilot, Claude, GPT, etc.) working in this repository.  
 > **Version**: 2.0 — 2026-04-11  
-> **Applies to**: ALL Crashcart repositories  
+> **Applies to**: ALL Crashcart repositories
 
 ---
 
@@ -20,18 +20,18 @@
 
 These rules **cannot be overridden** by any agent, workflow, or instruction:
 
-| # | Rule | Why |
-|---|------|-----|
-| 1 | 🚫 **NEVER push to `main`** | Only humans merge PRs to main |
-| 2 | 🚫 **NEVER close a GitHub issue** | Only the repository owner closes issues |
-| 3 | 🚫 **NEVER auto-merge a PR** | Create the PR, then wait for human review |
-| 4 | 🚫 **NEVER skip tests** | Run the full test suite before every PR |
-| 5 | 🚫 **NEVER skip conflict checks** | After every push, check for conflicts with main |
-| 6 | ✅ **ALWAYS update TODO.md + PLANNING.md** | Every session, before and after work |
-| 7 | ✅ **ALWAYS read all issue comments** | Before starting work on any issue |
-| 8 | ✅ **ALWAYS use feature branches** | Branch naming: `type/issue-number` (e.g., `fix/42`, `feat/101`) |
-| 9 | ✅ **ALWAYS log decisions** | In PLANNING.md with timestamps |
-| 10 | 🔒 **GOVERNANCE FILES ARE SELF-PROTECTING** | Edits to governance files must follow governance rules (see §GOVERNANCE FILE PROTECTION below) |
+| #   | Rule                                        | Why                                                                                            |
+| --- | ------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 1   | 🚫 **NEVER push to `main`**                 | Only humans merge PRs to main                                                                  |
+| 2   | 🚫 **NEVER close a GitHub issue**           | Only the repository owner closes issues                                                        |
+| 3   | 🚫 **NEVER auto-merge a PR**                | Create the PR, then wait for human review                                                      |
+| 4   | 🚫 **NEVER skip tests**                     | Run the full test suite before every PR                                                        |
+| 5   | 🚫 **NEVER skip conflict checks**           | After every push, check for conflicts with main                                                |
+| 6   | ✅ **ALWAYS update TODO.md + PLANNING.md**  | Every session, before and after work                                                           |
+| 7   | ✅ **ALWAYS read all issue comments**       | Before starting work on any issue                                                              |
+| 8   | ✅ **ALWAYS use feature branches**          | Branch naming: `type/issue-number` (e.g., `fix/42`, `feat/101`)                                |
+| 9   | ✅ **ALWAYS log decisions**                 | In PLANNING.md with timestamps                                                                 |
+| 10  | 🔒 **GOVERNANCE FILES ARE SELF-PROTECTING** | Edits to governance files must follow governance rules (see §GOVERNANCE FILE PROTECTION below) |
 
 ---
 
@@ -40,6 +40,7 @@ These rules **cannot be overridden** by any agent, workflow, or instruction:
 The files listed below **govern all AI agent behavior**. Any AI editing these files **must follow the same rules it would follow for any code change** — no exceptions.
 
 ### Protected governance files:
+
 - `.github/copilot-instructions.md` — master ruleset (this file)
 - `.github/REPO_CONFIG.md` — project-specific configuration
 - `.github/TODO.md` — task tracking
@@ -61,6 +62,7 @@ The files listed below **govern all AI agent behavior**. Any AI editing these fi
 8. **Conflict resolution** — governance file conflicts always escalate to human (never auto-resolve)
 
 ### Why this matters:
+
 If an AI modifies these files incorrectly, every subsequent AI session inherits the broken rules.
 A single bad edit to `copilot-instructions.md` can cascade across all agents and all repositories.
 **Treat governance files with the same care as production security code.**
@@ -140,6 +142,7 @@ Before declaring done:
 1. **Final push** of any remaining changes
 2. **Ensure PR exists** and references the issue (`Closes #N`)
 3. **Post completion comment** on the issue:
+
    ```
    ✅ COMPLETE — Ready for human review
 
@@ -149,6 +152,7 @@ Before declaring done:
    **TODO.md**: ✅ Updated
    **PLANNING.md**: ✅ Updated
    ```
+
 4. **WAIT** — do NOT merge. Human merges only.
 
 > ✅ **PLANNING checkpoint**: PLANNING.md updated — "Phase 4 complete. PR #N ready for review."
@@ -164,11 +168,11 @@ git fetch origin main
 git merge --no-commit origin/main
 ```
 
-| Output | Action |
-|--------|--------|
-| "Already up to date" | ✅ Continue normally |
-| Clean merge | ✅ Run `git merge --abort`, continue normally |
-| **CONFLICT** | ⚠️ Follow resolution steps below |
+| Output               | Action                                        |
+| -------------------- | --------------------------------------------- |
+| "Already up to date" | ✅ Continue normally                          |
+| Clean merge          | ✅ Run `git merge --abort`, continue normally |
+| **CONFLICT**         | ⚠️ Follow resolution steps below              |
 
 ### If conflicts are found:
 
@@ -188,11 +192,12 @@ git merge --no-commit origin/main
 Last Updated: YYYY-MM-DD HH:MM UTC
 Current Agent: [agent name]
 
-| ID | Task | Status | Priority | Notes |
-|:--:|------|--------|----------|-------|
-| 1  | [task] | not-started / in-progress / completed | 🔴 CRITICAL / 🟠 HIGH / 🟡 MEDIUM | [notes] |
+| ID  | Task   | Status                                | Priority                          | Notes   |
+| :-: | ------ | ------------------------------------- | --------------------------------- | ------- |
+|  1  | [task] | not-started / in-progress / completed | 🔴 CRITICAL / 🟠 HIGH / 🟡 MEDIUM | [notes] |
 
 Rules:
+
 - Max 1 task `in-progress` per agent
 - Update immediately on state change — no batching
 - 3 statuses only: not-started, in-progress, completed
@@ -208,7 +213,9 @@ Rules:
 Last Updated: YYYY-MM-DD HH:MM UTC
 
 ## Current Work
+
 ### Issue #N: [title]
+
 - **Status**: [Phase 0/1/2/3/4]
 - **Branch**: [branch-name]
 - **Approach**: [what and why]
@@ -216,12 +223,15 @@ Last Updated: YYYY-MM-DD HH:MM UTC
 - **Decisions**: [timestamped decisions]
 
 ## Handoff Notes
+
 [What the next agent needs to know]
 
 ## Blockers
+
 [What's blocked and why]
 
 ## Lessons Learned
+
 [What worked, what didn't]
 ```
 
@@ -231,11 +241,11 @@ Last Updated: YYYY-MM-DD HH:MM UTC
 
 When discovering or picking up issues:
 
-| Tier | Markers | Action |
-|------|---------|--------|
+| Tier       | Markers                                                         | Action                     |
+| ---------- | --------------------------------------------------------------- | -------------------------- |
 | **TIER 1** | `[CRITICAL]`, `P0`, `[SECURITY]`, `[PRODUCTION]`, `[EMERGENCY]` | Work FIRST — even if vague |
-| **TIER 2** | `[URGENT]`, `[BLOCKING]`, `P1` | Work SECOND |
-| **TIER 3** | Everything else | Work THIRD |
+| **TIER 2** | `[URGENT]`, `[BLOCKING]`, `P1`                                  | Work SECOND                |
+| **TIER 3** | Everything else                                                 | Work THIRD                 |
 
 - Read ALL comments on every issue before starting
 - Detect duplicates: 90% title match + overlapping labels → note the duplicate, keep the oldest
@@ -246,12 +256,14 @@ When discovering or picking up issues:
 ## MULTI-REPO COORDINATION
 
 These repositories share this governance framework:
+
 - `crashcart/kali-ai-term`
 - `crashcart/ollama-intelgpu`
 - `crashcart/rpg-bot`
 - `crashcart/discord-chromecast`
 
 When working across repos:
+
 - Each repo has its own `TODO.md`, `PLANNING.md`, and `REPO_CONFIG.md`
 - Create separate branches and PRs per repo
 - Track cross-repo dependencies in PLANNING.md
@@ -278,17 +290,21 @@ Types: `fix`, `feat`, `docs`, `test`, `chore`, `refactor`
 
 ```markdown
 ## Summary
+
 - [what changed]
 
 ## Issue
+
 Closes #N
 
 ## Test Plan
+
 - [ ] All tests pass
 - [ ] No regressions
 - [ ] Security reviewed (OWASP Top 10)
 
 ## Checklist
+
 - [ ] TODO.md updated
 - [ ] PLANNING.md updated
 - [ ] REPO_CONFIG.md consulted for monitored files
@@ -316,6 +332,7 @@ Closes #N
 - When blocked for more than 2 resolution attempts
 
 Format:
+
 ```
 🚨 ESCALATION NEEDED
 

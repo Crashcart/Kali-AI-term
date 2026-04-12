@@ -5,6 +5,7 @@ This guide explains how to configure branch protection rules on the GitHub repos
 ## Overview
 
 Branch protection rules ensure:
+
 - All code goes through PR review
 - All automated checks pass before merge
 - The test→main workflow is enforced
@@ -21,6 +22,7 @@ Branch protection rules ensure:
 ### Step 2: Configure "main" Branch Protection
 
 #### Add Protection Rule
+
 1. Click **Add rule** under "Branch protection rules"
 2. In **Branch name pattern**, enter: `main`
 3. Click **Create**
@@ -28,6 +30,7 @@ Branch protection rules ensure:
 #### Configure Settings
 
 **Require a pull request before merging:**
+
 - ✅ Check: "Require a pull request before merging"
 - ✅ Check: "Require approvals" (set to 1)
 - ✅ Check: "Require review from Code Owners" (optional, if CODEOWNERS file exists)
@@ -35,32 +38,39 @@ Branch protection rules ensure:
 - ✅ Check: "Require conversation resolution before merging"
 
 **Require status checks to pass before merging:**
+
 - ✅ Check: "Require branches to be up to date before merging"
 - ✅ Check: "Require status checks to pass before merging"
 
 **Select status checks that must pass:**
 Add the following required status checks:
+
 - [ ] `Tests` (from test.yml)
 - [ ] `Lint & Format` (from lint.yml)
 - [ ] `Docker Build` (from build.yml)
 
 **Require pull request reviews:**
+
 - Minimum: 1 approving review
 - ✅ Check: "Require code owner review" (optional)
 - ✅ Check: "Dismiss stale pull request approvals when new commits are pushed"
 
 **Require branches to be up to date before merging:**
+
 - ✅ Check this option
 
 **Allow auto-merge:**
+
 - ✅ Check: "Allow auto-merge" (for test→main automation)
   - Select merge method: "Squash and merge"
 
 **Restrict who can push to matching branches:**
+
 - ✅ Check: "Restrict who can push to matching branches"
 - Add: `@Crashcart/tipistore-maintainers` (or your team)
 
 **Bypass rules:**
+
 - Keep default (only admins can bypass)
 
 ### Step 3: Configure "test" Branch Protection
@@ -70,6 +80,7 @@ Repeat Step 2 for the `test` branch with these differences:
 **Branch name pattern:** `test`
 
 **Settings:** Same as main, except:
+
 - Minimum approvals: 1
 - Same status checks required
 - ✅ Allow auto-merge (squash)
@@ -139,6 +150,7 @@ gh api repos/Crashcart/tipistore/branches/test/protection \
 ### Status Check Not Found
 
 If a workflow status check is missing:
+
 1. Ensure the workflow file exists in `.github/workflows/`
 2. Commit and push the workflow file
 3. Create a PR or push to trigger the workflow
@@ -147,6 +159,7 @@ If a workflow status check is missing:
 ### Can't Auto-Merge
 
 Check:
+
 - [ ] "Allow auto-merge" is enabled on branch protection
 - [ ] All required status checks are passing
 - [ ] PR has at least 1 approval
@@ -162,6 +175,7 @@ Check:
 ## Automating Merge from test to main
 
 The `merge-test-to-main.yml` workflow will:
+
 1. Automatically detect PR from test→main
 2. Wait for all status checks to pass
 3. Wait for at least 1 approval
@@ -170,6 +184,7 @@ The `merge-test-to-main.yml` workflow will:
 6. Post success comment
 
 This happens automatically when:
+
 - PR is created from `test` to `main`
 - All checks pass (Tests, Lint, Build, Security)
 - At least 1 review is approved
@@ -178,6 +193,7 @@ This happens automatically when:
 ## Required Permissions
 
 For auto-merge to work, ensure the GitHub Actions bot has:
+
 - `pull-requests: write` - Create/merge PRs
 - `contents: write` - Create releases and tags
 - `issues: write` - Post comments
@@ -194,6 +210,7 @@ If you need to disable a workflow temporarily:
 4. Select **Disable workflow**
 
 To re-enable:
+
 1. Go to **Actions** → **All workflows**
 2. Click the disabled workflow
 3. Click **Enable workflow**
@@ -206,18 +223,19 @@ To re-enable:
 
 ## Quick Reference
 
-| Aspect | main | test |
-|--------|------|------|
-| PR Required | ✅ Yes | ✅ Yes |
-| Approvals | 1+ | 1+ |
-| Status Checks | All | All |
-| Auto-merge | ✅ Yes | ✅ Yes |
+| Aspect         | main   | test   |
+| -------------- | ------ | ------ |
+| PR Required    | ✅ Yes | ✅ Yes |
+| Approvals      | 1+     | 1+     |
+| Status Checks  | All    | All    |
+| Auto-merge     | ✅ Yes | ✅ Yes |
 | Merge Strategy | Squash | Squash |
 | Admin Override | ✅ Yes | ✅ Yes |
 
 ## Support
 
 If you encounter issues:
+
 1. Check workflow logs in **Actions** tab
 2. Review this guide's troubleshooting section
 3. Check [GitHub Actions documentation](https://docs.github.com/en/actions)

@@ -52,7 +52,7 @@ function createMockApp() {
         { name: 'threat-intel-plugin', enabled: true, version: '1.0', description: 'Threat intel' },
       ];
 
-      defaultPlugins.forEach(plugin => {
+      defaultPlugins.forEach((plugin) => {
         this.plugins.set(plugin.name, plugin);
       });
     }
@@ -104,12 +104,12 @@ function createMockApp() {
     const plugins = pluginManager.getPlugins();
     res.json({
       success: true,
-      plugins: plugins.map(p => ({
+      plugins: plugins.map((p) => ({
         name: p.name,
         version: p.version,
         description: p.description,
-        enabled: p.enabled
-      }))
+        enabled: p.enabled,
+      })),
     });
   });
 
@@ -125,8 +125,8 @@ function createMockApp() {
         plugin: {
           name: plugin.name,
           version: plugin.version,
-          description: plugin.description
-        }
+          description: plugin.description,
+        },
       });
     } else {
       res.status(404).json({ error: `Plugin ${name} not found` });
@@ -145,8 +145,8 @@ function createMockApp() {
         plugin: {
           name: plugin.name,
           version: plugin.version,
-          description: plugin.description
-        }
+          description: plugin.description,
+        },
       });
     } else {
       res.status(404).json({ error: `Plugin ${name} not found` });
@@ -164,18 +164,14 @@ describe('Plugin API Endpoints', () => {
   beforeAll(async () => {
     app = createMockApp();
 
-    const res = await request(app)
-      .post('/api/auth/login')
-      .send({ password: 'kalibot' });
+    const res = await request(app).post('/api/auth/login').send({ password: 'kalibot' });
 
     token = res.body.token;
     sessionId = res.body.sessionId;
   });
 
   test('GET /api/plugins returns plugin list', async () => {
-    const res = await request(app)
-      .get('/api/plugins')
-      .set('Authorization', `Bearer ${token}`);
+    const res = await request(app).get('/api/plugins').set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -216,43 +212,35 @@ describe('Plugin API Endpoints', () => {
   });
 
   test('unauthenticated GET /api/plugins blocked', async () => {
-    const res = await request(app)
-      .get('/api/plugins');
+    const res = await request(app).get('/api/plugins');
 
     expect(res.status).toBe(401);
     expect(res.body.error).toBeDefined();
   });
 
   test('unauthenticated POST /api/plugins/enable blocked', async () => {
-    const res = await request(app)
-      .post('/api/plugins/enable/cve-plugin');
+    const res = await request(app).post('/api/plugins/enable/cve-plugin');
 
     expect(res.status).toBe(401);
     expect(res.body.error).toBeDefined();
   });
 
   test('invalid token rejected', async () => {
-    const res = await request(app)
-      .get('/api/plugins')
-      .set('Authorization', 'Bearer invalid-token');
+    const res = await request(app).get('/api/plugins').set('Authorization', 'Bearer invalid-token');
 
     expect(res.status).toBe(401);
     expect(res.body.error).toBeDefined();
   });
 
   test('login with wrong password fails', async () => {
-    const res = await request(app)
-      .post('/api/auth/login')
-      .send({ password: 'wrongpassword' });
+    const res = await request(app).post('/api/auth/login').send({ password: 'wrongpassword' });
 
     expect(res.status).toBe(401);
     expect(res.body.error).toBeDefined();
   });
 
   test('successful login returns token and sessionId', async () => {
-    const res = await request(app)
-      .post('/api/auth/login')
-      .send({ password: 'kalibot' });
+    const res = await request(app).post('/api/auth/login').send({ password: 'kalibot' });
 
     expect(res.status).toBe(200);
     expect(res.body.token).toBeDefined();

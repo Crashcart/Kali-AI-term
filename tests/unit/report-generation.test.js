@@ -52,15 +52,15 @@ describe('Report Generation', () => {
           query: 'test query',
           severity: 'CRITICAL',
           description: 'Test critical finding',
-          cves: ['CVE-2024-0001']
+          cves: ['CVE-2024-0001'],
         },
         {
           timestamp: new Date().toISOString(),
           query: 'test query 2',
           severity: 'HIGH',
           description: 'Test high finding',
-          cves: []
-        }
+          cves: [],
+        },
       ],
       getFindings() {
         return this.findings;
@@ -70,7 +70,7 @@ describe('Report Generation', () => {
           return '# Test Report\n\nFindings: ' + this.findings.length;
         }
         return JSON.stringify({ findings: this.findings });
-      }
+      },
     };
 
     // Login endpoint
@@ -85,7 +85,7 @@ describe('Report Generation', () => {
       sessions.set(sessionId, { createdAt: Date.now(), notes: 'Test notes' });
       commandHistory.set(sessionId, [
         { command: 'nmap -sV test.com', timestamp: Date.now(), duration: 45 },
-        { command: 'sqlmap -u test.com', timestamp: Date.now(), duration: 30 }
+        { command: 'sqlmap -u test.com', timestamp: Date.now(), duration: 30 },
       ]);
 
       res.json({ token: tokenVal, sessionId });
@@ -102,11 +102,11 @@ describe('Report Generation', () => {
         generated: new Date().toISOString(),
         sessionId: req.sessionId.slice(0, 8),
         totalFindings: reportPlugin.findings.length,
-        criticalCount: reportPlugin.findings.filter(f => f.severity === 'CRITICAL').length,
-        highCount: reportPlugin.findings.filter(f => f.severity === 'HIGH').length,
+        criticalCount: reportPlugin.findings.filter((f) => f.severity === 'CRITICAL').length,
+        highCount: reportPlugin.findings.filter((f) => f.severity === 'HIGH').length,
         findings: reportPlugin.findings,
         commandHistory: history,
-        sessionNotes: session ? session.notes : ''
+        sessionNotes: session ? session.notes : '',
       };
 
       if (format === 'json') {
@@ -121,9 +121,7 @@ describe('Report Generation', () => {
     });
 
     // Setup - login and get token
-    const loginRes = await request(app)
-      .post('/api/auth/login')
-      .send({ password: 'kalibot' });
+    const loginRes = await request(app).post('/api/auth/login').send({ password: 'kalibot' });
 
     token = loginRes.body.token;
     sessionId = loginRes.body.sessionId;
@@ -205,9 +203,7 @@ describe('Report Generation', () => {
   });
 
   test('unauthenticated request blocked', async () => {
-    const res = await request(app)
-      .post('/api/reports/generate')
-      .send({ format: 'json' });
+    const res = await request(app).post('/api/reports/generate').send({ format: 'json' });
 
     expect(res.status).toBe(401);
   });

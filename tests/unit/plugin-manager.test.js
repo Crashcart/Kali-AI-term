@@ -59,7 +59,7 @@ class PluginManager {
     this.hooks.get(hookName).push({
       plugin,
       execute,
-      enabled: true
+      enabled: true,
     });
   }
 
@@ -126,7 +126,9 @@ describe('Plugin Manager', () => {
   });
 
   test('hook error handling does not crash', async () => {
-    const badHook = jest.fn(async () => { throw new Error('hook failed'); });
+    const badHook = jest.fn(async () => {
+      throw new Error('hook failed');
+    });
     const goodHook = jest.fn(async (data) => ({ ...data, good: true }));
 
     pluginManager.registerHook('test:hook', 'bad', badHook);
@@ -145,10 +147,7 @@ describe('Plugin Manager', () => {
 
     pluginManager.registerHook('test:hook', 'plugin1', hook1);
     const hookObj = { plugin: 'plugin2', execute: hook2, enabled: false };
-    pluginManager.hooks.set('test:hook', [
-      pluginManager.hooks.get('test:hook')[0],
-      hookObj
-    ]);
+    pluginManager.hooks.set('test:hook', [pluginManager.hooks.get('test:hook')[0], hookObj]);
 
     const result = await pluginManager.execute('test:hook', { data: 'test' });
 
@@ -166,7 +165,7 @@ describe('Plugin Manager', () => {
     const plugins = pluginManager.getPlugins();
 
     expect(plugins.length).toBe(3);
-    expect(plugins.map(p => p.name)).toEqual(['plugin1', 'plugin2', 'plugin3']);
+    expect(plugins.map((p) => p.name)).toEqual(['plugin1', 'plugin2', 'plugin3']);
   });
 
   test('enable non-existent plugin returns false', () => {

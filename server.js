@@ -51,9 +51,11 @@ When analyzing tool output:
 Always provide commands with variable placeholders like $TARGET_IP, $LOCAL_IP, $LPORT that the user can substitute. Be concise and tactical.`;
 
 // Security middleware
-app.use(helmet({
-  contentSecurityPolicy: false,
-}));
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+  })
+);
 app.use(cors());
 
 // Rate limiting
@@ -70,10 +72,12 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Serve static files
-app.use(expressStaticGzip(path.join(__dirname, 'public'), {
-  enableBrotli: true,
-  orderPreference: ['br', 'gz'],
-}));
+app.use(
+  expressStaticGzip(path.join(__dirname, 'public'), {
+    enableBrotli: true,
+    orderPreference: ['br', 'gz'],
+  })
+);
 
 // Docker client
 const dockerOptions = {};
@@ -98,7 +102,13 @@ db.initializeDatabase();
 // Run 3-day retention cleanup on startup, then every 6 hours
 db.cleanupStaleHosts();
 db.cleanupExpiredSessions();
-setInterval(() => { db.cleanupStaleHosts(); db.cleanupExpiredSessions(); }, 6 * 60 * 60 * 1000);
+setInterval(
+  () => {
+    db.cleanupStaleHosts();
+    db.cleanupExpiredSessions();
+  },
+  6 * 60 * 60 * 1000
+);
 
 // Active exec processes (for kill switch)
 const activeProcesses = new Map();
@@ -206,7 +216,12 @@ const sandboxManager = new SandboxManager(sandboxConfig, docker, appLogger);
 sandboxConfig.loadPersistedConfigs();
 
 // Initialize sandbox routes
-const sandboxRoutes = createSandboxRoutes(sandboxDetector, sandboxConfig, sandboxManager, appLogger);
+const sandboxRoutes = createSandboxRoutes(
+  sandboxDetector,
+  sandboxConfig,
+  sandboxManager,
+  appLogger
+);
 app.use(sandboxRoutes);
 
 // Log sandbox initialization
@@ -309,7 +324,9 @@ function unregisterOllamaInstance(id) {
 // Initialise instances from environment.
 // OLLAMA_URLS is a comma-separated list; it takes precedence over OLLAMA_URL.
 const _initialUrls = process.env.OLLAMA_URLS
-  ? process.env.OLLAMA_URLS.split(',').map(u => u.trim()).filter(Boolean)
+  ? process.env.OLLAMA_URLS.split(',')
+      .map((u) => u.trim())
+      .filter(Boolean)
   : [OLLAMA_URL];
 
 _initialUrls.forEach((url, idx) => {
@@ -342,36 +359,40 @@ if (_geminiStartupKey) {
   orchestrator.registerProvider('gemini', geminiProvider);
   appLogger.info(`✓ Gemini API provider registered`);
 } else {
-  appLogger.warn(`⚠ GEMINI_API_KEY not set. Gemini provider unavailable. Set it via Settings → AI/LLM → Gemini API Key.`);
+  appLogger.warn(
+    `⚠ GEMINI_API_KEY not set. Gemini provider unavailable. Set it via Settings → AI/LLM → Gemini API Key.`
+  );
 }
 
 // Set up routing strategies for different task types
 orchestrator.setRoutingStrategy('reasoning', {
-  primary: 'ollama',      // Use local Ollama for reasoning
+  primary: 'ollama', // Use local Ollama for reasoning
   fallback: 'gemini',
   timeout: 60000,
-  retries: 1
+  retries: 1,
 });
 
 orchestrator.setRoutingStrategy('speed', {
-  primary: 'ollama',      // Use Ollama for speed
+  primary: 'ollama', // Use Ollama for speed
   fallback: 'gemini',
   timeout: 30000,
-  retries: 0
+  retries: 0,
 });
 
 orchestrator.setRoutingStrategy('quality', {
-  primary: 'ollama',      // Use local Ollama; fall back to Gemini for quality
+  primary: 'ollama', // Use local Ollama; fall back to Gemini for quality
   fallback: 'gemini',
   timeout: 120000,
-  retries: 2
+  retries: 2,
 });
 
 // Initialize multi-LLM routes
 const multiLLMRoutes = createMultiLLMRoutes(orchestrator, appLogger);
 app.use(multiLLMRoutes);
 
-appLogger.info(`✓ Multi-LLM Orchestrator initialized with ${orchestrator.getAllProviders().length} provider(s)`);
+appLogger.info(
+  `✓ Multi-LLM Orchestrator initialized with ${orchestrator.getAllProviders().length} provider(s)`
+);
 
 // ============================================
 // PLUGIN SYSTEM
@@ -390,29 +411,29 @@ class PluginManager {
         name: 'cve-plugin',
         enabled: true,
         version: '1.0',
-        description: 'CVE lookup and vulnerability enrichment'
+        description: 'CVE lookup and vulnerability enrichment',
       },
       {
         name: 'threat-intel-plugin',
         enabled: true,
         version: '1.0',
-        description: 'Threat intelligence and IOC detection'
+        description: 'Threat intelligence and IOC detection',
       },
       {
         name: 'report-plugin',
         enabled: false,
         version: '1.0',
-        description: 'Generate pentesting reports'
+        description: 'Generate pentesting reports',
       },
       {
         name: 'export-plugin',
         enabled: false,
         version: '1.0',
-        description: 'Export session data in multiple formats'
-      }
+        description: 'Export session data in multiple formats',
+      },
     ];
 
-    defaultPlugins.forEach(plugin => {
+    defaultPlugins.forEach((plugin) => {
       this.register(plugin.name, plugin);
     });
   }
@@ -469,7 +490,7 @@ class PluginManager {
     this.hooks.get(hookName).push({
       plugin,
       execute,
-      enabled: true
+      enabled: true,
     });
   }
 
@@ -498,7 +519,9 @@ if (process.env.AUTH_SECRET) {
       if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
       fs.writeFileSync(AUTH_SECRET_FILE, AUTH_SECRET, { mode: 0o600 });
     } catch (writeErr) {
-      appLogger.warn('Could not persist AUTH_SECRET; tokens will be invalidated on restart', { error: writeErr.message });
+      appLogger.warn('Could not persist AUTH_SECRET; tokens will be invalidated on restart', {
+        error: writeErr.message,
+      });
     }
   }
 }
@@ -572,7 +595,7 @@ app.post('/api/auth/login', (req, res) => {
 
   const sessionId = uuidv4();
   const token = Buffer.from(`${sessionId}:${AUTH_SECRET}`).toString('base64');
-  const expiresAt = new Date(Date.now() + (3 * 24 * 60 * 60 * 1000)); // 3-day rule
+  const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3-day rule
 
   // Save session to database
   db.createSession(sessionId, token, AUTH_SECRET, expiresAt.toISOString());
@@ -688,7 +711,9 @@ app.post('/api/docker/exec', authenticate, async (req, res) => {
 
       // Auto-save discovered hosts if this looks like an nmap command
       if (/^\s*nmap\b/i.test(command) && output.includes('Nmap scan report')) {
-        try { db.parseAndSaveNmapOutput(output); } catch (_) {}
+        try {
+          db.parseAndSaveNmapOutput(output);
+        } catch (_) {}
       }
 
       res.json({
@@ -705,7 +730,6 @@ app.post('/api/docker/exec', authenticate, async (req, res) => {
       activeProcesses.delete(execId);
       res.status(500).json({ error: err.message });
     });
-
   } catch (err) {
     console.error('Docker exec error:', err);
     res.status(500).json({ error: 'Command execution failed', details: err.message });
@@ -771,7 +795,9 @@ app.post('/api/docker/install', authenticate, async (req, res) => {
     const stream = await exec.start({ Detach: false, Tty: true });
     let output = '';
 
-    stream.on('data', (chunk) => { output += chunk.toString(); });
+    stream.on('data', (chunk) => {
+      output += chunk.toString();
+    });
     stream.on('end', () => {
       res.json({ success: true, output, packages });
     });
@@ -787,7 +813,11 @@ app.post('/api/docker/killall', authenticate, async (req, res) => {
 
     // Kill all user processes except PID 1
     const exec = await container.exec({
-      Cmd: ['bash', '-c', 'kill -9 $(ps aux | grep -v PID | awk \'{print $2}\' | grep -v "^1$") 2>/dev/null; echo "All processes killed"'],
+      Cmd: [
+        'bash',
+        '-c',
+        'kill -9 $(ps aux | grep -v PID | awk \'{print $2}\' | grep -v "^1$") 2>/dev/null; echo "All processes killed"',
+      ],
       AttachStdout: true,
       AttachStderr: true,
       Tty: true,
@@ -796,7 +826,9 @@ app.post('/api/docker/killall', authenticate, async (req, res) => {
     const stream = await exec.start({ Detach: false, Tty: true });
     let output = '';
 
-    stream.on('data', (chunk) => { output += chunk.toString(); });
+    stream.on('data', (chunk) => {
+      output += chunk.toString();
+    });
     stream.on('end', () => {
       // Clear active processes tracker
       activeProcesses.clear();
@@ -847,7 +879,7 @@ let PROXY_CONFIG = {
   port: 8080,
   username: '',
   password: '',
-  bypass: ''
+  bypass: '',
 };
 
 // Allow frontend to update Ollama URL
@@ -905,7 +937,7 @@ app.get('/api/gemini/config', authenticate, (req, res) => {
     success: true,
     configured,
     apiKeySet,
-    model: model || null
+    model: model || null,
   });
 });
 
@@ -934,7 +966,9 @@ app.post('/api/gemini/config', authenticate, (req, res) => {
   if (!geminiProvider) {
     // Create the provider if it doesn't exist yet (e.g. no GEMINI_API_KEY at startup)
     if (!apiKey) {
-      return res.status(400).json({ error: 'apiKey is required to initialise the Gemini provider' });
+      return res
+        .status(400)
+        .json({ error: 'apiKey is required to initialise the Gemini provider' });
     }
     geminiProvider = new GeminiProvider(apiKey.trim(), appLogger);
     orchestrator.registerProvider('gemini', geminiProvider);
@@ -959,7 +993,7 @@ app.post('/api/gemini/config', authenticate, (req, res) => {
       ? JSON.parse(fs.readFileSync(GEMINI_CONFIG_FILE, 'utf8'))
       : {};
     const toWrite = {
-      apiKey: apiKey ? apiKey.trim() : (existing.apiKey || geminiProvider.apiKey),
+      apiKey: apiKey ? apiKey.trim() : existing.apiKey || geminiProvider.apiKey,
       model: geminiProvider.model,
     };
     fs.writeFileSync(GEMINI_CONFIG_FILE, JSON.stringify(toWrite, null, 2), { mode: 0o600 });
@@ -972,7 +1006,7 @@ app.post('/api/gemini/config', authenticate, (req, res) => {
     success: true,
     configured: true,
     apiKeySet: !!geminiProvider.apiKey,
-    model: geminiProvider.model
+    model: geminiProvider.model,
   });
 });
 
@@ -992,7 +1026,7 @@ app.get('/api/ollama/instances', authenticate, async (req, res) => {
       if (provider) {
         const status = await provider.getStatus();
         available = status.available;
-        models = (status.models || []).map(m => m.name || m);
+        models = (status.models || []).map((m) => m.name || m);
       }
     } catch (_) {}
     results.push({ id, url: instance.url, available, models });
@@ -1065,7 +1099,12 @@ app.post('/api/ollama/scan/settings', authenticate, (req, res) => {
  */
 app.post('/api/ollama/scan', authenticate, async (req, res) => {
   if (!ollamaNetworkScanEnabled) {
-    return res.status(403).json({ success: false, error: 'Network scanning is disabled. Enable it in Settings → AI/LLM → Network Discovery.' });
+    return res
+      .status(403)
+      .json({
+        success: false,
+        error: 'Network scanning is disabled. Enable it in Settings → AI/LLM → Network Discovery.',
+      });
   }
 
   // Detect the best local subnet if none provided
@@ -1093,7 +1132,11 @@ app.post('/api/ollama/scan', authenticate, async (req, res) => {
   }
 
   if (!subnet || !/^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(subnet)) {
-    return res.status(400).json({ error: 'Could not determine subnet. Provide subnet in body, e.g. { "subnet": "192.168.1" }' });
+    return res
+      .status(400)
+      .json({
+        error: 'Could not determine subnet. Provide subnet in body, e.g. { "subnet": "192.168.1" }',
+      });
   }
 
   appLogger.info(`Ollama network scan starting on ${subnet}.0/24 port ${port}`);
@@ -1105,7 +1148,7 @@ app.post('/api/ollama/scan', authenticate, async (req, res) => {
 
   // TCP probe helper
   function tcpProbe(ip, p) {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       const socket = new net.Socket();
       let done = false;
       const finish = (result) => {
@@ -1131,7 +1174,7 @@ app.post('/api/ollama/scan', authenticate, async (req, res) => {
         // Verify it's actually Ollama
         try {
           const resp = await axios.get(`http://${ip}:${port}/api/tags`, { timeout: 2000 });
-          const models = (resp.data.models || []).map(m => m.name);
+          const models = (resp.data.models || []).map((m) => m.name);
           return { ip, port, url: `http://${ip}:${port}`, models };
         } catch (_) {
           return null;
@@ -1166,7 +1209,7 @@ app.post('/api/proxy/config', authenticate, (req, res) => {
     port: parseInt(port) || 8080,
     username: username || '',
     password: password || '',
-    bypass: bypass || ''
+    bypass: bypass || '',
   };
 
   // Store in database
@@ -1191,47 +1234,50 @@ app.post('/api/proxy/test', authenticate, async (req, res) => {
 
   try {
     // Create axios instance with proxy config
-    const httpAgent = PROXY_CONFIG.protocol === 'socks5' ?
-      { host: PROXY_CONFIG.host, port: PROXY_CONFIG.port } :
-      { host: PROXY_CONFIG.host, port: PROXY_CONFIG.port };
+    const httpAgent =
+      PROXY_CONFIG.protocol === 'socks5'
+        ? { host: PROXY_CONFIG.host, port: PROXY_CONFIG.port }
+        : { host: PROXY_CONFIG.host, port: PROXY_CONFIG.port };
 
     // Test by connecting to httpbin.org echo service
     const testUrl = 'http://httpbin.org/delay/1';
     const startTime = Date.now();
 
-    const response = await axios.get(testUrl, {
-      timeout: 10000,
-      httpAgent: PROXY_CONFIG.protocol === 'http' ? new (require('http').Agent)(httpAgent) : undefined,
-      httpsAgent: PROXY_CONFIG.protocol === 'https' ? new (require('https').Agent)(httpAgent) : undefined
-    }).catch(err => {
-      // If httpbin fails, just verify connectivity to proxy host
-      return new Promise((resolve) => {
-        const socket = require('net').createConnection(
-          PROXY_CONFIG.port,
-          PROXY_CONFIG.host,
-          () => {
-            socket.destroy();
-            resolve({ data: { status: 'connected' } });
-          }
-        ).on('error', () => {
-          throw new Error('Cannot reach proxy server');
+    const response = await axios
+      .get(testUrl, {
+        timeout: 10000,
+        httpAgent:
+          PROXY_CONFIG.protocol === 'http' ? new (require('http').Agent)(httpAgent) : undefined,
+        httpsAgent:
+          PROXY_CONFIG.protocol === 'https' ? new (require('https').Agent)(httpAgent) : undefined,
+      })
+      .catch((err) => {
+        // If httpbin fails, just verify connectivity to proxy host
+        return new Promise((resolve) => {
+          const socket = require('net')
+            .createConnection(PROXY_CONFIG.port, PROXY_CONFIG.host, () => {
+              socket.destroy();
+              resolve({ data: { status: 'connected' } });
+            })
+            .on('error', () => {
+              throw new Error('Cannot reach proxy server');
+            });
         });
       });
-    });
 
     const duration = Date.now() - startTime;
     res.json({
       success: true,
       status: 'working',
       message: 'Proxy is reachable and responding',
-      latency: duration
+      latency: duration,
     });
   } catch (err) {
     res.status(500).json({
       success: false,
       status: 'failed',
       error: err.message,
-      message: 'Cannot reach proxy server or test URL'
+      message: 'Cannot reach proxy server or test URL',
     });
   }
 });
@@ -1241,7 +1287,7 @@ app.get('/api/settings/bind-host', authenticate, (req, res) => {
   res.json({
     current: BIND_HOST,
     default: '0.0.0.0',
-    message: 'Current bind address (0.0.0.0 = all interfaces, localhost = loopback only)'
+    message: 'Current bind address (0.0.0.0 = all interfaces, localhost = loopback only)',
   });
 });
 
@@ -1260,8 +1306,8 @@ app.post('/api/settings/bind-host', authenticate, (req, res) => {
       `1. Stop the server: docker-compose down`,
       `2. Update .env with: BIND_HOST=${bindHost}`,
       `3. Restart: docker-compose up -d`,
-      `4. Access at: http://${bindHost === '0.0.0.0' ? 'localhost' : bindHost}:${PORT}`
-    ]
+      `4. Access at: http://${bindHost === '0.0.0.0' ? 'localhost' : bindHost}:${PORT}`,
+    ],
   });
 });
 
@@ -1272,21 +1318,30 @@ app.get('/api/ollama/status', authenticate, async (req, res) => {
     res.json({
       available: true,
       models: response.data.models || [],
-      url: OLLAMA_URL
+      url: OLLAMA_URL,
     });
   } catch (err) {
     res.status(503).json({
       available: false,
       error: 'Ollama service unavailable',
       url: OLLAMA_URL,
-      details: err.message
+      details: err.message,
     });
   }
 });
 
 app.post('/api/ollama/generate', authenticate, async (req, res) => {
-  const defaultModel = process.env.DEFAULT_OLLAMA_MODEL || process.env.OLLAMA_MODEL || 'smollm2:135m';
-  const { prompt, model = defaultModel, temperature = 0.7, systemPrompt, useOrchestrator = false, taskType = 'default', preferredProvider = null } = req.body;
+  const defaultModel =
+    process.env.DEFAULT_OLLAMA_MODEL || process.env.OLLAMA_MODEL || 'smollm2:135m';
+  const {
+    prompt,
+    model = defaultModel,
+    temperature = 0.7,
+    systemPrompt,
+    useOrchestrator = false,
+    taskType = 'default',
+    preferredProvider = null,
+  } = req.body;
 
   if (!prompt) {
     return res.status(400).json({ error: 'Prompt required' });
@@ -1295,10 +1350,20 @@ app.post('/api/ollama/generate', authenticate, async (req, res) => {
   // LLM_FROZEN was set for a specific heavy model (dolphin-mixtral). The current
   // model (phi3:mini) is lightweight — don't block, just log a warning and proceed.
   if (LLM_FROZEN) {
-    appLogger.warn(`LLM frozen state active but proceeding with model ${DEFAULT_MODEL}. Reason: ${llmState.reason}`);
+    appLogger.warn(
+      `LLM frozen state active but proceeding with model ${DEFAULT_MODEL}. Reason: ${llmState.reason}`
+    );
   }
 
-  const logEntry = { type: 'generate', provider: useOrchestrator ? 'orchestrator' : 'ollama', model, prompt: prompt.slice(0, 500), taskType, status: 'pending', durationMs: null };
+  const logEntry = {
+    type: 'generate',
+    provider: useOrchestrator ? 'orchestrator' : 'ollama',
+    model,
+    prompt: prompt.slice(0, 500),
+    taskType,
+    status: 'pending',
+    durationMs: null,
+  };
   const t0 = Date.now();
 
   try {
@@ -1308,7 +1373,7 @@ app.post('/api/ollama/generate', authenticate, async (req, res) => {
         taskType: taskType,
         preferredProvider: preferredProvider,
         temperature: temperature,
-        systemPrompt: systemPrompt || SYSTEM_PROMPT
+        systemPrompt: systemPrompt || SYSTEM_PROMPT,
       });
 
       logEntry.status = 'ok';
@@ -1326,7 +1391,12 @@ app.post('/api/ollama/generate', authenticate, async (req, res) => {
     // Otherwise, try each registered Ollama instance until one succeeds.
     // This handles the common case where the primary (localhost) is down but a
     // remote instance on the same network is healthy.
-    const urlsToTry = [OLLAMA_URL, ...Array.from(ollamaInstances.values()).map(i => i.url).filter(u => u !== OLLAMA_URL)];
+    const urlsToTry = [
+      OLLAMA_URL,
+      ...Array.from(ollamaInstances.values())
+        .map((i) => i.url)
+        .filter((u) => u !== OLLAMA_URL),
+    ];
     let lastErr;
     for (const url of urlsToTry) {
       try {
@@ -1362,7 +1432,12 @@ app.post('/api/ollama/generate', authenticate, async (req, res) => {
     logEntry.error = lastErr ? lastErr.message : 'No Ollama instances available';
     addLLMLogEntry(logEntry);
     console.error('Ollama error:', lastErr ? lastErr.message : 'No instances');
-    res.status(500).json({ error: 'LLM generation failed', details: lastErr ? lastErr.message : 'No Ollama instances available' });
+    res
+      .status(500)
+      .json({
+        error: 'LLM generation failed',
+        details: lastErr ? lastErr.message : 'No Ollama instances available',
+      });
   } catch (err) {
     logEntry.status = 'error';
     logEntry.durationMs = Date.now() - t0;
@@ -1374,8 +1449,17 @@ app.post('/api/ollama/generate', authenticate, async (req, res) => {
 });
 
 app.post('/api/ollama/stream', authenticate, async (req, res) => {
-  const defaultModel = process.env.DEFAULT_OLLAMA_MODEL || process.env.OLLAMA_MODEL || 'smollm2:135m';
-  const { prompt, model = defaultModel, temperature = 0.7, systemPrompt, useOrchestrator = false, taskType = 'default', preferredProvider = null } = req.body;
+  const defaultModel =
+    process.env.DEFAULT_OLLAMA_MODEL || process.env.OLLAMA_MODEL || 'smollm2:135m';
+  const {
+    prompt,
+    model = defaultModel,
+    temperature = 0.7,
+    systemPrompt,
+    useOrchestrator = false,
+    taskType = 'default',
+    preferredProvider = null,
+  } = req.body;
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -1384,10 +1468,20 @@ app.post('/api/ollama/stream', authenticate, async (req, res) => {
   // LLM_FROZEN was set for a specific heavy model (dolphin-mixtral). The current
   // model (phi3:mini) is lightweight — don't block streaming, just log a warning.
   if (LLM_FROZEN) {
-    appLogger.warn(`LLM frozen state active but proceeding with model ${DEFAULT_MODEL} for stream. Reason: ${llmState.reason}`);
+    appLogger.warn(
+      `LLM frozen state active but proceeding with model ${DEFAULT_MODEL} for stream. Reason: ${llmState.reason}`
+    );
   }
 
-  const logEntry = { type: 'stream', provider: useOrchestrator ? 'orchestrator' : 'ollama', model, prompt: prompt ? prompt.slice(0, 500) : '', taskType, status: 'pending', durationMs: null };
+  const logEntry = {
+    type: 'stream',
+    provider: useOrchestrator ? 'orchestrator' : 'ollama',
+    model,
+    prompt: prompt ? prompt.slice(0, 500) : '',
+    taskType,
+    status: 'pending',
+    durationMs: null,
+  };
   const t0 = Date.now();
 
   try {
@@ -1399,14 +1493,16 @@ app.post('/api/ollama/stream', authenticate, async (req, res) => {
         taskType: taskType,
         preferredProvider: preferredProvider,
         temperature: temperature,
-        systemPrompt: systemPrompt || SYSTEM_PROMPT
+        systemPrompt: systemPrompt || SYSTEM_PROMPT,
       })) {
         if (chunk.done) {
           res.write(`data: ${JSON.stringify({ done: true, provider: chunk.provider })}\n\n`);
           lastProvider = chunk.provider;
         } else {
           tokenCount++;
-          res.write(`data: ${JSON.stringify({ token: chunk.token, provider: chunk.provider })}\n\n`);
+          res.write(
+            `data: ${JSON.stringify({ token: chunk.token, provider: chunk.provider })}\n\n`
+          );
         }
       }
       logEntry.status = 'ok';
@@ -1419,27 +1515,39 @@ app.post('/api/ollama/stream', authenticate, async (req, res) => {
     }
 
     // Otherwise, try each registered Ollama instance until one connects.
-    const urlsToTry = [OLLAMA_URL, ...Array.from(ollamaInstances.values()).map(i => i.url).filter(u => u !== OLLAMA_URL)];
+    const urlsToTry = [
+      OLLAMA_URL,
+      ...Array.from(ollamaInstances.values())
+        .map((i) => i.url)
+        .filter((u) => u !== OLLAMA_URL),
+    ];
     let lastErr;
     let connected = false;
     for (const url of urlsToTry) {
       try {
-        const response = await axios.post(`${url}/api/generate`, {
-          model: model,
-          system: systemPrompt || SYSTEM_PROMPT,
-          prompt: prompt,
-          stream: true,
-          options: { temperature },
-        }, {
-          responseType: 'stream',
-        });
+        const response = await axios.post(
+          `${url}/api/generate`,
+          {
+            model: model,
+            system: systemPrompt || SYSTEM_PROMPT,
+            prompt: prompt,
+            stream: true,
+            options: { temperature },
+          },
+          {
+            responseType: 'stream',
+          }
+        );
 
         connected = true;
         let tokenCount = 0;
         response.data.on('data', (chunk) => {
           try {
-            const lines = chunk.toString().split('\n').filter(l => l.trim());
-            lines.forEach(line => {
+            const lines = chunk
+              .toString()
+              .split('\n')
+              .filter((l) => l.trim());
+            lines.forEach((line) => {
               const json = JSON.parse(line);
               if (json.done) {
                 res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
@@ -1520,9 +1628,8 @@ app.delete('/api/llm/log', authenticate, (req, res) => {
 app.get('/api/ollama/models', authenticate, async (req, res) => {
   // Allow callers to specify a URL so the Settings panel can list models from the
   // URL currently shown in the input field (even before it has been saved).
-  const targetUrl = (req.query.url && typeof req.query.url === 'string')
-    ? req.query.url.trim()
-    : OLLAMA_URL;
+  const targetUrl =
+    req.query.url && typeof req.query.url === 'string' ? req.query.url.trim() : OLLAMA_URL;
 
   // Validate URL to prevent SSRF against non-HTTP targets
   try {
@@ -1544,9 +1651,8 @@ app.get('/api/ollama/models', authenticate, async (req, res) => {
 
 // Detailed Ollama connectivity status with actionable diagnostics
 app.get('/api/ollama/status', authenticate, async (req, res) => {
-  const testUrl = (req.query.url && typeof req.query.url === 'string')
-    ? req.query.url.trim()
-    : OLLAMA_URL;
+  const testUrl =
+    req.query.url && typeof req.query.url === 'string' ? req.query.url.trim() : OLLAMA_URL;
 
   // Basic URL validation to prevent SSRF against non-HTTP targets
   let parsedUrl;
@@ -1567,7 +1673,7 @@ app.get('/api/ollama/status', authenticate, async (req, res) => {
       url: testUrl,
       httpStatus: response.status,
       modelCount: models.length,
-      models: models.map(m => m.name)
+      models: models.map((m) => m.name),
     });
   } catch (err) {
     const isLocalhost = ['localhost', '127.0.0.1', '::1'].includes(parsedUrl.hostname);
@@ -1583,7 +1689,8 @@ app.get('/api/ollama/status', authenticate, async (req, res) => {
           'To allow remote access, restart Ollama with: OLLAMA_HOST=0.0.0.0 ollama serve';
     } else if (err.code === 'ENOTFOUND' || err.code === 'EAI_AGAIN') {
       errorType = 'dns_error';
-      suggestion = 'Hostname could not be resolved. Try using the IP address directly instead of a hostname.';
+      suggestion =
+        'Hostname could not be resolved. Try using the IP address directly instead of a hostname.';
     } else if (err.code === 'ETIMEDOUT' || (err.message && err.message.includes('timeout'))) {
       errorType = 'timeout';
       suggestion = isLocalhost
@@ -1598,7 +1705,8 @@ app.get('/api/ollama/status', authenticate, async (req, res) => {
       suggestion = 'Connection was reset. Ollama may have rejected the request or restarted.';
     } else if (err.code === 'EHOSTUNREACH' || err.code === 'ENETUNREACH') {
       errorType = 'network_unreachable';
-      suggestion = 'Network path to the Ollama host does not exist. Verify the IP address and that the host is on a reachable network segment.';
+      suggestion =
+        'Network path to the Ollama host does not exist. Verify the IP address and that the host is on a reachable network segment.';
     }
 
     return res.json({
@@ -1608,7 +1716,7 @@ app.get('/api/ollama/status', authenticate, async (req, res) => {
       errorCode: err.code || null,
       errorType,
       httpStatus,
-      suggestion
+      suggestion,
     });
   }
 });
@@ -1626,17 +1734,24 @@ app.post('/api/ollama/pull', authenticate, async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
 
   try {
-    const response = await axios.post(`${OLLAMA_URL}/api/pull`, {
-      name: model,
-      stream: true,
-    }, {
-      responseType: 'stream',
-    });
+    const response = await axios.post(
+      `${OLLAMA_URL}/api/pull`,
+      {
+        name: model,
+        stream: true,
+      },
+      {
+        responseType: 'stream',
+      }
+    );
 
     response.data.on('data', (chunk) => {
       try {
-        const lines = chunk.toString().split('\n').filter(l => l.trim());
-        lines.forEach(line => {
+        const lines = chunk
+          .toString()
+          .split('\n')
+          .filter((l) => l.trim());
+        lines.forEach((line) => {
           const json = JSON.parse(line);
           res.write(`data: ${JSON.stringify(json)}\n\n`);
         });
@@ -1649,7 +1764,6 @@ app.post('/api/ollama/pull', authenticate, async (req, res) => {
       res.write('data: {"status":"success"}\n\n');
       res.end();
     });
-
   } catch (err) {
     res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
     res.end();
@@ -1669,10 +1783,9 @@ app.get('/api/cve/:cveId', authenticate, async (req, res) => {
   }
 
   try {
-    const response = await axios.get(
-      `https://cveawg.mitre.org/api/cve/${cveId.toUpperCase()}`,
-      { timeout: 10000 }
-    );
+    const response = await axios.get(`https://cveawg.mitre.org/api/cve/${cveId.toUpperCase()}`, {
+      timeout: 10000,
+    });
     res.json({ success: true, cve: response.data });
   } catch (err) {
     // Fallback to NVD
@@ -1719,7 +1832,10 @@ app.get('/api/session/export', authenticate, (req, res) => {
   const exportData = db.exportSessionData(req.sessionId);
 
   res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Content-Disposition', `attachment; filename="pentest-session-${req.sessionId.slice(0, 8)}-${Date.now()}.json"`);
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="pentest-session-${req.sessionId.slice(0, 8)}-${Date.now()}.json"`
+  );
   res.json(exportData);
 });
 
@@ -1748,11 +1864,11 @@ app.post('/api/reports/generate', authenticate, (req, res) => {
       sessionId: req.sessionId.slice(0, 8),
       sessionDuration: sessionDuration,
       totalFindings: findings.length,
-      criticalCount: findings.filter(f => f.severity === 'CRITICAL').length,
-      highCount: findings.filter(f => f.severity === 'HIGH').length,
-      mediumCount: findings.filter(f => f.severity === 'MEDIUM').length,
-      lowCount: findings.filter(f => f.severity === 'LOW').length,
-      infoCount: findings.filter(f => f.severity === 'INFO').length,
+      criticalCount: findings.filter((f) => f.severity === 'CRITICAL').length,
+      highCount: findings.filter((f) => f.severity === 'HIGH').length,
+      mediumCount: findings.filter((f) => f.severity === 'MEDIUM').length,
+      lowCount: findings.filter((f) => f.severity === 'LOW').length,
+      infoCount: findings.filter((f) => f.severity === 'INFO').length,
       findings: findings,
       commandHistory: includeCommandHistory ? history : [],
       sessionNotes: sessionNotes,
@@ -1761,19 +1877,28 @@ app.post('/api/reports/generate', authenticate, (req, res) => {
     if (format === 'json') {
       // Return JSON format
       res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Content-Disposition', `attachment; filename="pentest-report-${req.sessionId.slice(0, 8)}-${Date.now()}.json"`);
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="pentest-report-${req.sessionId.slice(0, 8)}-${Date.now()}.json"`
+      );
       res.json(reportData);
     } else if (format === 'html') {
       // Generate HTML report
       const htmlReport = generateHTMLReport(reportData);
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="pentest-report-${req.sessionId.slice(0, 8)}-${Date.now()}.html"`);
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="pentest-report-${req.sessionId.slice(0, 8)}-${Date.now()}.html"`
+      );
       res.send(htmlReport);
     } else if (format === 'markdown') {
       // Generate Markdown report
       const mdReport = reportPlugin.exportReport('markdown');
       res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="pentest-report-${req.sessionId.slice(0, 8)}-${Date.now()}.md"`);
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="pentest-report-${req.sessionId.slice(0, 8)}-${Date.now()}.md"`
+      );
       res.send(mdReport);
     } else {
       res.status(400).json({ error: 'Invalid format. Use: json, html, or markdown' });
@@ -1798,7 +1923,7 @@ function escapeHtml(str) {
 // Helper function to generate HTML report
 function generateHTMLReport(reportData) {
   const bySeverity = {};
-  reportData.findings.forEach(f => {
+  reportData.findings.forEach((f) => {
     if (!bySeverity[f.severity]) bySeverity[f.severity] = [];
     bySeverity[f.severity].push(f);
   });
@@ -1808,13 +1933,13 @@ function generateHTMLReport(reportData) {
     HIGH: '#ff6600',
     MEDIUM: '#ffaa00',
     LOW: '#ffff00',
-    INFO: '#00ff00'
+    INFO: '#00ff00',
   };
 
   const severityOrder = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
 
   let findingsHTML = '';
-  severityOrder.forEach(severity => {
+  severityOrder.forEach((severity) => {
     if (bySeverity[severity]) {
       findingsHTML += `
         <h3 style="color: ${severityColors[severity]}; border-bottom: 2px solid ${severityColors[severity]}; padding: 10px 0;">
@@ -1835,7 +1960,9 @@ function generateHTMLReport(reportData) {
     }
   });
 
-  const commandHistoryHTML = reportData.commandHistory.length > 0 ? `
+  const commandHistoryHTML =
+    reportData.commandHistory.length > 0
+      ? `
     <section>
       <h2>Command Execution History</h2>
       <table style="width: 100%; border-collapse: collapse;">
@@ -1847,26 +1974,36 @@ function generateHTMLReport(reportData) {
           </tr>
         </thead>
         <tbody>
-          ${reportData.commandHistory.map(cmd => `
+          ${reportData.commandHistory
+            .map(
+              (cmd) => `
             <tr style="border: 1px solid #0f0;">
               <td style="border: 1px solid #0f0; padding: 8px;">${new Date(cmd.timestamp).toLocaleString()}</td>
               <td style="border: 1px solid #0f0; padding: 8px; font-family: monospace;">${escapeHtml(cmd.command)}</td>
               <td style="border: 1px solid #0f0; padding: 8px;">${escapeHtml(cmd.duration) || 'N/A'}</td>
             </tr>
-          `).join('')}
+          `
+            )
+            .join('')}
         </tbody>
       </table>
     </section>
-  ` : '';
+  `
+      : '';
 
-  const notesSection = reportData.sessionNotes ? `
+  const notesSection = reportData.sessionNotes
+    ? `
     <section>
       <h2>Session Notes</h2>
       <div style="background: rgba(0, 255, 0, 0.05); border: 1px dashed #0f0; padding: 10px; border-radius: 4px;">
-        ${reportData.sessionNotes.split('\n').map(line => `<p>${escapeHtml(line) || '<br>'}</p>`).join('')}
+        ${reportData.sessionNotes
+          .split('\n')
+          .map((line) => `<p>${escapeHtml(line) || '<br>'}</p>`)
+          .join('')}
       </div>
     </section>
-  ` : '';
+  `
+    : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -1966,12 +2103,16 @@ function generateHTMLReport(reportData) {
       </div>
     </section>
 
-    ${reportData.totalFindings > 0 ? `
+    ${
+      reportData.totalFindings > 0
+        ? `
       <section>
         <h2>Detailed Findings</h2>
         ${findingsHTML}
       </section>
-    ` : '<section><h2>No Findings</h2><p>No vulnerabilities or findings were recorded during this session.</p></section>'}
+    `
+        : '<section><h2>No Findings</h2><p>No vulnerabilities or findings were recorded during this session.</p></section>'
+    }
 
     ${commandHistoryHTML}
     ${notesSection}
@@ -2005,12 +2146,12 @@ app.get('/api/plugins', authenticate, (req, res) => {
   const plugins = pluginManager.getPlugins();
   res.json({
     success: true,
-    plugins: plugins.map(p => ({
+    plugins: plugins.map((p) => ({
       name: p.name,
       version: p.version,
       description: p.description,
-      enabled: p.enabled
-    }))
+      enabled: p.enabled,
+    })),
   });
 });
 
@@ -2026,8 +2167,8 @@ app.post('/api/plugins/enable/:name', authenticate, (req, res) => {
       plugin: {
         name: plugin.name,
         version: plugin.version,
-        description: plugin.description
-      }
+        description: plugin.description,
+      },
     });
   } else {
     res.status(404).json({ error: `Plugin ${name} not found` });
@@ -2046,8 +2187,8 @@ app.post('/api/plugins/disable/:name', authenticate, (req, res) => {
       plugin: {
         name: plugin.name,
         version: plugin.version,
-        description: plugin.description
-      }
+        description: plugin.description,
+      },
     });
   } else {
     res.status(404).json({ error: `Plugin ${name} not found` });
@@ -2112,9 +2253,8 @@ async function checkOllamaHealth() {
   }
   // Return the primary instance status for backward compat, plus all instances.
   // If no primary exists, report the first healthy instance (or disconnected).
-  const primary = results['ollama']
-    || Object.values(results).find(r => r.connected)
-    || { connected: false, url: OLLAMA_URL };
+  const primary = results['ollama'] ||
+    Object.values(results).find((r) => r.connected) || { connected: false, url: OLLAMA_URL };
   return {
     ...primary,
     instances: results,
@@ -2138,7 +2278,9 @@ app.post('/api/autonomous/plan', authenticate, async (req, res) => {
   }
 
   if (LLM_FROZEN) {
-    appLogger.warn(`LLM frozen state detected for /api/autonomous/plan — attempting with fallback model ${DEFAULT_MODEL}`);
+    appLogger.warn(
+      `LLM frozen state detected for /api/autonomous/plan — attempting with fallback model ${DEFAULT_MODEL}`
+    );
   }
 
   const planPrompt = `You are an elite penetration testing mentor teaching a student. Generate a comprehensive, methodical attack plan for target: ${target}
@@ -2181,87 +2323,102 @@ For each bestPractice write 2-3 sentences explaining WHY the technique is used, 
         name: 'Passive Reconnaissance',
         command: `whois ${target} 2>/dev/null; dig ${target} ANY +noall +answer 2>/dev/null; dig ${target} MX +noall +answer 2>/dev/null; dig ${target} NS +noall +answer 2>/dev/null`,
         purpose: 'Gather public information without sending packets to the target',
-        bestPractice: 'Passive recon is completely silent — no packets reach the target. Whois reveals registrar, owner contacts, and name servers. DNS lookups expose mail servers, subdomains, and TXT records (SPF/DMARC) that hint at cloud providers and infrastructure.',
-        continueOnFail: true
+        bestPractice:
+          'Passive recon is completely silent — no packets reach the target. Whois reveals registrar, owner contacts, and name servers. DNS lookups expose mail servers, subdomains, and TXT records (SPF/DMARC) that hint at cloud providers and infrastructure.',
+        continueOnFail: true,
       },
       {
         name: 'Host Discovery',
         command: `nmap -sn ${target}`,
         purpose: 'Confirm the target is alive before investing time in deeper scans',
-        bestPractice: 'Always begin with a ping sweep. The -sn flag skips port scanning and checks only reachability, keeping noise low. If the host does not respond it may be blocking ICMP — follow up with nmap -PS80,443 or -PA80 for TCP-based liveness checks.',
-        continueOnFail: true
+        bestPractice:
+          'Always begin with a ping sweep. The -sn flag skips port scanning and checks only reachability, keeping noise low. If the host does not respond it may be blocking ICMP — follow up with nmap -PS80,443 or -PA80 for TCP-based liveness checks.',
+        continueOnFail: true,
       },
       {
         name: 'Fast TCP Port Scan',
         command: `nmap -T4 --top-ports 1000 -oN /tmp/fast_scan_${target.replace(/[^a-zA-Z0-9]/g, '_')}.txt ${target}`,
         purpose: 'Quickly map the most common open TCP ports to guide further work',
-        bestPractice: 'The top 1000 ports cover ~95% of real-world services and complete in seconds. Save results with -oN so later phases can reference discovered ports. Use -T3 instead of -T4 on slow or IDS-monitored links.',
-        continueOnFail: false
+        bestPractice:
+          'The top 1000 ports cover ~95% of real-world services and complete in seconds. Save results with -oN so later phases can reference discovered ports. Use -T3 instead of -T4 on slow or IDS-monitored links.',
+        continueOnFail: false,
       },
       {
         name: 'Full TCP Port Scan',
         command: `nmap -p- --min-rate 5000 -oN /tmp/full_scan_${target.replace(/[^a-zA-Z0-9]/g, '_')}.txt ${target}`,
         purpose: 'Discover services running on non-standard ports that fast scans miss',
-        bestPractice: 'Scanning all 65535 ports uncovers hidden admin panels, development servers, and backdoors on non-standard ports. --min-rate 5000 speeds it up significantly; reduce this on production networks to avoid packet loss causing false negatives.',
-        continueOnFail: false
+        bestPractice:
+          'Scanning all 65535 ports uncovers hidden admin panels, development servers, and backdoors on non-standard ports. --min-rate 5000 speeds it up significantly; reduce this on production networks to avoid packet loss causing false negatives.',
+        continueOnFail: false,
       },
       {
         name: 'Service & Version Detection',
         command: `nmap -sV -sC -p- --open -oN /tmp/svc_scan_${target.replace(/[^a-zA-Z0-9]/g, '_')}.txt ${target}`,
         purpose: 'Identify exact software names and versions running on every open port',
-        bestPractice: 'Exact version strings are the key to CVE lookup. -sC layers default NSE scripts on top of version detection — they check for anonymous FTP, SSL cert details, HTTP titles, and dozens more misconfigurations in a single pass. Look for end-of-life software versions.',
-        continueOnFail: false
+        bestPractice:
+          'Exact version strings are the key to CVE lookup. -sC layers default NSE scripts on top of version detection — they check for anonymous FTP, SSL cert details, HTTP titles, and dozens more misconfigurations in a single pass. Look for end-of-life software versions.',
+        continueOnFail: false,
       },
       {
         name: 'OS & Aggressive Fingerprint',
         command: `nmap -O -A --osscan-guess ${target}`,
         purpose: 'Fingerprint the operating system and gather traceroute + deep script output',
-        bestPractice: 'The -A flag combines OS detection, version detection, script scanning, and traceroute into one sweep. OS detection requires raw sockets (run as root). A match confidence below 90% is only a hint — use service banner strings to confirm. Aggressive scanning generates more noise.',
-        continueOnFail: true
+        bestPractice:
+          'The -A flag combines OS detection, version detection, script scanning, and traceroute into one sweep. OS detection requires raw sockets (run as root). A match confidence below 90% is only a hint — use service banner strings to confirm. Aggressive scanning generates more noise.',
+        continueOnFail: true,
       },
       {
         name: 'UDP Top-Port Scan',
         command: `nmap -sU --top-ports 100 -T4 ${target}`,
-        purpose: 'Discover UDP services such as DNS, SNMP, TFTP, and NTP that TCP scans miss entirely',
-        bestPractice: 'UDP services are frequently overlooked and often less hardened. SNMP (161) exposes system info with default community strings; TFTP (69) may allow unauthenticated file read/write. UDP scanning is slow because closed ports only reply with ICMP unreachable — be patient.',
-        continueOnFail: true
+        purpose:
+          'Discover UDP services such as DNS, SNMP, TFTP, and NTP that TCP scans miss entirely',
+        bestPractice:
+          'UDP services are frequently overlooked and often less hardened. SNMP (161) exposes system info with default community strings; TFTP (69) may allow unauthenticated file read/write. UDP scanning is slow because closed ports only reply with ICMP unreachable — be patient.',
+        continueOnFail: true,
       },
       {
         name: 'Vulnerability Scan',
         command: `nmap --script vuln -p 21,22,23,25,53,80,110,139,143,443,445,3389 ${target} 2>/dev/null; nikto -h http://${target} -maxtime 120s 2>/dev/null || nikto -h https://${target} -maxtime 120s 2>/dev/null || echo "Nikto scan complete"`,
         purpose: 'Run automated vulnerability checks across network services and web applications',
-        bestPractice: 'Nmap vuln scripts check for known CVEs, EternalBlue (MS17-010), Shellshock, and other critical vulnerabilities with low false-positive rates. Nikto covers 6700+ web checks including outdated software, dangerous files, and insecure configurations. Both are noisy — expect IDS alerts.',
-        continueOnFail: true
+        bestPractice:
+          'Nmap vuln scripts check for known CVEs, EternalBlue (MS17-010), Shellshock, and other critical vulnerabilities with low false-positive rates. Nikto covers 6700+ web checks including outdated software, dangerous files, and insecure configurations. Both are noisy — expect IDS alerts.',
+        continueOnFail: true,
       },
       {
         name: 'Web Enumeration',
         command: `wafw00f http://${target} 2>/dev/null; gobuster dir -u http://${target} -w /usr/share/wordlists/dirb/common.txt -t 30 -q 2>/dev/null || gobuster dir -u https://${target} -w /usr/share/wordlists/dirb/common.txt -t 30 -q 2>/dev/null || echo "Web enumeration complete"`,
-        purpose: 'Detect web application firewalls and brute-force hidden directories and endpoints',
-        bestPractice: 'Always run wafw00f first — a WAF will block or alert on directory brute-force, so you need to know before launching gobuster. The dirb/common.txt wordlist hits admin panels, backup files, config files, and .git directories that are often left exposed by accident.',
-        continueOnFail: true
+        purpose:
+          'Detect web application firewalls and brute-force hidden directories and endpoints',
+        bestPractice:
+          'Always run wafw00f first — a WAF will block or alert on directory brute-force, so you need to know before launching gobuster. The dirb/common.txt wordlist hits admin panels, backup files, config files, and .git directories that are often left exposed by accident.',
+        continueOnFail: true,
       },
       {
         name: 'SMB & NetBIOS Enumeration',
         command: `nbtscan ${target} 2>/dev/null; enum4linux -a ${target} 2>/dev/null || echo "SMB/NetBIOS enumeration complete"`,
         purpose: 'Extract shares, users, groups, and policies from Windows and Samba targets',
-        bestPractice: 'Enum4linux wraps smbclient, rpcclient, and net commands into one tool. Null sessions (unauthenticated SMB) often reveal usernames, share names, and password policies that enable targeted brute-force. Even if null sessions are blocked, share listings can indicate OS type and domain membership.',
-        continueOnFail: true
+        bestPractice:
+          'Enum4linux wraps smbclient, rpcclient, and net commands into one tool. Null sessions (unauthenticated SMB) often reveal usernames, share names, and password policies that enable targeted brute-force. Even if null sessions are blocked, share listings can indicate OS type and domain membership.',
+        continueOnFail: true,
       },
       {
         name: 'Exploit Research',
         command: `searchsploit --colour $(nmap -sV --open -p 21,22,23,25,80,110,139,443,445,3389,8080 ${target} 2>/dev/null | grep -oP '(?<=open  )\\S+.*' | tr '\\n' ' ') 2>/dev/null || searchsploit ${target} 2>/dev/null || echo "Searchsploit complete — check /usr/share/exploitdb manually"`,
-        purpose: 'Cross-reference discovered service versions against the Exploit-DB offline database',
-        bestPractice: 'Searchsploit queries the local copy of Exploit-DB — no internet required and no target interaction. Match the exact version string from nmap output for highest accuracy. Prefer ranked Metasploit modules over raw exploits; they handle offsets, bad chars, and reliability automatically.',
-        continueOnFail: true
+        purpose:
+          'Cross-reference discovered service versions against the Exploit-DB offline database',
+        bestPractice:
+          'Searchsploit queries the local copy of Exploit-DB — no internet required and no target interaction. Match the exact version string from nmap output for highest accuracy. Prefer ranked Metasploit modules over raw exploits; they handle offsets, bad chars, and reliability automatically.',
+        continueOnFail: true,
       },
       {
         name: 'Credential Brute Force',
         command: `hydra -L /usr/share/wordlists/metasploit/unix_users.txt -P /usr/share/wordlists/rockyou.txt -t 4 -f ssh://${target} 2>/dev/null || hydra -L /usr/share/wordlists/metasploit/unix_users.txt -P /usr/share/wordlists/rockyou.txt -t 4 -f ftp://${target} 2>/dev/null || echo "Credential brute force complete"`,
         purpose: 'Test common credentials against discovered authentication services',
-        bestPractice: 'Use -f to stop after the first valid credential pair to reduce lockout risk. Limit threads (-t 4) on services with account lockout policies. Always test default credentials (admin/admin, root/root, anonymous/anonymous) before launching a full dictionary — they hit more often than expected.',
-        continueOnFail: true
-      }
-    ]
+        bestPractice:
+          'Use -f to stop after the first valid credential pair to reduce lockout risk. Limit threads (-t 4) on services with account lockout policies. Always test default credentials (admin/admin, root/root, anonymous/anonymous) before launching a full dictionary — they hit more often than expected.',
+        continueOnFail: true,
+      },
+    ],
   };
 
   let aiPlanUsed = false;
@@ -2270,7 +2427,7 @@ For each bestPractice write 2-3 sentences explaining WHY the technique is used, 
     const result = await orchestrator.generate(planPrompt, {
       systemPrompt: SYSTEM_PROMPT,
       temperature: 0.2,
-      model: (typeof model === 'string' && model.trim()) ? model.trim() : DEFAULT_MODEL,
+      model: typeof model === 'string' && model.trim() ? model.trim() : DEFAULT_MODEL,
     });
 
     const raw = (result && result.response) || '';
@@ -2294,7 +2451,9 @@ For each bestPractice write 2-3 sentences explaining WHY the technique is used, 
   }
 
   // AI unavailable or returned unusable output — use the deterministic template plan
-  appLogger.info(`Autonomous plan: using template plan for target ${target} (aiPlanUsed=${aiPlanUsed})`);
+  appLogger.info(
+    `Autonomous plan: using template plan for target ${target} (aiPlanUsed=${aiPlanUsed})`
+  );
   res.json({ success: true, plan: templatePlan, template: true });
 });
 
@@ -2320,7 +2479,10 @@ app.listen(PORT, BIND_HOST, async () => {
   // Check Docker health
   const dockerHealth = await checkDockerHealth();
   if (dockerHealth.connected) {
-    logger.success('Docker connection established', { container: KALI_CONTAINER, running: dockerHealth.containerRunning });
+    logger.success('Docker connection established', {
+      container: KALI_CONTAINER,
+      running: dockerHealth.containerRunning,
+    });
   } else {
     logger.error('Docker connection failed', { error: dockerHealth.error });
   }
@@ -2328,7 +2490,10 @@ app.listen(PORT, BIND_HOST, async () => {
   // Check Ollama health
   const ollamaHealth = await checkOllamaHealth();
   if (ollamaHealth.connected) {
-    logger.success('Ollama connection established', { url: OLLAMA_URL, models: ollamaHealth.modelCount });
+    logger.success('Ollama connection established', {
+      url: OLLAMA_URL,
+      models: ollamaHealth.modelCount,
+    });
   } else {
     logger.warn('Ollama connection failed', { error: ollamaHealth.error });
   }
@@ -2341,7 +2506,7 @@ app.listen(PORT, BIND_HOST, async () => {
 // Handle graceful shutdown for sandbox cleanup
 async function gracefulShutdown(signal) {
   console.log(`\n🛑 Received ${signal}, shutting down gracefully...`);
-  
+
   try {
     // Clean up active sandboxes
     if (sandboxManager) {

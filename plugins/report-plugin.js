@@ -36,7 +36,7 @@ class ReportPlugin {
       severity: severity,
       description: response.substring(0, 500),
       cves: [...new Set(cveMatches)],
-      raw: response
+      raw: response,
     };
   }
 
@@ -48,22 +48,22 @@ class ReportPlugin {
     report += `**Generated:** ${new Date().toISOString()}\n\n`;
     report += `## Executive Summary\n\n`;
     report += `Total Findings: ${findings.length}\n`;
-    report += `Critical Issues: ${findings.filter(f => f.severity === 'CRITICAL').length}\n`;
-    report += `High Issues: ${findings.filter(f => f.severity === 'HIGH').length}\n`;
-    report += `Medium Issues: ${findings.filter(f => f.severity === 'MEDIUM').length}\n`;
-    report += `Low Issues: ${findings.filter(f => f.severity === 'LOW').length}\n\n`;
+    report += `Critical Issues: ${findings.filter((f) => f.severity === 'CRITICAL').length}\n`;
+    report += `High Issues: ${findings.filter((f) => f.severity === 'HIGH').length}\n`;
+    report += `Medium Issues: ${findings.filter((f) => f.severity === 'MEDIUM').length}\n`;
+    report += `Low Issues: ${findings.filter((f) => f.severity === 'LOW').length}\n\n`;
 
     report += `## Detailed Findings\n\n`;
 
     // Group by severity
     const bySeverity = {};
-    findings.forEach(f => {
+    findings.forEach((f) => {
       if (!bySeverity[f.severity]) bySeverity[f.severity] = [];
       bySeverity[f.severity].push(f);
     });
 
     const severityOrder = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
-    severityOrder.forEach(sev => {
+    severityOrder.forEach((sev) => {
       if (bySeverity[sev]) {
         report += `### ${sev} Severity\n\n`;
         bySeverity[sev].forEach((finding, idx) => {
@@ -133,11 +133,15 @@ class ReportPlugin {
     }
 
     if (format === 'json') {
-      return JSON.stringify({
-        timestamp: this.timestamp,
-        totalFindings: this.findings.length,
-        findings: this.findings
-      }, null, 2);
+      return JSON.stringify(
+        {
+          timestamp: this.timestamp,
+          totalFindings: this.findings.length,
+          findings: this.findings,
+        },
+        null,
+        2
+      );
     }
 
     return this.findings;

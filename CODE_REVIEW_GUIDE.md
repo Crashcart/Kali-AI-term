@@ -40,6 +40,7 @@ cd $DEST && git status
 ### ✅ New Installation Scripts
 
 #### **install.js** (11.7 KB)
+
 - **Purpose**: Basic installation with essential logging
 - **Best for**: Experienced users, quick setup
 - **What it does**:
@@ -61,6 +62,7 @@ cd $DEST && git status
 - **Health checks**: 30-second timeout for container startup
 
 #### **install-full.js** (17.7 KB)
+
 - **Purpose**: Advanced installation with comprehensive diagnostics
 - **Best for**: Troubleshooting, detailed analysis, first-time installs
 - **What it does**:
@@ -84,6 +86,7 @@ cd $DEST && git status
 - **Error handling**: Specific suggestions for each error type
 
 #### **uninstall.js** (8.1 KB)
+
 - **Purpose**: Safe system cleanup with verification
 - **Features**:
   1. User confirmation prompt (must type "uninstall")
@@ -100,6 +103,7 @@ cd $DEST && git status
 - **Output**: uninstall-TIMESTAMP.log, uninstall.diagnostic
 
 #### **update.js** (10.9 KB)
+
 - **Purpose**: Update existing installation
 - **Process**:
   1. Verifies existing installation
@@ -121,8 +125,9 @@ cd $DEST && git status
 ### ✅ Core Logging Modules
 
 #### **lib/install-logger.js** (268 lines)
+
 - **Purpose**: Centralized logging for installation scripts
-- **Exports**: 
+- **Exports**:
   - `InstallLogger` class
   - `createLogger(scriptName, options)` factory function
 - **Key features**:
@@ -137,18 +142,19 @@ cd $DEST && git status
   9. **Diagnostic JSON**: Generates complete system state report
 
 - **Public methods**:
+
   ```javascript
-  log(level, message, data)           // Generic logging
-  debug(message, data)                // DEBUG level
-  info(message, data)                 // INFO level
-  success(message, data)              // SUCCESS level
-  warn(message, data)                 // WARN level
-  error(message, data)                // ERROR level
-  trackCommand(cmd, exitCode, stdout, stderr)  // Command execution
-  trackContainer(name, action, details)        // Container events
-  trackEnvironment(envVars)                    // Environment variables
-  trackSystemInfo()                            // OS/platform info
-  generateDiagnostic(status, stage, reason)    // Create diagnostic JSON
+  log(level, message, data); // Generic logging
+  debug(message, data); // DEBUG level
+  info(message, data); // INFO level
+  success(message, data); // SUCCESS level
+  warn(message, data); // WARN level
+  error(message, data); // ERROR level
+  trackCommand(cmd, exitCode, stdout, stderr); // Command execution
+  trackContainer(name, action, details); // Container events
+  trackEnvironment(envVars); // Environment variables
+  trackSystemInfo(); // OS/platform info
+  generateDiagnostic(status, stage, reason); // Create diagnostic JSON
   ```
 
 - **Masking patterns** (automatically replaced with `***`):
@@ -173,16 +179,13 @@ cd $DEST && git status
       "arch": "x64",
       "nodeVersion": "v18.17.0"
     },
-    "commands": [
-      {"cmd": "npm install", "exitCode": 0, "stdout": "..."}
-    ],
-    "containers": [
-      {"container": "kali-ai-term-app", "action": "running"}
-    ]
+    "commands": [{ "cmd": "npm install", "exitCode": 0, "stdout": "..." }],
+    "containers": [{ "container": "kali-ai-term-app", "action": "running" }]
   }
   ```
 
 #### **lib/diagnostic-analyzer.js** (244 lines)
+
 - **Purpose**: Analyze diagnostic JSON files and suggest fixes
 - **Usage**: `node lib/diagnostic-analyzer.js install.diagnostic`
 - **Exports**: `DiagnosticAnalyzer` class
@@ -202,6 +205,7 @@ cd $DEST && git status
   - **System errors**: Node.js version too old, missing tools
 
 - **Sample output**:
+
   ```
   ╔════════════════════════════════════════════╗
   ║         DIAGNOSTIC ANALYSIS REPORT          ║
@@ -225,11 +229,13 @@ cd $DEST && git status
   ```
 
 #### **lib/install-menu.js** (200 lines)
+
 - **Purpose**: Interactive post-installation troubleshooting
 - **Usage**: `node lib/install-menu.js install.diagnostic install.log`
 - **Exports**: `InstallMenu` class
 
 - **Interactive menu**:
+
   ```
   ╔════════════════════════════════════════════╗
   ║    Installation Diagnostic Menu            ║
@@ -258,6 +264,7 @@ cd $DEST && git status
 ### ✅ Enhanced Configuration Files
 
 #### **docker-compose.yml** - Changes
+
 ```diff
 - container_name: kali-hacker-bot
 + container_name: kali-ai-term-app
@@ -270,12 +277,14 @@ cd $DEST && git status
 ```
 
 **Why these changes:**
+
 - Consistent naming for scripts to find containers
 - Explicit IP binding for clarity
 - Health checks ensure containers actually started
 - Network renamed to match logging expectations
 
 #### **server.js** - Changes
+
 ```diff
 + const { InstallLogger } = require('./lib/install-logger');
 
@@ -287,11 +296,13 @@ cd $DEST && git status
 ```
 
 **Why:**
+
 - Integrates logging into application
 - Tracks startup and configuration
 - Honors LOG_LEVEL environment variable
 
 #### **.env.example** - Enhancements
+
 ```diff
 + # ============================================
 + # Application Settings
@@ -304,13 +315,16 @@ cd $DEST && git status
 ```
 
 **Why:**
+
 - Clear guidance for users
 - Explains each setting
 - Shows how to customize Ollama URL
 - Documents LOG_LEVEL options
 
 #### **README.md** - Major Additions
+
 **New sections** (700+ lines):
+
 1. **Installation Methods**: Explains all 4 scripts
 2. **Installation Logs**: Where logs are created
 3. **Viewing Logs**: Commands to view and search
@@ -325,6 +339,7 @@ cd $DEST && git status
 ## Testing Each Script
 
 ### Test install.js
+
 ```bash
 # From Kali-AI-term root
 node install.js
@@ -336,6 +351,7 @@ node lib/diagnostic-analyzer.js install.diagnostic
 ```
 
 ### Test install-full.js
+
 ```bash
 # Run full installation
 node install-full.js
@@ -346,6 +362,7 @@ node lib/diagnostic-analyzer.js install-full.diagnostic
 ```
 
 ### Test uninstall.js
+
 ```bash
 # Will prompt for confirmation
 node uninstall.js
@@ -356,6 +373,7 @@ docker ps -a | grep kali
 ```
 
 ### Test update.js
+
 ```bash
 # Requires existing installation
 node update.js
@@ -366,6 +384,7 @@ docker logs kali-ai-term-app | tail -10
 ```
 
 ### Test diagnostic tools
+
 ```bash
 # Analyzer (standalone CLI)
 node lib/diagnostic-analyzer.js install.diagnostic
@@ -449,24 +468,25 @@ Total changes:       800+ lines
 
 ## What This Fixes
 
-| Problem | Solution |
-|---------|----------|
-| Silent npm failures | Output no longer suppressed, logged completely |
-| Containers "running" but not actually | Real health checks, not sleep(5) |
-| No visibility into issues | Detailed logs written to disk automatically |
-| Can't diagnose problems | JSON diagnostic + analyzer + interactive menu |
-| Credentials exposed in logs | Automatic masking of sensitive values |
-| Old logs pile up | Automatic rotation keeps last 5 |
-| No error suggestions | Analyzer suggests specific fixes |
-| Containers with wrong names | Standardized naming (kali-ai-term-*) |
-| Port binding issues | Explicit 0.0.0.0:31337 binding |
-| Users lost after failure | Clear next steps in error output |
+| Problem                               | Solution                                       |
+| ------------------------------------- | ---------------------------------------------- |
+| Silent npm failures                   | Output no longer suppressed, logged completely |
+| Containers "running" but not actually | Real health checks, not sleep(5)               |
+| No visibility into issues             | Detailed logs written to disk automatically    |
+| Can't diagnose problems               | JSON diagnostic + analyzer + interactive menu  |
+| Credentials exposed in logs           | Automatic masking of sensitive values          |
+| Old logs pile up                      | Automatic rotation keeps last 5                |
+| No error suggestions                  | Analyzer suggests specific fixes               |
+| Containers with wrong names           | Standardized naming (kali-ai-term-\*)          |
+| Port binding issues                   | Explicit 0.0.0.0:31337 binding                 |
+| Users lost after failure              | Clear next steps in error output               |
 
 ---
 
 ## Ready to Integrate
 
 All code has been:
+
 - ✅ Written and tested
 - ✅ Committed to feature branch
 - ✅ Documented thoroughly

@@ -5,6 +5,7 @@ Elite browser-based penetration testing terminal that bridges a local Ollama ins
 ## Features
 
 ### 🖥️ Interface Architecture
+
 - **Dual-Stream View**: Separate intelligenced streams for AI reasoning (cyan/green) and live Docker output (grey/white)
 - **Professional Terminal Aesthetics**: Dark mode, glowing LEDs, cyberpunk styling
 - **Persistent HUD**: Real-time display of `$TARGET_IP`, `$LOCAL_IP`, `$LISTENING_PORT`
@@ -12,6 +13,7 @@ Elite browser-based penetration testing terminal that bridges a local Ollama ins
 - **Status Indicators**: Live connectivity LEDs for Docker, Ollama, and Target
 
 ### ⚡ Core Capabilities
+
 - **Natural Language Processing**: Send natural language queries processed by Ollama LLM
 - **Docker Integration**: Execute commands directly in Kali Linux container
 - **Auto-Pilot Mode**: AI suggests next logical command based on previous output
@@ -20,6 +22,7 @@ Elite browser-based penetration testing terminal that bridges a local Ollama ins
 - **Session Burn**: One-touch purge of cache, context, and Docker state
 
 ### 🔐 Security
+
 - Token-based authentication with session management
 - Rate limiting on API endpoints
 - Helmet.js security headers
@@ -59,6 +62,7 @@ Elite browser-based penetration testing terminal that bridges a local Ollama ins
 **For detailed architecture, security model, and design decisions**, see [TDR.md](TDR.md)
 
 Key topics covered:
+
 - Docker Socket API & Kali access mechanism
 - Ollama integration & model management
 - Plugin system architecture
@@ -80,6 +84,7 @@ cd Kali-AI-term
 ```
 
 The script will:
+
 - ✓ Check all prerequisites (Docker, Node.js, Ollama)
 - ✓ Prompt for an admin password during interactive installs
 - ✓ Generate a secure fallback password if you press Enter or run non-interactively
@@ -100,6 +105,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/
 ```
 
 The script will:
+
 - ✓ Pull latest `kalilinux/kali-rolling:latest` base image
 - ✓ Validate `docker-compose.yml`
 - ✓ Rebuild and force-recreate services with updated images
@@ -114,6 +120,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/
 ```
 
 The script will:
+
 - ✓ Stop and remove Docker containers
 - ✓ Remove orphaned compose networks and legacy container names
 - ✓ Delete `.env` and `.env.backup` files
@@ -138,6 +145,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/
 ```
 
 Each script:
+
 - ✓ Checks Docker daemon status
 - ✓ Validates configuration
 - ✓ Inspects containers and images
@@ -153,6 +161,7 @@ This system uses **Ollama** to run open-source LLMs locally on your hardware. Th
 #### Default Model
 
 By default, **`smollm2:135m`** is pre-configured (91 MB, ultra-light):
+
 - ⭐ Recommended for low-end systems (Intel iGPU, limited VRAM)
 - Automatically downloaded on first startup
 - 512 MB VRAM minimum requirement
@@ -160,14 +169,14 @@ By default, **`smollm2:135m`** is pre-configured (91 MB, ultra-light):
 
 #### Available Models for Different Hardware
 
-| Model | Size | VRAM | Speed | Quality | Best For |
-|-------|------|------|-------|---------|----------|
-| **smollm2:135m** ⭐ | 91 MB | 512 MB | Very Fast | Fair | Low-end systems, quick responses |
-| **llama3.2:1b** | 770 MB | 2-3 GB | Fast | Good | Balanced performance |
-| **llama3.2:3b** | 2.0 GB | 3-4 GB | Good | Very Good | Mid-range systems |
-| **mistral:7b** | 4.1 GB | 6 GB | Balanced | Excellent | High-end systems |
-| **llama3.1:8b** | 4.7 GB | 6-8 GB | Good | Excellent | Powerful systems |
-| **qwen2.5-coder:7b** | 4.7 GB | 6 GB | Balanced | Excellent | Code analysis, debugging |
+| Model                | Size   | VRAM   | Speed     | Quality   | Best For                         |
+| -------------------- | ------ | ------ | --------- | --------- | -------------------------------- |
+| **smollm2:135m** ⭐  | 91 MB  | 512 MB | Very Fast | Fair      | Low-end systems, quick responses |
+| **llama3.2:1b**      | 770 MB | 2-3 GB | Fast      | Good      | Balanced performance             |
+| **llama3.2:3b**      | 2.0 GB | 3-4 GB | Good      | Very Good | Mid-range systems                |
+| **mistral:7b**       | 4.1 GB | 6 GB   | Balanced  | Excellent | High-end systems                 |
+| **llama3.1:8b**      | 4.7 GB | 6-8 GB | Good      | Excellent | Powerful systems                 |
+| **qwen2.5-coder:7b** | 4.7 GB | 6 GB   | Balanced  | Excellent | Code analysis, debugging         |
 
 #### Switching Models
 
@@ -178,12 +187,14 @@ By default, **`smollm2:135m`** is pre-configured (91 MB, ultra-light):
    - Commands will use the selected model
 
 2. **Pull New Model from CLI:**
+
    ```bash
    docker exec kali-ai-term-ollama ollama pull mistral
    docker exec kali-ai-term-ollama ollama pull llama3.2:1b
    ```
 
 3. **List Installed Models:**
+
    ```bash
    docker exec kali-ai-term-ollama ollama list
    ```
@@ -209,18 +220,19 @@ These settings are automatically applied in `docker-compose.yml`.
 
 #### Troubleshooting Model Issues
 
-| Problem | Solution |
-|---------|----------|
-| "Model not found" error | Pull the model: `docker exec kali-ai-term-ollama ollama pull smollm2:135m` |
-| Slow responses | Check model size vs available VRAM, or switch to smaller model |
-| Out of memory errors | Reduce number of parallel requests or switch to smaller model |
+| Problem                            | Solution                                                                                                       |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| "Model not found" error            | Pull the model: `docker exec kali-ai-term-ollama ollama pull smollm2:135m`                                     |
+| Slow responses                     | Check model size vs available VRAM, or switch to smaller model                                                 |
+| Out of memory errors               | Reduce number of parallel requests or switch to smaller model                                                  |
 | Model takes 10+ seconds to respond | This is normal on first request (model loads into VRAM). Subsequent requests are faster due to `KEEP_ALIVE=-1` |
-| Ollama service won't start | Run diagnostic: `bash diagnose-quick.sh` |
+| Ollama service won't start         | Run diagnostic: `bash diagnose-quick.sh`                                                                       |
 
 ### Manual Installation
 
 **Prerequisites**
-- Docker & Docker Compose installed  
+
+- Docker & Docker Compose installed
 - Ports 31337 (Web UI) and 11434 (Ollama API) available
 - 512 MB free RAM minimum (for smollm2:135m)
 - 2+ GB free disk space for LLM models
@@ -228,17 +240,20 @@ These settings are automatically applied in `docker-compose.yml`.
 ### Installation & Deployment
 
 1. **Clone and navigate to repository**
+
    ```bash
    cd Kali-AI-term
    ```
 
 2. **Configure environment (optional)**
+
    ```bash
    cp .env.example .env
    # Edit .env with your settings (optional)
    ```
 
 3. **Start the system**
+
    ```bash
    docker-compose up -d
    ```
@@ -250,6 +265,7 @@ These settings are automatically applied in `docker-compose.yml`.
    ```
 
 ### Stopping the System
+
 ```bash
 docker-compose down
 ```
@@ -261,6 +277,7 @@ docker-compose down
 All installation, update, and uninstall scripts create detailed log files for troubleshooting:
 
 **Log File Locations:**
+
 ```
 install-TIMESTAMP.log       # Timestamped installation log
 install.log                 # Symlink to latest installation log
@@ -274,28 +291,33 @@ uninstall-TIMESTAMP.log     # Uninstall operation log
 If installation fails or containers don't start:
 
 **1. Check the log file:**
+
 ```bash
 tail -50 install.log    # View last 50 lines
 less install.log        # Full log with search
 ```
 
 **2. View the diagnostic report:**
+
 ```bash
 cat install.diagnostic  # JSON format with system info, exit codes, errors
 ```
 
 **3. Run the diagnostic analyzer:**
+
 ```bash
 node lib/diagnostic-analyzer.js install.diagnostic
 ```
 
 This will:
+
 - ✓ Identify errors and categorize them
 - ✓ Suggest fixes for common issues
 - ✓ Show container state
 - ✓ Display system requirements
 
 **4. Use the interactive diagnostic menu:**
+
 ```bash
 node lib/install-menu.js install.diagnostic install.log
 ```
@@ -305,10 +327,12 @@ This provides an interactive menu to explore issues.
 ### Common Issues
 
 **"npm install failed with ERESOLVE error"**
+
 - Check logs for suggested fix
 - Usually: `npm ci --legacy-peer-deps` or `rm package-lock.json && npm install`
 
 **"Docker containers created but not running"**
+
 ```bash
 # Check logs for Docker issues:
 docker logs kali-ai-term-app
@@ -316,6 +340,7 @@ docker logs kali-ai-term-kali
 ```
 
 **"Ollama connection failed"**
+
 ```bash
 # Verify Ollama is running on host:
 curl http://localhost:11434/api/tags
@@ -326,6 +351,7 @@ ollama serve
 ### Understanding Sensitive Data Masking
 
 Log files mask sensitive values for security:
+
 ```
 ADMIN_PASSWORD=*** (instead of actual password)
 AUTH_SECRET=*** (instead of actual UUID)
@@ -337,6 +363,7 @@ This allows safe sharing of logs with support without exposing secrets.
 ### Log Rotation
 
 Installation logs are automatically rotated:
+
 - **Keep:** Last 5 installation runs
 - **Delete:** Older logs automatically
 - **Format:** `install-2024-03-15-10-30-45.log`
@@ -344,11 +371,12 @@ Installation logs are automatically rotated:
 ### Application Logs
 
 Runtime application logs (after startup):
+
 ```bash
 # View app container logs
 docker logs -f kali-ai-term-app
 
-# View Kali container logs  
+# View Kali container logs
 docker logs -f kali-ai-term-kali
 
 # Set log level in .env
@@ -361,6 +389,7 @@ LOG_LEVEL=error  # errors only
 ## Usage Guide
 
 ### Authentication
+
 1. Navigate to `http://localhost:31337`
 2. Enter the admin password you set during install, or the generated password shown by the installer
 3. You're logged in for 24 hours
@@ -371,6 +400,7 @@ Run `./collect-logs.sh` and share the report output plus the login report ID.
 ### Command Types
 
 **Natural Language Queries** (processed by Ollama)
+
 ```
 > what are the services running on the target?
 > how do I scan for SQL injection vulnerabilities?
@@ -378,6 +408,7 @@ Run `./collect-logs.sh` and share the report output plus the login report ID.
 ```
 
 **System Commands** (executed in Kali container)
+
 ```
 > nmap -sV 192.168.1.1
 > sqlmap -u http://target.com --dbs
@@ -387,11 +418,13 @@ Run `./collect-logs.sh` and share the report output plus the login report ID.
 ### Modes
 
 **Auto-Pilot Mode**
+
 - AI analyzes command output
 - Suggests next logical step
 - Great for guided penetration testing
 
 **Live-Pipe Mode**
+
 - Commands execute immediately
 - No confirmation dialog
 - Use with caution on production systems
@@ -399,10 +432,12 @@ Run `./collect-logs.sh` and share the report output plus the login report ID.
 ### Emergency Controls
 
 **Kill Switch (⏹ KILL)**
+
 - Terminates all active processes in Kali container
 - Clears active connections
 
 **Burn Session (🔥 BURN)**
+
 - Purges browser cache
 - Resets LLM context
 - Reverts Docker container to base image
@@ -426,19 +461,23 @@ LOG_LEVEL=info               # Logging level
 ### API Endpoints
 
 #### Authentication
+
 - `POST /api/auth/login` - Authenticate with password
 
 #### Docker
+
 - `POST /api/docker/exec` - Execute command in Kali
 - `GET /api/docker/status` - Get container status
 - `GET /api/docker/stream/:execId` - Stream command output
 
 #### Ollama
+
 - `POST /api/ollama/generate` - Generate LLM response
 - `POST /api/ollama/stream` - Stream LLM response
 - `GET /api/ollama/models` - List available models
 
 #### System
+
 - `GET /api/system/status` - Check system health
 
 ## Remote Access via ZeroTier
@@ -508,17 +547,18 @@ The install scripts (`install.sh` and `install-full.sh`) automatically detect Ze
 
 ### Quick Diagnostics Checklist
 
-| Check | Command |
-|-------|---------|
-| Container running? | `docker ps \| grep kali-ai-term-app` |
-| Port bound to all interfaces? | `ss -tlnp \| grep 31337` |
-| ZeroTier connected? | `zerotier-cli listnetworks` |
-| iptables rule present? | `iptables -L DOCKER-USER -n \| grep zt` |
-| Firewall blocking? | `ufw status` or `firewall-cmd --list-all` |
+| Check                         | Command                                   |
+| ----------------------------- | ----------------------------------------- |
+| Container running?            | `docker ps \| grep kali-ai-term-app`      |
+| Port bound to all interfaces? | `ss -tlnp \| grep 31337`                  |
+| ZeroTier connected?           | `zerotier-cli listnetworks`               |
+| iptables rule present?        | `iptables -L DOCKER-USER -n \| grep zt`   |
+| Firewall blocking?            | `ufw status` or `firewall-cmd --list-all` |
 
 ## Development
 
 ### Project Structure
+
 ```
 Kali-AI-term/
 ├── server.js              # Express backend
@@ -552,16 +592,21 @@ docker-compose -f docker-compose.yml up -d
 We provide modern Node.js installation scripts with comprehensive logging and diagnostics:
 
 #### Basic Installation
+
 ```bash
 node install.js
 ```
+
 Quick setup with essential checks and logging. Good for experienced users.
 
 #### Full Installation (Recommended)
+
 ```bash
 node install-full.js
 ```
+
 Advanced diagnostics including:
+
 - ✓ Detailed prerequisite verification
 - ✓ System information gathering
 - ✓ Docker system analysis
@@ -571,10 +616,13 @@ Advanced diagnostics including:
 - ✓ Comprehensive diagnostics report
 
 #### Update Installation
+
 ```bash
 node update.js
 ```
+
 Updates existing installation:
+
 - Pulls latest code
 - Updates dependencies
 - Rebuilds Docker image
@@ -582,15 +630,19 @@ Updates existing installation:
 - Verifies installation
 
 #### Uninstallation
+
 ```bash
 node uninstall.js
 ```
+
 Safely removes all containers and data (preserves logs for reference).
 
 ### Legacy Bash Script
+
 ```bash
 bash install.sh
 ```
+
 Original installation script (still works, but has less detailed logging).
 
 ## Troubleshooting & Log Files
@@ -600,6 +652,7 @@ Original installation script (still works, but has less detailed logging).
 All installation, update, and uninstall operations create detailed log files:
 
 **Log File Locations:**
+
 ```
 install-TIMESTAMP.log          # Timestamped installation log
 install.log                    # Symlink to latest installation log
@@ -612,12 +665,14 @@ data/login-error-reports/*.json # Login failure diagnostics (generated on auth f
 ### Viewing Logs
 
 **Recent installation events:**
+
 ```bash
 tail -50 install.log           # Last 50 lines
 less install.log               # Full log with search (press '/' to search, 'q' to quit)
 ```
 
 **JSON diagnostic data:**
+
 ```bash
 cat install.diagnostic         # View complete diagnostic JSON
 ```
@@ -633,6 +688,7 @@ node lib/diagnostic-analyzer.js install.diagnostic
 ```
 
 This will:
+
 - ✓ Identify all errors and categorize them
 - ✓ Suggest specific fixes for common issues
 - ✓ Display container state
@@ -647,6 +703,7 @@ node lib/install-menu.js install.diagnostic install.log
 ```
 
 Menu provides:
+
 1. View error details
 2. View Docker container status
 3. View system information
@@ -658,6 +715,7 @@ Menu provides:
 **"npm install failed with ERESOLVE error"**
 
 Dependency conflict detected. Solution:
+
 ```bash
 npm ci --legacy-peer-deps
 # or
@@ -667,6 +725,7 @@ rm package-lock.json && npm install
 **"Docker containers created but not running"**
 
 Check container logs:
+
 ```bash
 # View app container logs
 docker logs kali-ai-term-app
@@ -681,12 +740,14 @@ docker logs kali-ai-term-app | tail -50
 **"Port 31337 already in use"**
 
 Check what's using the port:
+
 ```bash
 lsof -i :31337                 # macOS/Linux
 netstat -tulpn | grep 31337    # Linux
 ```
 
 Kill existing process or use different port in `.env`:
+
 ```bash
 PORT=3001  # Change to different port
 ```
@@ -694,6 +755,7 @@ PORT=3001  # Change to different port
 **"Ollama connection failed"**
 
 Verify Ollama is running on host:
+
 ```bash
 # Check if Ollama is running
 curl http://localhost:11434/api/tags
@@ -703,6 +765,7 @@ ollama serve
 ```
 
 Verify OLLAMA_URL in `.env` matches your setup:
+
 ```bash
 # For Docker Desktop (default)
 OLLAMA_URL=http://host.docker.internal:11434
@@ -714,6 +777,7 @@ OLLAMA_URL=http://192.168.1.100:11434
 **"Permission denied: docker.sock"**
 
 Docker socket access issue. Solution:
+
 ```bash
 # Add user to docker group
 sudo usermod -aG docker $USER
@@ -726,6 +790,7 @@ node install-full.js
 ### Understanding Sensitive Data Masking
 
 Log files automatically mask sensitive values for security:
+
 ```
 ADMIN_PASSWORD=*** (instead of actual password)
 AUTH_SECRET=*** (instead of actual UUID)
@@ -737,6 +802,7 @@ This allows safe sharing of logs with support without exposing secrets.
 ### Log Rotation
 
 Installation logs are automatically managed:
+
 - **Keep:** Last 5 installation runs
 - **Delete:** Older logs automatically
 - **Format:** `install-2024-03-15-10-30-45.log`
@@ -744,6 +810,7 @@ Installation logs are automatically managed:
 ### Runtime Application Logs
 
 View application logs after startup:
+
 ```bash
 # View app container logs (real-time)
 docker logs -f kali-ai-term-app
@@ -783,6 +850,7 @@ Branch Protection: ✅
 Auto-merge: ✅
 
 ✅ Install script now supports:
+
 - Modern 'docker compose' format
 - Custom Ollama installations
 - Configuration via web UI

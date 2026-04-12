@@ -9,17 +9,20 @@
 ## What Gets Copied
 
 ### Universal files (copy as-is):
+
 - `.github/copilot-instructions.md` — master ruleset (identical across all repos)
 - `.github/pull_request_template.md` — PR template
 - `.github/ISSUE_TEMPLATE/bug_report.md` — bug report template
 - `.github/ISSUE_TEMPLATE/feature_request.md` — feature request template
 
 ### Files that need per-repo customization:
+
 - `.github/REPO_CONFIG.md` — **must be customized** per project (tech stack, files to monitor, test commands)
 - `.github/TODO.md` — start fresh for each repo
 - `.github/PLANNING.md` — start fresh for each repo
 
 ### Files that are Kali-AI-term specific (do NOT copy):
+
 - `.github/ATTACK-PLAN-DEBUG.md`
 - `.github/ENTERPRISE-AGENT-SCHEDULE.md`
 - `.github/SCHEDULE-AGENT-PROMPT.txt`
@@ -73,29 +76,31 @@ Use this template and fill in project-specific details:
 
 ## COMMANDS
 
-| Action | Command |
-|--------|---------|
+| Action        | Command                                       |
+| ------------- | --------------------------------------------- |
 | **Run tests** | [e.g., `npm test`, `pytest`, `go test ./...`] |
-| **Lint** | [e.g., `npm run lint`, `flake8`] |
-| **Build** | [e.g., `npm run build`, `docker build .`] |
+| **Lint**      | [e.g., `npm run lint`, `flake8`]              |
+| **Build**     | [e.g., `npm run build`, `docker build .`]     |
 
 ---
 
 ## FILES TO MONITOR
 
 ### Governance (read first every session)
-| File | Purpose |
-|------|---------|
-| `.github/copilot-instructions.md` | Universal agent rules |
-| `.github/REPO_CONFIG.md` | This file |
-| `.github/TODO.md` | Active task list |
-| `.github/PLANNING.md` | Planning and handoff notes |
+
+| File                              | Purpose                    |
+| --------------------------------- | -------------------------- |
+| `.github/copilot-instructions.md` | Universal agent rules      |
+| `.github/REPO_CONFIG.md`          | This file                  |
+| `.github/TODO.md`                 | Active task list           |
+| `.github/PLANNING.md`             | Planning and handoff notes |
 
 ### Core Application
-| File | Description | Conflict Risk |
-|------|-------------|:------------:|
-| [main entry point] | [description] | 🟡 MEDIUM |
-| [config file] | [description] | 🟢 LOW |
+
+| File               | Description   | Conflict Risk |
+| ------------------ | ------------- | :-----------: |
+| [main entry point] | [description] |   🟡 MEDIUM   |
+| [config file]      | [description] |    🟢 LOW     |
 
 ---
 
@@ -120,19 +125,19 @@ Use this template and fill in project-specific details:
 
 ## Active Tasks
 
-| ID | Task | Status | Priority | Notes |
-|:--:|------|--------|----------|-------|
-| — | No active tasks | — | — | — |
+| ID  | Task            | Status | Priority | Notes |
+| :-: | --------------- | ------ | -------- | ----- |
+|  —  | No active tasks | —      | —        | —     |
 
 ---
 
 ## Status / Priority Legend
 
-| Symbol | Status | | Symbol | Priority |
-|--------|--------|-|--------|----------|
-| ✅ | completed | | 🔴 | CRITICAL |
-| 🟠 | in-progress | | 🟠 | HIGH |
-| 🔵 | not-started | | 🟡 | MEDIUM |
+| Symbol | Status      |     | Symbol | Priority |
+| ------ | ----------- | --- | ------ | -------- |
+| ✅     | completed   |     | 🔴     | CRITICAL |
+| 🟠     | in-progress |     | 🟠     | HIGH     |
+| 🔵     | not-started |     | 🟡     | MEDIUM   |
 ```
 
 ### 4. Create fresh PLANNING.md
@@ -184,13 +189,13 @@ Then create a PR and wait for human review.
 
 ## Quick Reference: What Each Repo Needs
 
-| File | kali-ai-term | ollama-intelgpu | rpg-bot | discord-chromecast |
-|------|:---:|:---:|:---:|:---:|
-| `copilot-instructions.md` | ✅ done | ⚠️ needs update | ❌ missing | ❌ missing |
-| `REPO_CONFIG.md` | ✅ done | ❌ needs creation | ❌ needs creation | ❌ needs creation |
-| `TODO.md` | ✅ done | ❌ needs creation | ❌ needs creation | ❌ needs creation |
-| `PLANNING.md` | ✅ done | ❌ needs creation | ❌ needs creation | ❌ needs creation |
-| `pull_request_template.md` | ✅ done | ❌ missing | ❌ missing | ❌ missing |
-| `ISSUE_TEMPLATE/*` | ✅ done | ❌ missing | ❌ missing | ❌ missing |
+| File                       | kali-ai-term |  ollama-intelgpu  |      rpg-bot      | discord-chromecast |
+| -------------------------- | :----------: | :---------------: | :---------------: | :----------------: |
+| `copilot-instructions.md`  |   ✅ done    |  ⚠️ needs update  |    ❌ missing     |     ❌ missing     |
+| `REPO_CONFIG.md`           |   ✅ done    | ❌ needs creation | ❌ needs creation | ❌ needs creation  |
+| `TODO.md`                  |   ✅ done    | ❌ needs creation | ❌ needs creation | ❌ needs creation  |
+| `PLANNING.md`              |   ✅ done    | ❌ needs creation | ❌ needs creation | ❌ needs creation  |
+| `pull_request_template.md` |   ✅ done    |    ❌ missing     |    ❌ missing     |     ❌ missing     |
+| `ISSUE_TEMPLATE/*`         |   ✅ done    |    ❌ missing     |    ❌ missing     |     ❌ missing     |
 
 **Note**: `ollama-intelgpu` already has a `copilot-instructions.md` but it's an older, shorter version. Replace it with the new universal one.

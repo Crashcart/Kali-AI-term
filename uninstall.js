@@ -12,12 +12,15 @@ const readline = require('readline');
 const { createLogger } = require('./lib/install-logger');
 
 function isProjectDir(dir) {
-  return fs.existsSync(path.join(dir, 'docker-compose.yml'))
-    && fs.existsSync(path.join(dir, 'package.json'));
+  return (
+    fs.existsSync(path.join(dir, 'docker-compose.yml')) &&
+    fs.existsSync(path.join(dir, 'package.json'))
+  );
 }
 
 const CWD = process.cwd();
-const HOME_PROJECT_DIR = process.env.KALI_AI_TERM_DIR || path.join(process.env.HOME || '.', 'Kali-AI-term');
+const HOME_PROJECT_DIR =
+  process.env.KALI_AI_TERM_DIR || path.join(process.env.HOME || '.', 'Kali-AI-term');
 
 if (isProjectDir(CWD)) {
   process.chdir(CWD);
@@ -28,7 +31,7 @@ if (isProjectDir(CWD)) {
 const logger = createLogger('uninstall', {
   logDir: process.cwd(),
   verbose: true,
-  maskSensitive: true
+  maskSensitive: true,
 });
 
 // ============================================
@@ -39,7 +42,7 @@ function promptConfirmation() {
   return new Promise((resolve) => {
     const rl = readline.createInterface({
       input: process.stdin,
-      output: process.stdout
+      output: process.stdout,
     });
 
     console.log('\n╔════════════════════════════════════════╗');
@@ -66,13 +69,16 @@ function promptConfirmation() {
 async function stopContainers() {
   logger.info('Stopping Docker containers...');
 
-  const composeProject = path.basename(process.cwd())
+  const composeProject = path
+    .basename(process.cwd())
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-');
 
   try {
-    execSync('docker compose down --volumes --remove-orphans 2>/dev/null || docker-compose down --volumes --remove-orphans 2>/dev/null',
-      { shell: true, stdio: 'ignore' });
+    execSync(
+      'docker compose down --volumes --remove-orphans 2>/dev/null || docker-compose down --volumes --remove-orphans 2>/dev/null',
+      { shell: true, stdio: 'ignore' }
+    );
     logger.trackCommand('docker compose down --volumes --remove-orphans', 0);
     logger.success('Containers stopped');
   } catch (err) {
@@ -91,7 +97,7 @@ async function stopContainers() {
         `--filter "name=^/${composeProject}-app-"`,
         `--filter "name=^/${composeProject}-kali-"`,
         `--filter "name=^/${composeProject}_app_"`,
-        `--filter "name=^/${composeProject}_kali_"`
+        `--filter "name=^/${composeProject}_kali_"`,
       ].join(' '),
       { encoding: 'utf8', shell: true, stdio: 'pipe' }
     ).trim();
@@ -135,11 +141,13 @@ async function removeVolumes() {
   logger.info('Removing Docker volumes...');
 
   try {
-    const volumesOutput = execSync('docker volume ls --format "{{.Name}}" | grep -i kali',
-      { encoding: 'utf8', shell: true }).trim();
+    const volumesOutput = execSync('docker volume ls --format "{{.Name}}" | grep -i kali', {
+      encoding: 'utf8',
+      shell: true,
+    }).trim();
 
     if (volumesOutput) {
-      volumesOutput.split('\n').forEach(volume => {
+      volumesOutput.split('\n').forEach((volume) => {
         if (volume) {
           try {
             execSync(`docker volume rm ${volume}`, { stdio: 'ignore' });
@@ -174,7 +182,7 @@ async function removeDataDirectories() {
     './install.diagnostic',
     './install-full.diagnostic',
     './update.diagnostic',
-    './.cache'
+    './.cache',
   ];
 
   const wildcardPatterns = [
@@ -182,7 +190,7 @@ async function removeDataDirectories() {
     'diagnostic-*.txt',
     'install-*.log',
     'update-*.log',
-    '.backup-*'
+    '.backup-*',
   ];
 
   for (const target of cleanupTargets) {
@@ -217,7 +225,7 @@ async function promptRemoveProjectDirectory() {
   return new Promise((resolve) => {
     const rl = readline.createInterface({
       input: process.stdin,
-      output: process.stdout
+      output: process.stdout,
     });
 
     rl.question('Remove project directory too (including .git)? (y/N): ', (answer) => {
@@ -247,8 +255,11 @@ async function verifyCleanup() {
   const verification = {
     'Containers removed': () => {
       try {
-        const output = execSync('docker ps -a --format "{{.Names}}" | grep -i kali',
-          { encoding: 'utf8', shell: true, stdio: 'pipe' }).trim();
+        const output = execSync('docker ps -a --format "{{.Names}}" | grep -i kali', {
+          encoding: 'utf8',
+          shell: true,
+          stdio: 'pipe',
+        }).trim();
         return !output;
       } catch (err) {
         return true;
@@ -256,8 +267,11 @@ async function verifyCleanup() {
     },
     'Volumes removed': () => {
       try {
-        const output = execSync('docker volume ls --format "{{.Name}}" | grep -i kali',
-          { encoding: 'utf8', shell: true, stdio: 'pipe' }).trim();
+        const output = execSync('docker volume ls --format "{{.Name}}" | grep -i kali', {
+          encoding: 'utf8',
+          shell: true,
+          stdio: 'pipe',
+        }).trim();
         return !output;
       } catch (err) {
         return true;
@@ -267,13 +281,15 @@ async function verifyCleanup() {
     'data directory removed': () => !fs.existsSync('./data'),
     'diagnostic artifacts removed': () => {
       try {
-        const output = execSync('find . -maxdepth 1 \( -name "diagnostic-logs-*" -o -name "diagnostic-*.txt" -o -name "install-*.log" -o -name "update-*.log" -o -name ".backup-*" \)',
-          { encoding: 'utf8', shell: true, stdio: 'pipe' }).trim();
+        const output = execSync(
+          'find . -maxdepth 1 \( -name "diagnostic-logs-*" -o -name "diagnostic-*.txt" -o -name "install-*.log" -o -name "update-*.log" -o -name ".backup-*" \)',
+          { encoding: 'utf8', shell: true, stdio: 'pipe' }
+        ).trim();
         return !output;
       } catch (err) {
         return true;
       }
-    }
+    },
   };
 
   let allClean = true;
@@ -353,7 +369,6 @@ async function runUninstallation() {
     console.log('  node install-full.js (comprehensive)\n');
 
     logger.success('System cleaned');
-
   } catch (err) {
     logger.error('Uninstallation failed', { error: err.message });
     logger.generateDiagnostic('failed', 'uninstallation', err.message);

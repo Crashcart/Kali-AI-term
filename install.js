@@ -13,7 +13,7 @@ const { createLogger } = require('./lib/install-logger');
 const logger = createLogger('install', {
   logDir: process.cwd(),
   verbose: true,
-  maskSensitive: true
+  maskSensitive: true,
 });
 
 const COMPOSE_SCRIPT = process.platform === 'win32' ? 'docker-compose.cmd' : 'docker-compose';
@@ -22,7 +22,7 @@ const REQUIRED_CONTAINERS = ['kali-ai-term-app', 'kali-ai-term-kali'];
 function getContainerStates() {
   const psOutput = execSync('docker ps -a --format "{{.Names}}\t{{.State}}\t{{.Status}}"', {
     encoding: 'utf8',
-    shell: true
+    shell: true,
   });
 
   const containerStates = new Map();
@@ -35,7 +35,7 @@ function getContainerStates() {
       if (name) {
         containerStates.set(name, {
           state: state || 'unknown',
-          status: status || ''
+          status: status || '',
         });
       }
     });
@@ -93,7 +93,9 @@ async function checkPrerequisites() {
   // gives a clear error instead of a cryptic OCI runtime failure.
   if (process.platform !== 'win32') {
     if (process.env.DOCKER_HOST) {
-      logger.info(`DOCKER_HOST is set (${process.env.DOCKER_HOST}); Docker socket path check skipped`);
+      logger.info(
+        `DOCKER_HOST is set (${process.env.DOCKER_HOST}); Docker socket path check skipped`
+      );
     } else {
       const socketPath = process.env.DOCKER_SOCKET || '/var/run/docker.sock';
       try {
@@ -107,10 +109,9 @@ async function checkPrerequisites() {
           logger.success(`Docker socket accessible at ${socketPath}`);
         }
       } catch (err) {
-        logger.error(
-          `Docker socket not found at ${socketPath} — is the Docker daemon running?`,
-          { hint: 'Try: sudo systemctl start docker' }
-        );
+        logger.error(`Docker socket not found at ${socketPath} — is the Docker daemon running?`, {
+          hint: 'Try: sudo systemctl start docker',
+        });
         missingDeps.push('docker-socket');
       }
     }
@@ -233,7 +234,12 @@ async function installDependencies() {
     logger.trackCommand('npm install', 0, output);
     logger.success('Dependencies installed');
   } catch (err) {
-    logger.trackCommand('npm install', err.status || 1, err.stdout || '', err.stderr || err.message);
+    logger.trackCommand(
+      'npm install',
+      err.status || 1,
+      err.stdout || '',
+      err.stderr || err.message
+    );
     logger.error('npm install failed', { exitCode: err.status, error: err.message });
     throw err;
   }
@@ -249,8 +255,10 @@ async function startContainers() {
   try {
     // Stop existing containers
     try {
-      const downOutput = execSync('docker-compose down 2>/dev/null || docker compose down 2>/dev/null',
-        { encoding: 'utf8', shell: true });
+      const downOutput = execSync(
+        'docker-compose down 2>/dev/null || docker compose down 2>/dev/null',
+        { encoding: 'utf8', shell: true }
+      );
       logger.trackCommand('docker-compose down', 0);
     } catch (err) {
       // Ignore down errors if containers don't exist
@@ -258,8 +266,10 @@ async function startContainers() {
     }
 
     // Start containers
-    const upOutput = execSync('docker-compose up -d --build --force-recreate 2>/dev/null || docker compose up -d --build --force-recreate',
-      { encoding: 'utf8', shell: true, maxBuffer: 10 * 1024 * 1024 });
+    const upOutput = execSync(
+      'docker-compose up -d --build --force-recreate 2>/dev/null || docker compose up -d --build --force-recreate',
+      { encoding: 'utf8', shell: true, maxBuffer: 10 * 1024 * 1024 }
+    );
     logger.trackCommand('docker-compose up -d --build --force-recreate', 0, upOutput);
     logger.success('Docker containers built and started');
 
@@ -284,11 +294,11 @@ async function startContainers() {
           if (attempts % 5 === 0) {
             logger.debug(`Waiting for containers (attempt ${attempts}/${maxAttempts})`);
           }
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise((resolve) => setTimeout(resolve, 2000));
         }
       } catch (err) {
         attempts++;
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
     }
 
@@ -296,15 +306,16 @@ async function startContainers() {
       logger.warn('Containers did not become healthy within timeout');
       logger.info('Checking container logs...');
       try {
-        const appLogs = execSync('docker logs kali-ai-term-app 2>&1 | tail -20',
-          { encoding: 'utf8', shell: true });
+        const appLogs = execSync('docker logs kali-ai-term-app 2>&1 | tail -20', {
+          encoding: 'utf8',
+          shell: true,
+        });
         logger.debug('App container logs', { logs: appLogs });
       } catch (err) {
         // Ignore log fetch errors
       }
       verifyRequiredContainersRunning();
     }
-
   } catch (err) {
     logger.error('Failed to start containers', { error: err.message });
     throw err;
@@ -322,8 +333,10 @@ async function verifyInstallation() {
 
   try {
     // Check if app is responding
-    execSync('curl -f http://localhost:3000/api/system/status >/dev/null 2>&1',
-      { shell: true, timeout: 5000 });
+    execSync('curl -f http://localhost:3000/api/system/status >/dev/null 2>&1', {
+      shell: true,
+      timeout: 5000,
+    });
     logger.success('Application is responding on port 3000');
   } catch (err) {
     logger.warn('Application health check failed (containers may still be starting)');
@@ -347,7 +360,11 @@ async function runInstallation() {
     const prereqsOk = await checkPrerequisites();
     if (!prereqsOk) {
       logger.error('Prerequisites check failed');
-      const diagnostic = logger.generateDiagnostic('failed', 'prerequisites', 'Missing critical dependencies');
+      const diagnostic = logger.generateDiagnostic(
+        'failed',
+        'prerequisites',
+        'Missing critical dependencies'
+      );
       console.error('\nPlease install missing dependencies and try again.');
       process.exit(1);
     }
@@ -385,10 +402,11 @@ async function runInstallation() {
     console.log('Logs:');
     console.log(`  Install log: ${logger.getLogPath()}`);
     console.log(`  Diagnostic: ${logger.getDiagnosticPath()}`);
-    console.log(`  View diagnostic: node lib/diagnostic-analyzer.js ${path.basename(logger.getDiagnosticPath())}\n`);
+    console.log(
+      `  View diagnostic: node lib/diagnostic-analyzer.js ${path.basename(logger.getDiagnosticPath())}\n`
+    );
 
     logger.success('Ready to go!');
-
   } catch (err) {
     logger.error('Installation failed', { error: err.message, stack: err.stack });
     logger.generateDiagnostic('failed', 'installation', err.message);
@@ -400,7 +418,9 @@ async function runInstallation() {
     console.error(`Error: ${err.message}\n`);
     console.error('For detailed troubleshooting:');
     console.error(`  cat ${logger.getLogPath()}`);
-    console.error(`  node lib/diagnostic-analyzer.js ${path.basename(logger.getDiagnosticPath())}\n`);
+    console.error(
+      `  node lib/diagnostic-analyzer.js ${path.basename(logger.getDiagnosticPath())}\n`
+    );
 
     process.exit(1);
   }
@@ -408,7 +428,7 @@ async function runInstallation() {
 
 module.exports = {
   checkPrerequisites,
-  getDockerSocketPath
+  getDockerSocketPath,
 };
 
 // Run installation only when executed directly

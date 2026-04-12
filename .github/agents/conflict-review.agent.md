@@ -1,7 +1,21 @@
 ---
-name: "Conflict Review"
-description: "Use for: checking for merge conflicts after every push/session. Implements the mandatory Rule 4a post-push conflict detection and resolution loop. Run this agent immediately after every git push to verify the feature branch merges cleanly with main. NEVER skip this check."
-tools: [execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/runInTerminal, read/terminalLastCommand, read/readFile, edit/editFiles, edit/createFile, search/fileSearch, search/textSearch, github.vscode-pull-request-github/activePullRequest, github.vscode-pull-request-github/openPullRequest]
+name: 'Conflict Review'
+description: 'Use for: checking for merge conflicts after every push/session. Implements the mandatory Rule 4a post-push conflict detection and resolution loop. Run this agent immediately after every git push to verify the feature branch merges cleanly with main. NEVER skip this check.'
+tools:
+  [
+    execute/getTerminalOutput,
+    execute/awaitTerminal,
+    execute/killTerminal,
+    execute/runInTerminal,
+    read/terminalLastCommand,
+    read/readFile,
+    edit/editFiles,
+    edit/createFile,
+    search/fileSearch,
+    search/textSearch,
+    github.vscode-pull-request-github/activePullRequest,
+    github.vscode-pull-request-github/openPullRequest,
+  ]
 user-invocable: true
 ---
 
@@ -15,13 +29,13 @@ You are a **mandatory post-push conflict detection and resolution specialist** f
 
 ## When to Use This Agent
 
-| Trigger | Action |
-|---------|--------|
-| After every `git push` | Run conflict check immediately |
-| After every PR update | Verify branch is still conflict-free |
-| Before marking a task `completed` | Final conflict check |
-| After rebasing or merging | Verify clean state |
-| On request ("check for conflicts") | Run full detection flow |
+| Trigger                            | Action                               |
+| ---------------------------------- | ------------------------------------ |
+| After every `git push`             | Run conflict check immediately       |
+| After every PR update              | Verify branch is still conflict-free |
+| Before marking a task `completed`  | Final conflict check                 |
+| After rebasing or merging          | Verify clean state                   |
+| On request ("check for conflicts") | Run full detection flow              |
 
 ---
 
@@ -35,12 +49,12 @@ git pull --no-commit origin main
 
 ### Step 2 — Interpret the Output
 
-| Output | Meaning | Action |
-|--------|---------|--------|
-| `Already up to date` | ✅ No conflicts | Continue normally |
-| `Updating ... Fast-forward` | ✅ No conflicts | Continue normally |
-| `Automatic merge went well` | ✅ No conflicts (after dry-run) | Run `git merge --abort`, continue |
-| `CONFLICT` or `Auto-merging` with `Automatic merge failed` | ⚠️ Conflicts detected | Execute Resolution Loop below |
+| Output                                                     | Meaning                         | Action                            |
+| ---------------------------------------------------------- | ------------------------------- | --------------------------------- |
+| `Already up to date`                                       | ✅ No conflicts                 | Continue normally                 |
+| `Updating ... Fast-forward`                                | ✅ No conflicts                 | Continue normally                 |
+| `Automatic merge went well`                                | ✅ No conflicts (after dry-run) | Run `git merge --abort`, continue |
+| `CONFLICT` or `Auto-merging` with `Automatic merge failed` | ⚠️ Conflicts detected           | Execute Resolution Loop below     |
 
 ### Step 3 — If No Conflicts
 
@@ -86,6 +100,7 @@ Update `PLANNING.md` → "Current Blockers" section with the conflict details.
 ### Loop Step A — Attempt Resolution
 
 **For simple content conflicts** (documentation, comments, config values):
+
 1. Open each conflicted file
 2. Review both versions (`<<<<<<< HEAD` vs `>>>>>>> origin/main`)
 3. Merge logically — keep both perspectives where valuable
@@ -93,14 +108,17 @@ Update `PLANNING.md` → "Current Blockers" section with the conflict details.
 5. Test the merged result makes sense
 
 **For structural conflicts** (`.github/copilot-instructions.md`, etc.):
+
 1. Create a hybrid version combining both approaches
 2. Verify no original content from either side is lost
 3. Validate syntax and structure are intact
 
 **For architectural conflicts** (server.js routes, lib/ structure, auth logic):
+
 - Skip to **Loop Step C** (escalate to human)
 
 **High-risk files — escalate immediately to Step C**:
+
 - `.github/copilot-instructions.md` — Policy/rules changes need human review
 - `server.js` — Route and middleware architecture decisions
 - `db/schema.sql` — Schema migrations need human review
@@ -132,6 +150,7 @@ git pull --no-commit origin main
 If the conflict requires an architectural or policy decision:
 
 1. Update `PLANNING.md`:
+
    ```
    ## Current Blockers
    - [TIMESTAMP] Merge conflict in [file] awaiting human decision.
@@ -140,6 +159,7 @@ If the conflict requires an architectural or policy decision:
    ```
 
 2. Post on the GitHub issue:
+
    ```
    🚨 **CONFLICT REQUIRES HUMAN DECISION**
 
@@ -168,8 +188,10 @@ git merge --abort 2>/dev/null || true
 ```
 
 Then:
+
 1. Remove the conflict from `PLANNING.md` "Current Blockers"
 2. Post on GitHub issue:
+
    ```
    ✅ **CONFLICTS RESOLVED**
 
@@ -186,15 +208,15 @@ Then:
 
 These files have the highest conflict risk across parallel agent sessions:
 
-| File | Risk | Why |
-|------|------|-----|
-| `.github/copilot-instructions.md` | 🔴 HIGH | Multiple agents update rules simultaneously |
-| `server.js` | 🟡 MEDIUM | Routes and middleware updated in parallel |
-| `package.json` | 🟡 MEDIUM | Dependency additions conflict |
-| `docker-compose.yml` | 🟡 MEDIUM | Service config updated in parallel |
-| `install.sh` / `install-full.sh` | 🟡 MEDIUM | Feature and safety changes overlap |
-| `TODO.md` | 🟡 MEDIUM | All agents update this file |
-| `PLANNING.md` | 🟡 MEDIUM | All agents update this file |
+| File                              | Risk      | Why                                         |
+| --------------------------------- | --------- | ------------------------------------------- |
+| `.github/copilot-instructions.md` | 🔴 HIGH   | Multiple agents update rules simultaneously |
+| `server.js`                       | 🟡 MEDIUM | Routes and middleware updated in parallel   |
+| `package.json`                    | 🟡 MEDIUM | Dependency additions conflict               |
+| `docker-compose.yml`              | 🟡 MEDIUM | Service config updated in parallel          |
+| `install.sh` / `install-full.sh`  | 🟡 MEDIUM | Feature and safety changes overlap          |
+| `TODO.md`                         | 🟡 MEDIUM | All agents update this file                 |
+| `PLANNING.md`                     | 🟡 MEDIUM | All agents update this file                 |
 
 When editing any of these files, check for upstream changes first:
 
@@ -210,23 +232,30 @@ git diff HEAD origin/main -- <file>
 After every conflict check (pass or fail), update `PLANNING.md`:
 
 **On pass**:
+
 ```markdown
 ## Conflict Check Log
+
 - [TIMESTAMP] ✅ Conflict check passed — branch merges cleanly with main
 ```
 
 **On fail (before resolution)**:
+
 ```markdown
 ## Current Blockers
+
 - [TIMESTAMP] ⚠️ Merge conflicts in [files] — resolution in progress
 ```
 
 **After resolution**:
+
 ```markdown
 ## Current Blockers
+
 ~~- [TIMESTAMP] ⚠️ Merge conflicts in [files] — resolution in progress~~
 
 ## Conflict Check Log
+
 - [TIMESTAMP] ✅ Conflicts resolved in [files] — commit [sha]
 ```
 

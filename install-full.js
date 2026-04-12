@@ -14,7 +14,7 @@ const { createLogger } = require('./lib/install-logger');
 const logger = createLogger('install-full', {
   logDir: process.cwd(),
   verbose: true,
-  maskSensitive: true
+  maskSensitive: true,
 });
 
 const REQUIRED_CONTAINERS = ['kali-ai-term-app', 'kali-ai-term-kali'];
@@ -22,7 +22,7 @@ const REQUIRED_CONTAINERS = ['kali-ai-term-app', 'kali-ai-term-kali'];
 function getContainerStates() {
   const psOutput = execSync('docker ps -a --format "{{.Names}}\t{{.State}}\t{{.Status}}"', {
     encoding: 'utf8',
-    shell: true
+    shell: true,
   });
 
   const containerStates = new Map();
@@ -35,7 +35,7 @@ function getContainerStates() {
       if (name) {
         containerStates.set(name, {
           state: state || 'unknown',
-          status: status || ''
+          status: status || '',
         });
       }
     });
@@ -80,33 +80,33 @@ async function detailedPrerequisiteCheck() {
     docker: {
       command: 'docker --version',
       description: 'Docker container runtime',
-      critical: true
+      critical: true,
     },
     docker_compose: {
       command: 'docker-compose --version || docker compose version',
       description: 'Docker Compose orchestration',
-      critical: true
+      critical: true,
     },
     node: {
       command: 'node --version',
       description: 'Node.js runtime',
-      critical: true
+      critical: true,
     },
     npm: {
       command: 'npm --version',
       description: 'Node Package Manager',
-      critical: true
+      critical: true,
     },
     git: {
       command: 'git --version',
       description: 'Git version control',
-      critical: false
+      critical: false,
     },
     curl: {
       command: 'curl --version | head -1',
       description: 'cURL HTTP client',
-      critical: false
-    }
+      critical: false,
+    },
   };
 
   const results = {};
@@ -116,7 +116,7 @@ async function detailedPrerequisiteCheck() {
       const output = execSync(check.command, {
         encoding: 'utf8',
         shell: true,
-        stdio: ['pipe', 'pipe', 'ignore']
+        stdio: ['pipe', 'pipe', 'ignore'],
       }).trim();
 
       results[name] = { found: true, version: output };
@@ -127,10 +127,9 @@ async function detailedPrerequisiteCheck() {
     } catch (err) {
       results[name] = { found: false };
       const severity = check.critical ? 'ERROR' : 'WARN';
-      logger[severity === 'ERROR' ? 'error' : 'warn'](
-        `${check.description} not found`,
-        { required: check.critical }
-      );
+      logger[severity === 'ERROR' ? 'error' : 'warn'](`${check.description} not found`, {
+        required: check.critical,
+      });
     }
   }
 
@@ -161,10 +160,10 @@ async function gatherSystemInfo() {
     nodeVersion: process.version,
     memory: {
       total: Math.round(os.totalmem() / 1024 / 1024 / 1024) + 'GB',
-      free: Math.round(os.freemem() / 1024 / 1024 / 1024) + 'GB'
+      free: Math.round(os.freemem() / 1024 / 1024 / 1024) + 'GB',
     },
     cpus: os.cpus().length,
-    uptime: Math.round(os.uptime() / 3600) + 'h'
+    uptime: Math.round(os.uptime() / 3600) + 'h',
   };
 
   logger.debug('System info', systemInfo);
@@ -195,13 +194,17 @@ async function analyzeDockerSystem() {
 
   try {
     // Docker info
-    const dockerInfo = execSync('docker info --format "{{.Containers}} containers, {{.Images}} images"',
-      { encoding: 'utf8' }).trim();
+    const dockerInfo = execSync(
+      'docker info --format "{{.Containers}} containers, {{.Images}} images"',
+      { encoding: 'utf8' }
+    ).trim();
     logger.info(`Docker: ${dockerInfo}`);
 
     // Check docker.sock access
     if (process.env.DOCKER_HOST) {
-      logger.info(`DOCKER_HOST is set (${process.env.DOCKER_HOST}); Docker socket path check skipped`);
+      logger.info(
+        `DOCKER_HOST is set (${process.env.DOCKER_HOST}); Docker socket path check skipped`
+      );
     } else {
       const socketPath = process.env.DOCKER_SOCKET || '/var/run/docker.sock';
       if (fs.existsSync(socketPath)) {
@@ -222,15 +225,16 @@ async function analyzeDockerSystem() {
 
     // Check docker network
     try {
-      const networks = execSync('docker network ls --format "{{.Name}}" | grep -E "pentest|kali"',
-        { encoding: 'utf8', shell: true }).trim();
+      const networks = execSync('docker network ls --format "{{.Name}}" | grep -E "pentest|kali"', {
+        encoding: 'utf8',
+        shell: true,
+      }).trim();
       if (networks) {
         logger.info(`Found existing Docker networks: ${networks}`);
       }
     } catch (err) {
       logger.debug('No existing pentest/kali networks');
     }
-
   } catch (err) {
     logger.error('Docker analysis failed', { error: err.message });
   }
@@ -246,18 +250,19 @@ async function checkPorts() {
   const ports = {
     3000: 'Application server',
     31337: 'Web UI',
-    11434: 'Ollama (optional)'
+    11434: 'Ollama (optional)',
   };
 
   for (const [port, service] of Object.entries(ports)) {
     try {
-      execSync(`nc -z -w1 127.0.0.1 ${port} 2>/dev/null || true`,
-        { shell: true, stdio: 'ignore' });
+      execSync(`nc -z -w1 127.0.0.1 ${port} 2>/dev/null || true`, { shell: true, stdio: 'ignore' });
 
       // If command succeeds without error, port is in use
       try {
-        const proc = execSync(`lsof -i :${port} 2>/dev/null || netstat -tulpn 2>/dev/null | grep :${port}`,
-          { encoding: 'utf8', shell: true }).trim();
+        const proc = execSync(
+          `lsof -i :${port} 2>/dev/null || netstat -tulpn 2>/dev/null | grep :${port}`,
+          { encoding: 'utf8', shell: true }
+        ).trim();
         if (proc) {
           logger.warn(`Port ${port} (${service}) is already in use`, { port, service });
         } else {
@@ -284,7 +289,7 @@ async function setupEnvironment() {
   if (fs.existsSync(envPath)) {
     logger.warn('.env file already exists');
     const content = fs.readFileSync(envPath, 'utf8');
-    const lines = content.split('\n').filter(l => !l.startsWith('#') && l.includes('='));
+    const lines = content.split('\n').filter((l) => !l.startsWith('#') && l.includes('='));
     logger.info(`Loaded ${lines.length} configuration values from .env`);
     return;
   }
@@ -343,7 +348,10 @@ async function installDependencies() {
     } catch (err) {
       logger.warn('npm ci failed, falling back to npm install');
       try {
-        const installOutput = execSync('npm install', { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
+        const installOutput = execSync('npm install', {
+          encoding: 'utf8',
+          maxBuffer: 10 * 1024 * 1024,
+        });
         logger.trackCommand('npm install', 0, installOutput);
         logger.success('Dependencies installed');
       } catch (installErr) {
@@ -366,8 +374,10 @@ async function installDependencies() {
       if (err.message.includes('ERESOLVE')) {
         logger.warn('Dependency conflict detected. Trying with --legacy-peer-deps...');
         try {
-          const legacyOutput = execSync('npm install --legacy-peer-deps',
-            { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
+          const legacyOutput = execSync('npm install --legacy-peer-deps', {
+            encoding: 'utf8',
+            maxBuffer: 10 * 1024 * 1024,
+          });
           logger.trackCommand('npm install --legacy-peer-deps', 0, legacyOutput);
           logger.success('Dependencies installed with legacy peer deps flag');
         } catch (legacyErr) {
@@ -392,16 +402,21 @@ async function startContainers() {
     // Clean up old containers
     try {
       logger.debug('Stopping existing containers...');
-      execSync('docker-compose down 2>/dev/null || docker compose down 2>/dev/null',
-        { encoding: 'utf8', shell: true, stdio: 'ignore' });
+      execSync('docker-compose down 2>/dev/null || docker compose down 2>/dev/null', {
+        encoding: 'utf8',
+        shell: true,
+        stdio: 'ignore',
+      });
     } catch (err) {
       logger.debug('No existing containers to stop');
     }
 
     // Start new containers
     logger.info('Building and starting containers (this may take a minute)...');
-    const upOutput = execSync('docker-compose up -d --build --force-recreate 2>/dev/null || docker compose up -d --build --force-recreate',
-      { encoding: 'utf8', shell: true, maxBuffer: 10 * 1024 * 1024 });
+    const upOutput = execSync(
+      'docker-compose up -d --build --force-recreate 2>/dev/null || docker compose up -d --build --force-recreate',
+      { encoding: 'utf8', shell: true, maxBuffer: 10 * 1024 * 1024 }
+    );
     logger.trackCommand('docker-compose up -d --build --force-recreate', 0, upOutput);
     logger.success('Containers built and started');
 
@@ -413,15 +428,19 @@ async function startContainers() {
 
     while (!allHealthy && attempts < maxAttempts) {
       try {
-        const psOutput = execSync('docker ps -a --format "{{.Names}}\t{{.Status}}\t{{.State}}"',
-          { encoding: 'utf8' });
+        const psOutput = execSync('docker ps -a --format "{{.Names}}\t{{.Status}}\t{{.State}}"', {
+          encoding: 'utf8',
+        });
 
-        const lines = psOutput.trim().split('\n').filter(l => l.includes('kali'));
+        const lines = psOutput
+          .trim()
+          .split('\n')
+          .filter((l) => l.includes('kali'));
 
         let appReady = false;
         let kaliReady = false;
 
-        lines.forEach(line => {
+        lines.forEach((line) => {
           const [name, status, state] = line.split('\t');
           const isRunning = state === 'running' || status.includes('Up');
 
@@ -449,27 +468,27 @@ async function startContainers() {
           if (attempts % 10 === 0) {
             logger.debug(`Waiting for containers... (${attempts}s elapsed)`);
           }
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise((resolve) => setTimeout(resolve, 2000));
         }
-
       } catch (err) {
         attempts++;
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
     }
 
     if (!allHealthy) {
       logger.warn('Containers did not start within timeout');
       try {
-        const appLogs = execSync('docker logs kali-ai-term-app 2>&1 | tail -30',
-          { encoding: 'utf8', shell: true });
+        const appLogs = execSync('docker logs kali-ai-term-app 2>&1 | tail -30', {
+          encoding: 'utf8',
+          shell: true,
+        });
         logger.debug('App logs', { logs: appLogs });
       } catch (err) {
         logger.debug('Could not fetch container logs');
       }
       throw new Error('Container startup timeout');
     }
-
   } catch (err) {
     logger.error('Failed to start containers', { error: err.message });
     throw err;
@@ -507,8 +526,11 @@ async function verifyInstallation() {
 
   logger.info('Checking application health...');
   try {
-    execSync('curl -f http://localhost:3000/api/system/status 2>/dev/null',
-      { stdio: 'ignore', timeout: 5000, shell: true });
+    execSync('curl -f http://localhost:3000/api/system/status 2>/dev/null', {
+      stdio: 'ignore',
+      timeout: 5000,
+      shell: true,
+    });
     logger.success('Application API is responding');
   } catch (err) {
     logger.warn('Application health check failed (may still be starting)');
@@ -561,11 +583,14 @@ async function runFullInstallation() {
 
     console.log('Troubleshooting:');
     console.log(`  View logs: cat ${logger.getLogPath()}`);
-    console.log(`  Run analyzer: node lib/diagnostic-analyzer.js ${path.basename(logger.getDiagnosticPath())}`);
-    console.log(`  Interactive menu: node lib/install-menu.js ${path.basename(logger.getDiagnosticPath())}\n`);
+    console.log(
+      `  Run analyzer: node lib/diagnostic-analyzer.js ${path.basename(logger.getDiagnosticPath())}`
+    );
+    console.log(
+      `  Interactive menu: node lib/install-menu.js ${path.basename(logger.getDiagnosticPath())}\n`
+    );
 
     logger.success('Installation complete!');
-
   } catch (err) {
     logger.error('Installation failed', { error: err.message });
     logger.generateDiagnostic('failed', 'installation', err.message);
@@ -578,7 +603,9 @@ async function runFullInstallation() {
     console.error('Diagnostics:');
     console.error(`  Log: ${logger.getLogPath()}`);
     console.error(`  Diagnostic: ${logger.getDiagnosticPath()}`);
-    console.error(`  Analyzer: node lib/diagnostic-analyzer.js ${path.basename(logger.getDiagnosticPath())}\n`);
+    console.error(
+      `  Analyzer: node lib/diagnostic-analyzer.js ${path.basename(logger.getDiagnosticPath())}\n`
+    );
 
     process.exit(1);
   }

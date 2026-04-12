@@ -16,9 +16,11 @@ The multi-LLM orchestration system provides intelligent routing of AI requests t
 ### Core Components
 
 #### 1. **LLMProvider** (`lib/llm-provider.js`)
+
 Abstract base class defining the interface for LLM providers.
 
 **Interface Methods:**
+
 - `healthCheck()` - Verify provider availability
 - `getModels()` - List available models
 - `generate(prompt, options)` - Generate response (non-streaming)
@@ -26,9 +28,11 @@ Abstract base class defining the interface for LLM providers.
 - `getStatus()` - Get provider status and metrics
 
 #### 2. **OllamaProvider** (`lib/ollama-provider.js`)
+
 Local Ollama LLM integration with model caching and cost efficiency.
 
 **Features:**
+
 - Local execution (zero API cost)
 - Model list caching (5-minute TTL)
 - Fast response times
@@ -36,9 +40,11 @@ Local Ollama LLM integration with model caching and cost efficiency.
 - Model management
 
 #### 3. **GeminiProvider** (`lib/gemini-provider.js`)
+
 Google Gemini API integration for high-quality reasoning.
 
 **Features:**
+
 - High-quality responses
 - Multiple model variants (gemini-pro, gemini-pro-vision)
 - Token counting
@@ -46,9 +52,11 @@ Google Gemini API integration for high-quality reasoning.
 - Request metrics tracking
 
 #### 4. **LLMOrchestrator** (`lib/llm-orchestrator.js`)
+
 Intelligent orchestration system managing multiple providers.
 
 **Key Capabilities:**
+
 - Provider registration and health checking
 - Task-based routing strategies
 - Automatic provider selection
@@ -58,6 +66,7 @@ Intelligent orchestration system managing multiple providers.
 - Event emission for monitoring
 
 #### 5. **Multi-LLM API Routes** (`lib/multi-llm-api-routes.js`)
+
 RESTful endpoints for orchestrated LLM operations.
 
 ## Routing Strategies
@@ -67,6 +76,7 @@ The orchestrator supports task-based routing strategies:
 ### Built-in Strategies
 
 **1. Reasoning (Default)**
+
 ```javascript
 {
   primary: 'gemini',      // Use Gemini for complex reasoning
@@ -75,9 +85,11 @@ The orchestrator supports task-based routing strategies:
   retries: 1
 }
 ```
+
 Used for: Complex analysis, CVE assessment, attack planning
 
 **2. Speed**
+
 ```javascript
 {
   primary: 'ollama',      // Use local Ollama for speed
@@ -86,9 +98,11 @@ Used for: Complex analysis, CVE assessment, attack planning
   retries: 0
 }
 ```
+
 Used for: Rapid command suggestions, quick lookups
 
 **3. Quality**
+
 ```javascript
 {
   primary: 'gemini',      // Use Gemini for best quality
@@ -97,6 +111,7 @@ Used for: Rapid command suggestions, quick lookups
   retries: 2
 }
 ```
+
 Used for: Report generation, detailed analysis
 
 ### Custom Strategies
@@ -131,6 +146,7 @@ curl http://localhost:31337/api/llm/providers \
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -188,6 +204,7 @@ curl -X POST http://localhost:31337/api/llm/generate \
 ```
 
 **Parameters:**
+
 - `prompt` (required): The input prompt
 - `taskType` (optional): Task type for routing strategy ('reasoning', 'speed', 'quality', custom)
 - `preferredProvider` (optional): Force specific provider (overrides routing strategy)
@@ -195,6 +212,7 @@ curl -X POST http://localhost:31337/api/llm/generate \
 - `systemPrompt` (optional): System instruction context
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -224,6 +242,7 @@ curl -X POST http://localhost:31337/api/llm/stream \
 ```
 
 **Stream Events:**
+
 ```json
 data: {"token": "SQL", "provider": "gemini", "tokenCount": 1}
 data: {"token": " injection", "provider": "gemini", "tokenCount": 2}
@@ -250,6 +269,7 @@ curl -X POST http://localhost:31337/api/llm/synthesize \
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -328,12 +348,14 @@ curl -X POST http://localhost:31337/api/ollama/generate \
 ### Prerequisites
 
 **Ollama (Local):**
+
 ```bash
 # Already running locally on OLLAMA_URL environment variable
 # Default: http://localhost:11434
 ```
 
 **Gemini API (Optional):**
+
 ```bash
 # Get API key from https://ai.google.dev/
 export GEMINI_API_KEY="your-api-key-here"
@@ -342,11 +364,13 @@ export GEMINI_API_KEY="your-api-key-here"
 ### Server Startup
 
 1. Start the server with Gemini API key configured:
+
    ```bash
    GEMINI_API_KEY="your-api-key" npm start
    ```
 
 2. Verify provider availability:
+
    ```bash
    curl http://localhost:31337/api/llm/providers
    ```
@@ -455,18 +479,20 @@ curl http://localhost:31337/api/llm/health
 ### Performance Tuning
 
 **For Speed:**
+
 ```json
 {
   "taskType": "speed",
-  "temperature": 0.3  // Lower temperature = faster convergence
+  "temperature": 0.3 // Lower temperature = faster convergence
 }
 ```
 
 **For Quality:**
+
 ```json
 {
   "taskType": "quality",
-  "temperature": 0.8  // Higher creativity for nuanced analysis
+  "temperature": 0.8 // Higher creativity for nuanced analysis
 }
 ```
 
@@ -479,6 +505,7 @@ curl http://localhost:31337/api/llm/stats
 ```
 
 **Response:**
+
 ```json
 {
   "stats": {

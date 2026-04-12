@@ -5,25 +5,30 @@ This document provides step-by-step instructions to complete the GitHub Actions 
 ## What Has Been Done
 
 ✅ **GitHub Actions Workflows Created:**
+
 - `.github/workflows/test.yml` - Automated testing
 - `.github/workflows/lint.yml` - Code quality checks
 - `.github/workflows/build.yml` - Docker build validation
 - `.github/workflows/merge-test-to-main.yml` - Auto-merge on approval
 
 ✅ **PR and Issue Templates Created:**
+
 - `.github/pull_request_template.md` - Standardized PR format
 - `.github/ISSUE_TEMPLATE/bug_report.md` - Bug reporting template
 - `.github/ISSUE_TEMPLATE/feature_request.md` - Feature request template
 
 ✅ **Git Hooks Created:**
+
 - `.githooks/pre-commit` - Validate formatting and linting locally
 - `.githooks/commit-msg` - Enforce conventional commit format
 
 ✅ **Documentation Created:**
+
 - `.github/WORKFLOWS.md` - Complete workflow documentation
 - `.github/BRANCH_PROTECTION_SETUP.md` - Branch protection configuration guide
 
 ✅ **Commits Pushed:**
+
 - All workflow files committed and pushed to `test` and `main` branches
 
 ## What You Need To Do
@@ -37,6 +42,7 @@ git config core.hooksPath .githooks
 ```
 
 Verify it worked:
+
 ```bash
 git config core.hooksPath
 # Should output: .githooks
@@ -68,6 +74,7 @@ Now git hooks will run automatically on commit and push.
 ### Phase 3: Test the Workflow
 
 #### Test 1: Feature branch PR
+
 ```bash
 # Create a test feature branch
 git checkout -b feat/test-workflow
@@ -78,6 +85,7 @@ git push -u origin feat/test-workflow
 ```
 
 Then:
+
 1. Go to GitHub → Create PR to `test` branch
 2. Verify all checks run and pass:
    - ✅ Tests
@@ -87,6 +95,7 @@ Then:
 4. Merge to test
 
 #### Test 2: test→main PR
+
 ```bash
 # On GitHub, create PR from test → main
 # Or use CLI:
@@ -94,6 +103,7 @@ gh pr create --base main --head test --title "Release: test to main"
 ```
 
 Then:
+
 1. Request review
 2. Once approved, workflow should auto-merge within 60 seconds
 3. Verify GitHub Release was created
@@ -102,29 +112,35 @@ Then:
 
 Add a CI/CD section to `README.md`:
 
-```markdown
+````markdown
 ## CI/CD Pipeline
 
 This project uses GitHub Actions for automated testing, linting, and deployment.
 
 ### Workflow Overview
+
 - **Tests** run on all PRs (unit + integration)
 - **Linting & Formatting** checked on all PRs
 - **Docker Build** verified on all PRs
 - **test→main** auto-merges on approval
 
 ### Branch Protection
+
 - `main` branch: Requires PR review + passing checks
 - `test` branch: Requires PR review + passing checks
 
 ### Local Setup
+
 Enable git hooks for pre-commit validation:
+
 ```bash
 git config core.hooksPath .githooks
 ```
+````
 
 For detailed workflow information, see [WORKFLOWS.md](.github/WORKFLOWS.md).
-```
+
+````
 
 ## Verification Checklist
 
@@ -198,13 +214,14 @@ chmod +x .githooks/pre-commit .githooks/commit-msg
 
 # Test hooks
 .githooks/pre-commit
-```
+````
 
 ### Auto-merge Not Working
 
 **Problem:** PR to main isn't auto-merging
 
 **Solutions:**
+
 1. Verify all status checks are passing
 2. Verify at least 1 approval exists
 3. Verify no "Changes requested" reviews
@@ -215,6 +232,7 @@ chmod +x .githooks/pre-commit .githooks/commit-msg
 **Problem:** Can't merge due to conflicts
 
 **Solutions:**
+
 ```bash
 git checkout test
 git pull origin test
@@ -234,16 +252,16 @@ git push -f origin test
 
 ## Files to Review
 
-| File | Purpose |
-|------|---------|
-| `.github/workflows/test.yml` | Test automation |
-| `.github/workflows/lint.yml` | Code quality |
-| `.github/workflows/build.yml` | Docker validation |
-| `.github/workflows/merge-test-to-main.yml` | Auto-merge |
-| `.github/WORKFLOWS.md` | Detailed documentation |
-| `.github/BRANCH_PROTECTION_SETUP.md` | Branch protection guide |
-| `.githooks/pre-commit` | Local validation |
-| `.githooks/commit-msg` | Commit format enforcement |
+| File                                       | Purpose                   |
+| ------------------------------------------ | ------------------------- |
+| `.github/workflows/test.yml`               | Test automation           |
+| `.github/workflows/lint.yml`               | Code quality              |
+| `.github/workflows/build.yml`              | Docker validation         |
+| `.github/workflows/merge-test-to-main.yml` | Auto-merge                |
+| `.github/WORKFLOWS.md`                     | Detailed documentation    |
+| `.github/BRANCH_PROTECTION_SETUP.md`       | Branch protection guide   |
+| `.githooks/pre-commit`                     | Local validation          |
+| `.githooks/commit-msg`                     | Commit format enforcement |
 
 ## Quick Commands
 
@@ -281,4 +299,3 @@ git push -u origin feat/my-feature
 **Dependencies:** GitHub account with repo access
 
 **Questions?** Check the documentation files or GitHub Actions logs
-

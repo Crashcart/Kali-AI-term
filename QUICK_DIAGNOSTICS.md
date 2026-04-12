@@ -5,11 +5,13 @@ Run diagnostic scripts directly from GitHub without cloning the entire repositor
 ## One-Line Diagnostics
 
 ### Quick Status Check (Fastest)
+
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/claude/logging-diagnostic-system/diagnose-quick.sh)
 ```
 
-**Output:** 
+**Output:**
+
 - Docker daemon status
 - Docker Compose availability
 - Node.js installation
@@ -19,11 +21,13 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/claud
 **Time:** ~10 seconds
 
 ### Full Diagnostic Report (Comprehensive)
+
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/claude/logging-diagnostic-system/diagnose.sh)
 ```
 
 **Output:**
+
 - Complete system information
 - Docker daemon logs
 - Configuration validation
@@ -37,11 +41,13 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/claud
 **Time:** ~2-5 minutes
 
 ### Comprehensive Log Collection (For Support)
+
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/claude/logging-diagnostic-system/collect-logs.sh)
 ```
 
 **Output:**
+
 - Docker daemon logs
 - All container logs
 - Application logs
@@ -57,6 +63,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/claud
 ## Troubleshooting Workflow
 
 ### 1. Check Docker Status
+
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/claude/logging-diagnostic-system/diagnose-quick.sh)
 ```
@@ -64,20 +71,24 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/claud
 **If Docker daemon is not running:**
 
 **Linux (systemd):**
+
 ```bash
 sudo systemctl start docker
 sudo systemctl enable docker    # Auto-start on reboot
 ```
 
 **Linux (service):**
+
 ```bash
 sudo service docker start
 ```
 
 **macOS/Windows:**
+
 - Open Docker Desktop application
 
 ### 2. Run Full Diagnostic
+
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/claude/logging-diagnostic-system/diagnose.sh)
 ```
@@ -85,6 +96,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/claud
 Review the output for any ✗ (errors) or ⚠ (warnings).
 
 ### 3. Collect Logs for Support
+
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/claude/logging-diagnostic-system/collect-logs.sh)
 ```
@@ -95,26 +107,27 @@ Share the generated `.tar.gz` or `.zip` file with the development team.
 
 ## What Each Diagnostic Checks
 
-| Component | Quick | Full | Collect |
-|-----------|-------|------|---------|
-| Docker daemon | ✓ | ✓ | ✓ |
-| Docker socket | ✓ | ✓ | ✓ |
-| Docker Compose | ✓ | ✓ | ✓ |
-| Node.js/npm | ✓ | ✓ | ✓ |
-| Configuration (.env) | ✓ | ✓ | ✓ |
-| Containers | ✓ | ✓ | ✓ |
-| System info | - | ✓ | ✓ |
-| Docker logs | - | ✓ | ✓ |
-| Port status | - | ✓ | ✓ |
-| Network info | - | ✓ | ✓ |
-| Container logs | - | - | ✓ |
-| Installation logs | - | - | ✓ |
+| Component            | Quick | Full | Collect |
+| -------------------- | ----- | ---- | ------- |
+| Docker daemon        | ✓     | ✓    | ✓       |
+| Docker socket        | ✓     | ✓    | ✓       |
+| Docker Compose       | ✓     | ✓    | ✓       |
+| Node.js/npm          | ✓     | ✓    | ✓       |
+| Configuration (.env) | ✓     | ✓    | ✓       |
+| Containers           | ✓     | ✓    | ✓       |
+| System info          | -     | ✓    | ✓       |
+| Docker logs          | -     | ✓    | ✓       |
+| Port status          | -     | ✓    | ✓       |
+| Network info         | -     | ✓    | ✓       |
+| Container logs       | -     | -    | ✓       |
+| Installation logs    | -     | -    | ✓       |
 
 ---
 
 ## Understanding Diagnostic Output
 
 ### Status Symbols
+
 - **✓** = Working correctly
 - **✗** = Error, not working
 - **⚠** = Warning, needs attention
@@ -123,6 +136,7 @@ Share the generated `.tar.gz` or `.zip` file with the development team.
 ### Common Issues & Solutions
 
 #### "Docker daemon: NOT RESPONDING"
+
 ```bash
 # Start Docker (Linux)
 sudo systemctl start docker
@@ -135,7 +149,9 @@ sudo journalctl -u docker -n 50
 ```
 
 #### "Docker socket: NOT found"
+
 Docker daemon is not running or installed:
+
 ```bash
 # Install Docker
 curl -fsSL https://get.docker.com -o get-docker.sh
@@ -146,13 +162,17 @@ sudo systemctl start docker
 ```
 
 #### "node_modules: MISSING"
+
 Install Node.js dependencies:
+
 ```bash
 npm install
 ```
 
 #### ".env: MISSING"
+
 Configuration not created:
+
 ```bash
 # Run installation script
 bash install.sh
@@ -165,6 +185,7 @@ node install-full.js
 ## Privacy & Security
 
 All diagnostic scripts:
+
 - ✓ **Mask passwords** in .env files
 - ✓ **Sanitize sensitive data** (API keys, tokens)
 - ✓ **Safe to share** with developers
@@ -202,6 +223,7 @@ chmod +x collect-logs.sh
 These diagnostic scripts are available on the `claude/logging-diagnostic-system` branch. They will be merged to `main` once testing is complete.
 
 For the main branch, use:
+
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/diagnose-quick.sh)
 ```

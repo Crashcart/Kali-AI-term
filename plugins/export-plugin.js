@@ -11,7 +11,7 @@ class ExportPlugin {
     this.sessionData = {
       commands: [],
       outputs: [],
-      aiResponses: []
+      aiResponses: [],
     };
   }
 
@@ -22,12 +22,12 @@ class ExportPlugin {
     this.sessionData.commands.push({
       timestamp: new Date().toISOString(),
       command: command,
-      outputLength: output.length
+      outputLength: output.length,
     });
 
     this.sessionData.outputs.push({
       timestamp: new Date().toISOString(),
-      output: output.substring(0, 1000) // Truncate to 1000 chars for memory
+      output: output.substring(0, 1000), // Truncate to 1000 chars for memory
     });
   }
 
@@ -40,7 +40,7 @@ class ExportPlugin {
       model: model,
       prompt: prompt.substring(0, 200),
       response: response.substring(0, 1000),
-      tokens: response.split(' ').length
+      tokens: response.split(' ').length,
     });
   }
 
@@ -51,12 +51,12 @@ class ExportPlugin {
     let csv = 'Timestamp,Type,Data\n';
 
     // Export commands
-    this.sessionData.commands.forEach(cmd => {
+    this.sessionData.commands.forEach((cmd) => {
       csv += `"${cmd.timestamp}","COMMAND","${cmd.command}"\n`;
     });
 
     // Export AI responses
-    this.sessionData.aiResponses.forEach(resp => {
+    this.sessionData.aiResponses.forEach((resp) => {
       csv += `"${resp.timestamp}","AI_RESPONSE","Model: ${resp.model} | Tokens: ${resp.tokens}"\n`;
     });
 
@@ -67,16 +67,20 @@ class ExportPlugin {
    * Generate JSON format
    */
   generateJSON() {
-    return JSON.stringify({
-      exportedAt: new Date().toISOString(),
-      sessionDuration: this.calculateDuration(),
-      statistics: {
-        totalCommands: this.sessionData.commands.length,
-        totalAIResponses: this.sessionData.aiResponses.length,
-        averageResponseTokens: this.calculateAverageTokens()
+    return JSON.stringify(
+      {
+        exportedAt: new Date().toISOString(),
+        sessionDuration: this.calculateDuration(),
+        statistics: {
+          totalCommands: this.sessionData.commands.length,
+          totalAIResponses: this.sessionData.aiResponses.length,
+          averageResponseTokens: this.calculateAverageTokens(),
+        },
+        data: this.sessionData,
       },
-      data: this.sessionData
-    }, null, 2);
+      null,
+      2
+    );
   }
 
   /**
@@ -121,9 +125,12 @@ class ExportPlugin {
         <tr><th>Timestamp</th><th>Command</th><th>Output Size</th></tr>
       </thead>
       <tbody>
-        ${this.sessionData.commands.map(cmd =>
-          `<tr><td class="timestamp">${cmd.timestamp}</td><td class="command">${cmd.command}</td><td>${cmd.outputLength} bytes</td></tr>`
-        ).join('')}
+        ${this.sessionData.commands
+          .map(
+            (cmd) =>
+              `<tr><td class="timestamp">${cmd.timestamp}</td><td class="command">${cmd.command}</td><td>${cmd.outputLength} bytes</td></tr>`
+          )
+          .join('')}
       </tbody>
     </table>
   </div>
@@ -135,9 +142,12 @@ class ExportPlugin {
         <tr><th>Timestamp</th><th>Model</th><th>Tokens</th></tr>
       </thead>
       <tbody>
-        ${this.sessionData.aiResponses.map(resp =>
-          `<tr><td class="timestamp">${resp.timestamp}</td><td>${resp.model}</td><td>${resp.tokens}</td></tr>`
-        ).join('')}
+        ${this.sessionData.aiResponses
+          .map(
+            (resp) =>
+              `<tr><td class="timestamp">${resp.timestamp}</td><td>${resp.model}</td><td>${resp.tokens}</td></tr>`
+          )
+          .join('')}
       </tbody>
     </table>
   </div>
@@ -152,7 +162,9 @@ class ExportPlugin {
   calculateDuration() {
     if (this.sessionData.commands.length === 0) return '0m';
     const first = new Date(this.sessionData.commands[0].timestamp);
-    const last = new Date(this.sessionData.commands[this.sessionData.commands.length - 1].timestamp);
+    const last = new Date(
+      this.sessionData.commands[this.sessionData.commands.length - 1].timestamp
+    );
     const minutes = Math.round((last - first) / 60000);
     return `${minutes}m`;
   }
@@ -198,7 +210,7 @@ class ExportPlugin {
     this.sessionData = {
       commands: [],
       outputs: [],
-      aiResponses: []
+      aiResponses: [],
     };
   }
 }

@@ -3,6 +3,7 @@
 ## System Architecture Overview
 
 ### High-Level Architecture
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     User's Web Browser                       │
@@ -71,12 +72,14 @@
 ### 1. Container Communication Model
 
 **Node.js App Container** → **Kali Container** communication:
+
 - **Method**: Docker Socket API (`/var/run/docker.sock`)
 - **Library**: `dockerode` npm package
 - **What it does**: Allows Node.js to execute commands inside Kali container without SSH/networking
 - **Security**: Docker socket is mounted as a volume from host; restricted by container capabilities
 
 **How Command Execution Works:**
+
 ```
 User Input (Browser)
     ↓
@@ -96,6 +99,7 @@ Browser (Live Wire Stream)
 ### 2. Docker Compose Services
 
 **Service: app**
+
 - Image: Built from ./Dockerfile (Node.js 18 Alpine)
 - Port mapping: 31337 → 3000
 - Volume: `/var/run/docker.sock` (Docker socket for control)
@@ -106,6 +110,7 @@ Browser (Live Wire Stream)
   - `KALI_CONTAINER=kali-linux` (container name to target)
 
 **Service: kali**
+
 - Image: `kalilinux/kali-rolling:latest`
 - Container name: `kali-linux` (must match KALI_CONTAINER env var)
 - TTY + stdin: Enabled for interactive shell
@@ -123,9 +128,9 @@ const docker = new Docker({ socketPath: '/var/run/docker.sock' });
 const container = docker.getContainer(KALI_CONTAINER); // 'kali-linux'
 
 const exec = await container.exec({
-  Cmd: ['bash', '-c', command],        // Execute bash command
-  AttachStdout: true,                  // Capture output
-  AttachStderr: true,                  // Capture errors
+  Cmd: ['bash', '-c', command], // Execute bash command
+  AttachStdout: true, // Capture output
+  AttachStderr: true, // Capture errors
 });
 
 const stream = await exec.start({ Detach: false });
@@ -140,6 +145,7 @@ res.json({ success: true, output, command });
 ```
 
 **Command Flow Example:**
+
 ```
 User: "!nmap -sV 192.168.1.100"
 ↓
@@ -159,12 +165,14 @@ Frontend displays in "Live Wire Stream" (grey text)
 ### 1. External Ollama Setup
 
 **Why External?**
+
 - Ollama is resource-intensive (GPU acceleration, model weights)
 - Better to run on host machine outside Docker
 - Can use GPU hardware directly
 - Multiple containers can share one Ollama instance
 
 **Connection Method:**
+
 - URL: `http://host.docker.internal:11434`
 - Special Docker DNS name that routes back to host machine
 - Works on Docker Desktop (Mac/Windows) and Docker on Linux
@@ -172,6 +180,7 @@ Frontend displays in "Live Wire Stream" (grey text)
 ### 2. Model Management
 
 **Available Models:**
+
 ```javascript
 // Default models (pre-configured)
 - dolphin-mixtral: 70B parameters, excellent for reasoning
@@ -181,6 +190,7 @@ Frontend displays in "Live Wire Stream" (grey text)
 ```
 
 **System Prompt:**
+
 - Pentesting-optimized system prompt in server.js
 - Users can override with custom prompt in settings
 - Passed to Ollama with each generation request
@@ -225,11 +235,13 @@ Ready to receive hooks from commands
 ### 2. Hook System & Execution Flow
 
 **Hook Types:**
+
 1. `before:llm-call` - Modify prompt before sending to Ollama
 2. `after:llm-response` - Analyze/enhance LLM response
 3. `output:analyze` - Process Docker command output
 
 **Execution Flow Example (CVE Plugin):**
+
 ```
 User executes: "?What vulnerabilities did nmap find?"
 ↓
@@ -259,11 +271,13 @@ Frontend displays in "Intelligence Stream" (cyan/green)
 ## Safety & Guardrails: Attack Targets, Protect Host
 
 ### Core Principle
+
 **Bot follows YOUR commands to attack TARGETS while protecting YOUR HOST SYSTEM from accidental self-destruction.**
 
 ### The Threat Model
 
 **YES - Attack External Targets:**
+
 ```
 You command: "!nmap -sV 192.168.1.100"
     ↓
@@ -275,6 +289,7 @@ YOU fully responsible for legality/authorization
 ```
 
 **YES - Aggressive Attacks:**
+
 ```
 You command: "!sqlmap -u http://target.com --batch --dbs"
     ↓
@@ -286,6 +301,7 @@ Output: Databases dumped (if vulnerable)
 ```
 
 **YES - Destroy Kali Container:**
+
 ```
 You command: "!rm -rf /"
     ↓
@@ -297,6 +313,7 @@ Click "FACTORY RESET" button to recover
 ```
 
 **NO - Affect Host Machine:**
+
 ```
 Kali tries: "!ls /../../etc/passwd" (escape container)
     ↓
@@ -308,6 +325,7 @@ Container cannot affect host OS
 ```
 
 **NO - Other Systems:**
+
 ```
 Kali tries: "!docker rm other-container"
     ↓
@@ -323,12 +341,14 @@ Socket prevents Docker API write operations
 **Designed for SELF-PROTECTION (host machine), not TARGET-PROTECTION:**
 
 Commands that trigger warnings (you can still execute):
+
 - `rm -rf /` - Destroys Kali filesystem
 - `shutdown`, `poweroff` - Shuts down Kali
 - Fork bombs - Rate limited
 - Network blocks in Kali
 
 Commands with NO warning (attack tools):
+
 - `nmap -sS -sV 192.168.1.0/24` - OK, it's a scan
 - `sqlmap -u http://vulnerable.app` - OK, it's an attack
 - `msfvenom -p windows/meterpreter...` - OK, payload generation
@@ -345,6 +365,7 @@ Commands with NO warning (attack tools):
 ### Container Isolation (HOST PROTECTION)
 
 **Docker provides these namespaces:**
+
 ```
 Kali container ≠ Host OS
 ├── Filesystem namespace: /var (container) ≠ /var (host)
@@ -366,6 +387,7 @@ Even if you become root in Kali:
 **IMPORTANT: You are responsible for authorization**
 
 This tool helps you attack systems YOU OWN or have PERMISSION to test:
+
 - Your own infrastructure (test lab)
 - Client systems under signed pentest agreement
 - CTF competitions (authorized)
@@ -373,11 +395,13 @@ This tool helps you attack systems YOU OWN or have PERMISSION to test:
 - Your own study environment
 
 **YOU WILL NOT use this to:**
+
 - Attack systems you don't own/aren't authorized
 - Attack 3rd party infrastructure without permission
 - Commit crimes
 
 The tool provides:
+
 - ✓ Powerful attack capabilities (intentional)
 - ✓ Full audit trail (your actions logged)
 - ✓ No restrictions on tools (you control scope)
@@ -386,6 +410,7 @@ The tool provides:
 ### Audit & Logging (Evidence Trail)
 
 **Every attack command logged:**
+
 ```javascript
 commandHistory stores:
 [
@@ -413,36 +438,40 @@ commandHistory stores:
 
 ## Summary: Attack Targets, Protect Host
 
-| Target | Commands | Restrictions | Recovery |
-|--------|----------|--------------|----------|
-| **External Systems** | All pentesting tools | None (except auth) | Your responsibility |
-| **Kali Container** | Destructive commands | Warnings on rm -rf | Kill/Restart/Reset buttons |
-| **Host Machine** | None (isolated) | Docker socket read-only | Auto-protected by Docker |
-| **Other Containers** | None (isolated) | Socket prevents access | Auto-protected by Docker |
+| Target               | Commands             | Restrictions            | Recovery                   |
+| -------------------- | -------------------- | ----------------------- | -------------------------- |
+| **External Systems** | All pentesting tools | None (except auth)      | Your responsibility        |
+| **Kali Container**   | Destructive commands | Warnings on rm -rf      | Kill/Restart/Reset buttons |
+| **Host Machine**     | None (isolated)      | Docker socket read-only | Auto-protected by Docker   |
+| **Other Containers** | None (isolated)      | Socket prevents access  | Auto-protected by Docker   |
 
 ---
 
 ## Key Technical Decisions
 
 ### 1. Why Dockerode instead of SSH?
+
 - ✓ No SSH server needed in Kali container
 - ✓ Direct Docker API = more reliable
 - ✓ Automatic stdio handling
 - ✓ Better error handling
 
 ### 2. Why external Ollama?
+
 - ✓ Can use GPU on host machine
 - ✓ Models loaded once, shared by all containers
 - ✓ Resource management easier
 - ✓ host.docker.internal routing is standard
 
 ### 3. Why Map-based storage instead of database?
+
 - ✓ In-memory = fast
 - ✓ Sessions don't need persistence between restarts
 - ✓ Simpler, no database dependencies
 - ✓ OK for single-user tool
 
 ### 4. Why localStorage for settings instead of backend database?
+
 - ✓ Avoids database dependency
 - ✓ Settings are user-specific, not shared
 - ✓ API calls provide fallback to server state
@@ -453,6 +482,7 @@ commandHistory stores:
 ## Verification Checklist
 
 Before deployment, verify:
+
 - [ ] Docker daemon accessible on host
 - [ ] `/var/run/docker.sock` mounted in app container (read-only)
 - [ ] Kali container named exactly `kali-linux`

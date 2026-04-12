@@ -67,7 +67,14 @@ function upsertHost(ip, { hostname = null, os = null, status = 'up' } = {}) {
  * Add or update a port on a host (identified by IP).
  * Creates the host row if it does not exist.
  */
-function upsertHostPort(ip, port, protocol = 'tcp', state = 'open', service = null, version = null) {
+function upsertHostPort(
+  ip,
+  port,
+  protocol = 'tcp',
+  state = 'open',
+  service = null,
+  version = null
+) {
   upsertHost(ip);
   const database = getDatabase();
   const host = database.prepare('SELECT id FROM hosts WHERE ip = ?').get(ip);
@@ -91,7 +98,9 @@ function getHost(ip) {
   const database = getDatabase();
   const host = database.prepare('SELECT * FROM hosts WHERE ip = ?').get(ip);
   if (!host) return null;
-  host.ports = database.prepare('SELECT * FROM host_ports WHERE host_id = ? ORDER BY port').all(host.id);
+  host.ports = database
+    .prepare('SELECT * FROM host_ports WHERE host_id = ? ORDER BY port')
+    .all(host.id);
   return host;
 }
 
@@ -100,13 +109,17 @@ function getHost(ip) {
  */
 function getAllHosts() {
   const database = getDatabase();
-  return database.prepare(`
+  return database
+    .prepare(
+      `
     SELECT h.*, COUNT(p.id) AS port_count
     FROM hosts h
     LEFT JOIN host_ports p ON p.host_id = h.id
     GROUP BY h.id
     ORDER BY h.last_seen DESC
-  `).all();
+  `
+    )
+    .all();
 }
 
 /**
@@ -131,9 +144,7 @@ function deleteHost(ip) {
 function cleanupStaleHosts() {
   try {
     const database = getDatabase();
-    const stmt = database.prepare(
-      "DELETE FROM hosts WHERE last_seen < datetime('now', '-3 days')"
-    );
+    const stmt = database.prepare("DELETE FROM hosts WHERE last_seen < datetime('now', '-3 days')");
     const result = stmt.run();
     if (result.changes > 0) {
       console.log(`Cleaned up ${result.changes} stale host(s) (3-day rule)`);
@@ -156,7 +167,9 @@ function parseAndSaveNmapOutput(output) {
 
   for (const block of blocks) {
     // Extract IP (and optional hostname)
-    const hostMatch = block.match(/Nmap scan report for (?:([^\s(]+)\s+\()?([0-9]{1,3}(?:\.[0-9]{1,3}){3})\)?/i);
+    const hostMatch = block.match(
+      /Nmap scan report for (?:([^\s(]+)\s+\()?([0-9]{1,3}(?:\.[0-9]{1,3}){3})\)?/i
+    );
     if (!hostMatch) continue;
 
     const hostname = hostMatch[1] || null;
@@ -169,8 +182,8 @@ function parseAndSaveNmapOutput(output) {
     upsertHost(ip, { hostname, status });
 
     // Extract OS guess
-    const osMatch = block.match(/OS details?:\s*(.+)/i) ||
-                    block.match(/Running(?: \(JUST GUESSING\))?:\s*(.+)/i);
+    const osMatch =
+      block.match(/OS details?:\s*(.+)/i) || block.match(/Running(?: \(JUST GUESSING\))?:\s*(.+)/i);
     if (osMatch) {
       upsertHost(ip, { hostname, os: osMatch[1].trim(), status });
     }
@@ -233,19 +246,26 @@ function createSession(sessionId, token, authSecret, expiresAt) {
     INSERT INTO sessions (id, token, auth_secret, expires_at, last_activity)
     VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
   `);
-  const expiresAtSqlite = new Date(expiresAt).toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
+  const expiresAtSqlite = new Date(expiresAt)
+    .toISOString()
+    .replace('T', ' ')
+    .replace(/\.\d+Z$/, '');
   return stmt.run(sessionId, token, authSecret, expiresAtSqlite);
 }
 
 function getSession(sessionId) {
   const database = getDatabase();
-  const stmt = database.prepare('SELECT * FROM sessions WHERE id = ? AND expires_at > CURRENT_TIMESTAMP');
+  const stmt = database.prepare(
+    'SELECT * FROM sessions WHERE id = ? AND expires_at > CURRENT_TIMESTAMP'
+  );
   return stmt.get(sessionId);
 }
 
 function updateSessionActivity(sessionId) {
   const database = getDatabase();
-  const stmt = database.prepare("UPDATE sessions SET last_activity = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?");
+  const stmt = database.prepare(
+    "UPDATE sessions SET last_activity = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
+  );
   return stmt.run(sessionId);
 }
 
@@ -278,7 +298,14 @@ function addCommand(sessionId, command, durationSeconds, output, errorOutput, su
     INSERT INTO commands (session_id, command, duration_seconds, output, error_output, success, executed_at)
     VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
   `);
-  return stmt.run(sessionId, command, durationSeconds, output || '', errorOutput || '', success ? 1 : 0);
+  return stmt.run(
+    sessionId,
+    command,
+    durationSeconds,
+    output || '',
+    errorOutput || '',
+    success ? 1 : 0
+  );
 }
 
 function getCommandHistory(sessionId, limit = 100) {
@@ -348,9 +375,9 @@ function getFindingsWithCVEs(sessionId) {
     LIMIT 100
   `);
   const results = stmt.all(sessionId);
-  return results.map(row => ({
+  return results.map((row) => ({
     ...row,
-    cves: row.cves ? row.cves.split(',') : []
+    cves: row.cves ? row.cves.split(',') : [],
   }));
 }
 
@@ -368,9 +395,9 @@ function getSeverityCounts(sessionId) {
     HIGH: 0,
     MEDIUM: 0,
     LOW: 0,
-    INFO: 0
+    INFO: 0,
   };
-  results.forEach(row => {
+  results.forEach((row) => {
     counts[row.severity] = row.count;
   });
   return counts;
@@ -468,9 +495,15 @@ function getReport(reportId) {
 function getSessionStats(sessionId) {
   const database = getDatabase();
 
-  const session = database.prepare('SELECT created_at, expires_at FROM sessions WHERE id = ?').get(sessionId);
-  const commandCount = database.prepare('SELECT COUNT(*) as count FROM commands WHERE session_id = ?').get(sessionId);
-  const findingCount = database.prepare('SELECT COUNT(*) as count FROM findings WHERE session_id = ?').get(sessionId);
+  const session = database
+    .prepare('SELECT created_at, expires_at FROM sessions WHERE id = ?')
+    .get(sessionId);
+  const commandCount = database
+    .prepare('SELECT COUNT(*) as count FROM commands WHERE session_id = ?')
+    .get(sessionId);
+  const findingCount = database
+    .prepare('SELECT COUNT(*) as count FROM findings WHERE session_id = ?')
+    .get(sessionId);
   const severityCounts = getSeverityCounts(sessionId);
 
   return {
@@ -478,7 +511,7 @@ function getSessionStats(sessionId) {
     createdAt: session?.created_at,
     commandsExecuted: commandCount?.count || 0,
     findingsDiscovered: findingCount?.count || 0,
-    severityBreakdown: severityCounts
+    severityBreakdown: severityCounts,
   };
 }
 
@@ -490,25 +523,29 @@ function exportSessionData(sessionId) {
   const database = getDatabase();
 
   const session = database.prepare('SELECT * FROM sessions WHERE id = ?').get(sessionId);
-  const commands = database.prepare('SELECT * FROM commands WHERE session_id = ? ORDER BY executed_at').all(sessionId);
+  const commands = database
+    .prepare('SELECT * FROM commands WHERE session_id = ? ORDER BY executed_at')
+    .all(sessionId);
   const findings = getFindingsWithCVEs(sessionId);
   const iocs = getIOCs(sessionId);
 
   return {
-    session: session ? {
-      id: session.id,
-      createdAt: session.created_at,
-      expiresAt: session.expires_at,
-      notes: session.notes
-    } : null,
-    commands: commands.map(cmd => ({
+    session: session
+      ? {
+          id: session.id,
+          createdAt: session.created_at,
+          expiresAt: session.expires_at,
+          notes: session.notes,
+        }
+      : null,
+    commands: commands.map((cmd) => ({
       command: cmd.command,
       timestamp: cmd.executed_at,
       duration: cmd.duration_seconds,
-      success: cmd.success
+      success: cmd.success,
     })),
     findings,
-    iocs
+    iocs,
   };
 }
 
@@ -590,5 +627,5 @@ module.exports = {
 
   // Statistics and export
   getSessionStats,
-  exportSessionData
+  exportSessionData,
 };

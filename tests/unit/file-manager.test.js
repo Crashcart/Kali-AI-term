@@ -71,9 +71,7 @@ describe('FileManager', () => {
     });
 
     test('rejects filename with null byte', () => {
-      expect(() => fm.writeFile(SESSION_ID, 'file\0.txt', 'data')).toThrow(
-        /null byte/i
-      );
+      expect(() => fm.writeFile(SESSION_ID, 'file\0.txt', 'data')).toThrow(/null byte/i);
     });
 
     test('rejects oversized content exceeding MAX_FILE_SIZE', () => {
@@ -132,9 +130,7 @@ describe('FileManager', () => {
       const result = fm.deleteFile(SESSION_ID, 'delete-me.txt');
       expect(result.filename).toBe('delete-me.txt');
       expect(result.deletedAt).toBeTruthy();
-      expect(
-        fs.existsSync(path.join(tmpDir, SESSION_ID, 'delete-me.txt'))
-      ).toBe(false);
+      expect(fs.existsSync(path.join(tmpDir, SESSION_ID, 'delete-me.txt'))).toBe(false);
     });
 
     test('throws when file does not exist', () => {
@@ -142,9 +138,9 @@ describe('FileManager', () => {
     });
 
     test('throws on path traversal in delete', () => {
-      expect(() =>
-        fm.deleteFile(SESSION_ID, '../other-session/secret.txt')
-      ).toThrow(/path traversal|invalid characters/i);
+      expect(() => fm.deleteFile(SESSION_ID, '../other-session/secret.txt')).toThrow(
+        /path traversal|invalid characters/i
+      );
     });
 
     test('throws on disallowed extension', () => {
@@ -165,9 +161,9 @@ describe('FileManager', () => {
       fm.writeFile(SESSION_ID, 'b.json', '{}', 'utf8');
       const files = fm.listFiles(SESSION_ID);
       expect(files).toHaveLength(2);
-      const names = files.map(f => f.filename).sort();
+      const names = files.map((f) => f.filename).sort();
       expect(names).toEqual(['a.txt', 'b.json']);
-      files.forEach(f => {
+      files.forEach((f) => {
         expect(f.size).toBeGreaterThan(0);
         expect(f.modifiedAt).toBeTruthy();
       });
@@ -177,7 +173,7 @@ describe('FileManager', () => {
       fm.writeFile(SESSION_ID, 'subdir/nested.txt', 'nested', 'utf8');
       fm.writeFile(SESSION_ID, 'root.txt', 'root', 'utf8');
       const files = fm.listFiles(SESSION_ID);
-      const names = files.map(f => f.filename);
+      const names = files.map((f) => f.filename);
       expect(names).toContain('root.txt');
       expect(names).not.toContain('subdir');
     });
@@ -188,9 +184,9 @@ describe('FileManager', () => {
   describe('Session isolation', () => {
     test('session A cannot traverse to session B files', () => {
       fm.writeFile('session-a', 'private.txt', 'secret-A', 'utf8');
-      expect(() =>
-        fm.readFile('session-b', '../session-a/private.txt')
-      ).toThrow(/path traversal|invalid characters/i);
+      expect(() => fm.readFile('session-b', '../session-a/private.txt')).toThrow(
+        /path traversal|invalid characters/i
+      );
     });
 
     test('two sessions with the same filename hold independent content', () => {

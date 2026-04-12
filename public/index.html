@@ -1,627 +1,822 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Kali Hacker Bot - Penetration Testing Terminal</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
-</head>
-<body>
+    <link rel="stylesheet" href="style.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>"
+    />
+  </head>
+  <body>
     <div class="container" id="main-container">
-        <!-- Boot Sequence Overlay -->
-        <div class="boot-overlay" id="boot-overlay">
-            <div class="boot-content">
-                <pre class="boot-logo" id="boot-logo"></pre>
-                <div class="boot-log" id="boot-log"></div>
-                <div class="boot-progress">
-                    <div class="boot-progress-bar" id="boot-progress-bar"></div>
-                </div>
+      <!-- Boot Sequence Overlay -->
+      <div class="boot-overlay" id="boot-overlay">
+        <div class="boot-content">
+          <pre class="boot-logo" id="boot-logo"></pre>
+          <div class="boot-log" id="boot-log"></div>
+          <div class="boot-progress">
+            <div class="boot-progress-bar" id="boot-progress-bar"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Bar with Status -->
+      <div class="top-bar">
+        <div class="logo">⚔️ KALI HACKER BOT v1.0</div>
+        <div class="status-leds">
+          <div class="led-group" id="docker-led-group">
+            <div class="led" id="docker-led" title="Docker Status"></div>
+            <span>DOCKER</span>
+          </div>
+          <div class="led-group" id="ollama-led-group">
+            <div class="led" id="ollama-led" title="Ollama Status"></div>
+            <span>OLLAMA</span>
+          </div>
+          <div class="led-group" id="target-led-group">
+            <div class="led" id="target-led" title="Target Status"></div>
+            <span>TARGET</span>
+          </div>
+          <div class="led-group" id="gemini-led-group">
+            <div class="led" id="gemini-led" title="Gemini Status"></div>
+            <span>GEMINI</span>
+          </div>
+          <div class="uptime-display">
+            <span class="label">UP:</span>
+            <span id="uptime-value">00:00:00</span>
+          </div>
+        </div>
+        <div class="top-actions">
+          <button class="btn-icon" id="llm-log-btn" title="LLM Debug Log (Ctrl+G)">🪵</button>
+          <button class="btn-icon" id="hosts-btn" title="Saved Hosts">🖥️</button>
+          <button class="btn-icon" id="fullscreen-btn" title="Toggle Fullscreen (F11)">⛶</button>
+          <button class="btn-icon" id="settings-btn" title="Settings (Ctrl+,)">⚙️</button>
+        </div>
+      </div>
+
+      <!-- Main Content Area -->
+      <div class="content-area" id="content-area">
+        <!-- Main Chat / Intelligence Stream -->
+        <div class="panel intelligence-panel" id="intel-panel">
+          <div class="panel-header">
+            <span class="panel-title">⚡ INTELLIGENCE STREAM</span>
+            <div class="panel-controls">
+              <input
+                type="text"
+                class="search-input"
+                id="intel-search"
+                placeholder="Search..."
+                title="Search (Ctrl+F)"
+              />
+              <button class="btn-small" id="copy-intel" title="Copy All">⎘</button>
+              <button class="btn-small" id="clear-intel" title="Clear (Ctrl+L)">×</button>
             </div>
+          </div>
+          <div class="stream intelligence-stream" id="intelligence-stream">
+            <div class="welcome-msg">
+              <span class="cyan">>> Welcome to Kali Hacker Bot</span><br />
+              <span class="green">>> AI-powered penetration testing terminal</span><br />
+              <span class="cyan">>> Type a question or command to begin</span><br />
+              <span class="yellow">>> Type attack &lt;ip&gt; to start autonomous attack mode</span
+              ><br />
+              <span class="grey">>> Shortcuts: Ctrl+L clear | ↑↓ history | Ctrl+K kill</span>
+            </div>
+          </div>
         </div>
 
-        <!-- Top Bar with Status -->
-        <div class="top-bar">
-            <div class="logo">⚔️ KALI HACKER BOT v1.0</div>
-            <div class="status-leds">
-                <div class="led-group" id="docker-led-group">
-                    <div class="led" id="docker-led" title="Docker Status"></div>
-                    <span>DOCKER</span>
-                </div>
-                <div class="led-group" id="ollama-led-group">
-                    <div class="led" id="ollama-led" title="Ollama Status"></div>
-                    <span>OLLAMA</span>
-                </div>
-                <div class="led-group" id="target-led-group">
-                    <div class="led" id="target-led" title="Target Status"></div>
-                    <span>TARGET</span>
-                </div>
-                <div class="led-group" id="gemini-led-group">
-                    <div class="led" id="gemini-led" title="Gemini Status"></div>
-                    <span>GEMINI</span>
-                </div>
-                <div class="uptime-display">
-                    <span class="label">UP:</span>
-                    <span id="uptime-value">00:00:00</span>
-                </div>
+        <!-- Draggable Panel Resizer -->
+        <div class="panel-resizer" id="panel-resizer" title="Drag to resize panels"></div>
+
+        <!-- Live Shell / Wire Stream -->
+        <div class="panel wire-panel" id="wire-panel">
+          <div class="panel-header">
+            <span class="panel-title">🖥️ LIVE SHELL</span>
+            <div class="panel-controls">
+              <input
+                type="text"
+                class="search-input"
+                id="wire-search"
+                placeholder="Search..."
+                title="Search output"
+              />
+              <button class="btn-small" id="copy-wire" title="Copy All">⎘</button>
+              <button class="btn-small" id="clear-wire" title="Clear">×</button>
             </div>
-            <div class="top-actions">
-                <button class="btn-icon" id="llm-log-btn" title="LLM Debug Log (Ctrl+G)">🪵</button>
-                <button class="btn-icon" id="hosts-btn" title="Saved Hosts">🖥️</button>
-                <button class="btn-icon" id="fullscreen-btn" title="Toggle Fullscreen (F11)">⛶</button>
-                <button class="btn-icon" id="settings-btn" title="Settings (Ctrl+,)">⚙️</button>
+          </div>
+          <div class="stream wire-stream" id="wire-stream">
+            <div class="ready-msg">
+              <span class="grey">>> Shell output will appear here</span><br />
+              <span class="grey">>> Execute commands to see live results</span>
             </div>
+          </div>
         </div>
+      </div>
 
-        <!-- Main Content Area -->
-        <div class="content-area" id="content-area">
-            <!-- Main Chat / Intelligence Stream -->
-            <div class="panel intelligence-panel" id="intel-panel">
-                <div class="panel-header">
-                    <span class="panel-title">⚡ INTELLIGENCE STREAM</span>
-                    <div class="panel-controls">
-                        <input type="text" class="search-input" id="intel-search" placeholder="Search..." title="Search (Ctrl+F)" />
-                        <button class="btn-small" id="copy-intel" title="Copy All">⎘</button>
-                        <button class="btn-small" id="clear-intel" title="Clear (Ctrl+L)">×</button>
-                    </div>
-                </div>
-                <div class="stream intelligence-stream" id="intelligence-stream">
-                    <div class="welcome-msg">
-                        <span class="cyan">>> Welcome to Kali Hacker Bot</span><br/>
-                        <span class="green">>> AI-powered penetration testing terminal</span><br/>
-                        <span class="cyan">>> Type a question or command to begin</span><br/>
-                        <span class="yellow">>> Type  attack &lt;ip&gt;  to start autonomous attack mode</span><br/>
-                        <span class="grey">>> Shortcuts: Ctrl+L clear | ↑↓ history | Ctrl+K kill</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Draggable Panel Resizer -->
-            <div class="panel-resizer" id="panel-resizer" title="Drag to resize panels"></div>
-
-            <!-- Live Shell / Wire Stream -->
-            <div class="panel wire-panel" id="wire-panel">
-                <div class="panel-header">
-                    <span class="panel-title">🖥️ LIVE SHELL</span>
-                    <div class="panel-controls">
-                        <input type="text" class="search-input" id="wire-search" placeholder="Search..." title="Search output" />
-                        <button class="btn-small" id="copy-wire" title="Copy All">⎘</button>
-                        <button class="btn-small" id="clear-wire" title="Clear">×</button>
-                    </div>
-                </div>
-                <div class="stream wire-stream" id="wire-stream">
-                    <div class="ready-msg">
-                        <span class="grey">>> Shell output will appear here</span><br/>
-                        <span class="grey">>> Execute commands to see live results</span>
-                    </div>
-                </div>
-            </div>
+      <!-- Variables HUD -->
+      <div class="hud-bar">
+        <div class="hud-variable">
+          <span class="label">$TARGET_IP:</span>
+          <input
+            type="text"
+            class="hud-input"
+            id="target-ip"
+            value="---.---.---.---"
+            title="Click to edit"
+          />
         </div>
-
-        <!-- Variables HUD -->
-        <div class="hud-bar">
-            <div class="hud-variable">
-                <span class="label">$TARGET_IP:</span>
-                <input type="text" class="hud-input" id="target-ip" value="---.---.---.---" title="Click to edit" />
-            </div>
-            <div class="hud-variable">
-                <span class="label">$LOCAL_IP:</span>
-                <input type="text" class="hud-input" id="local-ip" value="127.0.0.1" title="Click to edit" />
-            </div>
-            <div class="hud-variable">
-                <span class="label">$LPORT:</span>
-                <input type="text" class="hud-input" id="listening-port" value="4444" title="Click to edit" />
-            </div>
-            <div class="hud-variable">
-                <span class="label">MODEL:</span>
-                <span class="value" id="active-model">phi3:mini</span>
-            </div>
+        <div class="hud-variable">
+          <span class="label">$LOCAL_IP:</span>
+          <input
+            type="text"
+            class="hud-input"
+            id="local-ip"
+            value="127.0.0.1"
+            title="Click to edit"
+          />
         </div>
-
-        <!-- Command Bar (two dedicated rows: CHAT → AI | CMD → Shell) -->
-        <div class="command-bar">
-            <!-- Row 1: Chat / AI -->
-            <div class="command-row">
-                <div class="command-input-wrapper" id="chat-wrapper">
-                    <span class="prompt ai-mode" title="Chat with AI">💬</span>
-                    <input
-                        type="text"
-                        id="chat-input"
-                        class="command-input"
-                        placeholder="Ask the AI anything…"
-                        autocomplete="off"
-                        spellcheck="false"
-                    />
-                    <button class="btn btn-primary btn-row" id="chat-send-btn">CHAT</button>
-                </div>
-            </div>
-            <!-- Row 2: Shell Command -->
-            <div class="command-row">
-                <div class="command-input-wrapper" id="cmd-wrapper">
-                    <span class="prompt shell-mode" title="Shell command">$</span>
-                    <input
-                        type="text"
-                        id="command-input"
-                        class="command-input"
-                        placeholder="Shell command (e.g. nmap -sV 192.168.1.1)…"
-                        autocomplete="off"
-                        spellcheck="false"
-                    />
-                    <button class="btn btn-shell btn-row" id="send-btn">EXEC</button>
-                </div>
-            </div>
-            <!-- Action row -->
-            <div class="command-controls">
-                <div class="action-buttons">
-                    <button class="btn btn-danger" id="kill-btn" title="Kill all processes (Ctrl+K)">⏹ KILL</button>
-                    <button class="btn btn-attack" id="attack-btn" title="Launch Autonomous Attack Mode against $TARGET_IP — AI plans and executes a full pentest sequence">⚡ ATTACK</button>
-                </div>
-            </div>
+        <div class="hud-variable">
+          <span class="label">$LPORT:</span>
+          <input
+            type="text"
+            class="hud-input"
+            id="listening-port"
+            value="4444"
+            title="Click to edit"
+          />
         </div>
+        <div class="hud-variable">
+          <span class="label">MODEL:</span>
+          <span class="value" id="active-model">phi3:mini</span>
+        </div>
+      </div>
 
-        <!-- Modal for Login -->
-        <div class="modal" id="login-modal">
-            <div class="modal-content login-content">
-                <pre class="login-ascii">
+      <!-- Command Bar (two dedicated rows: CHAT → AI | CMD → Shell) -->
+      <div class="command-bar">
+        <!-- Row 1: Chat / AI -->
+        <div class="command-row">
+          <div class="command-input-wrapper" id="chat-wrapper">
+            <span class="prompt ai-mode" title="Chat with AI">💬</span>
+            <input
+              type="text"
+              id="chat-input"
+              class="command-input"
+              placeholder="Ask the AI anything…"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button class="btn btn-primary btn-row" id="chat-send-btn">CHAT</button>
+          </div>
+        </div>
+        <!-- Row 2: Shell Command -->
+        <div class="command-row">
+          <div class="command-input-wrapper" id="cmd-wrapper">
+            <span class="prompt shell-mode" title="Shell command">$</span>
+            <input
+              type="text"
+              id="command-input"
+              class="command-input"
+              placeholder="Shell command (e.g. nmap -sV 192.168.1.1)…"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button class="btn btn-shell btn-row" id="send-btn">EXEC</button>
+          </div>
+        </div>
+        <!-- Action row -->
+        <div class="command-controls">
+          <div class="action-buttons">
+            <button class="btn btn-danger" id="kill-btn" title="Kill all processes (Ctrl+K)">
+              ⏹ KILL
+            </button>
+            <button
+              class="btn btn-attack"
+              id="attack-btn"
+              title="Launch Autonomous Attack Mode against $TARGET_IP — AI plans and executes a full pentest sequence"
+            >
+              ⚡ ATTACK
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal for Login -->
+      <div class="modal" id="login-modal">
+        <div class="modal-content login-content">
+          <pre class="login-ascii">
  ╔═╗╔═╗╔╗  ╔╗
  ║ ╚╝ ║║║  ║║
  ║ ╔╗ ║║╚╗╔╝║
  ║ ║║ ║║╔╗╔╗║
  ╚═╝╚═╝╚╝╚╝╚╝
  HACKER BOT v1.0
-                </pre>
-                <h2>🔐 AUTHENTICATION REQUIRED</h2>
-                <form id="login-form">
-                    <input
-                        type="password"
-                        id="password-input"
-                        placeholder="Enter access code..."
-                        required
-                    />
-                    <button type="submit" class="btn btn-primary">AUTHENTICATE</button>
-                </form>
-            </div>
+                </pre
+          >
+          <h2>🔐 AUTHENTICATION REQUIRED</h2>
+          <form id="login-form">
+            <input
+              type="password"
+              id="password-input"
+              placeholder="Enter access code..."
+              required
+            />
+            <button type="submit" class="btn btn-primary">AUTHENTICATE</button>
+          </form>
         </div>
+      </div>
 
-        <!-- Modal for Pending Command -->
-        <div class="modal" id="confirm-modal">
-            <div class="modal-content">
-                <h2>⚠️ CONFIRM EXECUTION</h2>
-                <p class="confirm-warn">The following command will be executed in the Kali container:</p>
-                <div class="command-preview" id="command-preview"></div>
-                <div class="modal-actions">
-                    <button class="btn btn-primary" id="confirm-btn">EXECUTE</button>
-                    <button class="btn btn-secondary" id="cancel-btn">CANCEL</button>
-                </div>
-            </div>
+      <!-- Modal for Pending Command -->
+      <div class="modal" id="confirm-modal">
+        <div class="modal-content">
+          <h2>⚠️ CONFIRM EXECUTION</h2>
+          <p class="confirm-warn">The following command will be executed in the Kali container:</p>
+          <div class="command-preview" id="command-preview"></div>
+          <div class="modal-actions">
+            <button class="btn btn-primary" id="confirm-btn">EXECUTE</button>
+            <button class="btn btn-secondary" id="cancel-btn">CANCEL</button>
+          </div>
         </div>
+      </div>
 
-        <!-- Modal for LLM Debug Log -->
-        <div class="modal" id="llm-log-modal">
-            <div class="modal-content llm-log-content">
-                <div class="settings-header">
-                    <h2>🪵 LLM DEBUG LOG</h2>
-                    <div style="display:flex;gap:6px;align-items:center;">
-                        <button class="btn btn-warning btn-small" id="refresh-llm-log-btn" title="Refresh">↺ REFRESH</button>
-                        <button class="btn btn-danger btn-small" id="clear-llm-log-btn" title="Clear log">✕ CLEAR</button>
-                        <label class="toggle-label" style="font-size:10px;color:var(--text-secondary);cursor:pointer;">
-                            <input type="checkbox" id="llm-log-autorefresh" style="margin-right:4px;" checked />AUTO
-                        </label>
-                        <button class="btn-small" id="close-llm-log">×</button>
-                    </div>
-                </div>
-                <div class="llm-log-summary" id="llm-log-summary"></div>
-                <div class="llm-log-stream" id="llm-log-stream">
-                    <div style="color:var(--text-secondary);font-size:11px;padding:8px;">No LLM interactions logged yet. Send a chat message to see entries here.</div>
-                </div>
+      <!-- Modal for LLM Debug Log -->
+      <div class="modal" id="llm-log-modal">
+        <div class="modal-content llm-log-content">
+          <div class="settings-header">
+            <h2>🪵 LLM DEBUG LOG</h2>
+            <div style="display: flex; gap: 6px; align-items: center">
+              <button class="btn btn-warning btn-small" id="refresh-llm-log-btn" title="Refresh">
+                ↺ REFRESH
+              </button>
+              <button class="btn btn-danger btn-small" id="clear-llm-log-btn" title="Clear log">
+                ✕ CLEAR
+              </button>
+              <label
+                class="toggle-label"
+                style="font-size: 10px; color: var(--text-secondary); cursor: pointer"
+              >
+                <input
+                  type="checkbox"
+                  id="llm-log-autorefresh"
+                  style="margin-right: 4px"
+                  checked
+                />AUTO
+              </label>
+              <button class="btn-small" id="close-llm-log">×</button>
             </div>
-        </div>
-
-        <!-- Modal for Settings -->
-        <div class="modal" id="settings-modal">
-            <div class="modal-content settings-content">
-                <div class="settings-header">
-                    <h2>⚙️ SETTINGS</h2>
-                    <button class="btn-small" id="close-settings">×</button>
-                </div>
-
-                <div class="settings-tabs">
-                    <button class="tab-btn active" data-tab="ollama">AI / LLM</button>
-                    <button class="tab-btn" data-tab="target">TARGET</button>
-                    <button class="tab-btn" data-tab="tools">TOOLS</button>
-                    <button class="tab-btn" data-tab="general">GENERAL</button>
-                    <button class="tab-btn" data-tab="plugins">PLUGINS</button>
-                    <button class="tab-btn" data-tab="proxy">PROXY</button>
-                </div>
-
-                <!-- AI / LLM Tab -->
-                <div class="tab-content active" id="tab-ollama">
-                    <div class="settings-section-divider">── OLLAMA ──</div>
-                    <div class="setting-group">
-                        <label>AI Provider</label>
-                        <select id="ai-provider" class="setting-input">
-                            <option value="auto">Auto (Orchestrator — smart routing)</option>
-                            <option value="ollama">Ollama (Local only)</option>
-                            <option value="gemini">Gemini (Google)</option>
-                        </select>
-                        <small>Auto uses the orchestrator with fallback routing</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Routing Strategy</label>
-                        <select id="ai-task-type" class="setting-input">
-                            <option value="default">Default</option>
-                            <option value="reasoning">Reasoning (Gemini → Ollama)</option>
-                            <option value="speed">Speed (Ollama → Gemini)</option>
-                            <option value="quality">Quality (Gemini → Ollama)</option>
-                        </select>
-                        <small>Controls which provider is tried first for each request type</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Ollama Instances</label>
-                        <div id="ollama-instances-list" class="instances-list">
-                            <p class="loading">Loading instances...</p>
-                        </div>
-                        <div class="input-with-action" style="margin-top:6px;">
-                            <input type="text" id="new-ollama-host" placeholder="localhost or 192.168.1.x" class="setting-input" style="flex:3;" />
-                            <input type="number" id="new-ollama-port" placeholder="11434" value="11434" min="1" max="65535" class="setting-input" style="flex:1;min-width:70px;max-width:90px;" />
-                            <button class="btn btn-small" id="add-ollama-instance-btn">ADD</button>
-                        </div>
-                        <small>Manage multiple Ollama servers. The first entry is the primary.</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Active Model</label>
-                        <div class="model-selector">
-                            <select id="ollama-model" class="setting-input">
-                                <option value="dolphin-mixtral">dolphin-mixtral</option>
-                            </select>
-                            <button class="btn btn-small" id="refresh-models">🔄</button>
-                        </div>
-                        <small>Select LLM model for AI reasoning</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Pull New Model</label>
-                        <div class="input-with-action">
-                            <input type="text" id="pull-model-name" placeholder="e.g. phi4-mini:3.8b, gemma3:4b, qwen2.5:3b" class="setting-input" />
-                            <button class="btn btn-small" id="pull-model-btn">PULL</button>
-                        </div>
-                        <div id="pull-progress" class="pull-progress"></div>
-                        <small>Download a model from Ollama registry</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Temperature</label>
-                        <div class="slider-container">
-                            <input type="range" id="ollama-temp" min="0" max="100" value="70" class="slider" />
-                            <span id="temp-value">0.70</span>
-                        </div>
-                        <small>Higher = more creative, Lower = more deterministic</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Custom System Prompt</label>
-                        <textarea id="system-prompt" class="setting-input setting-textarea" placeholder="Leave empty to use default pentesting prompt..."></textarea>
-                        <small>Override the AI's system instructions</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Network Discovery</label>
-                        <div class="input-with-action">
-                            <select id="network-scan-toggle" class="setting-input">
-                                <option value="false">Disabled (default)</option>
-                                <option value="true">Enabled</option>
-                            </select>
-                            <button class="btn btn-small" id="scan-ollama-btn">SCAN</button>
-                        </div>
-                        <div id="scan-results" class="scan-results" style="display:none;"></div>
-                        <small>Scan the local /24 subnet for Ollama servers. Enable first, then click SCAN.</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Ollama Status</label>
-                        <div id="ollama-status" class="status-box">Checking...</div>
-                    </div>
-
-                    <div class="settings-section-divider">── OLLAMA INTEL GPU ──</div>
-
-                    <div class="setting-group">
-                        <label>Intel GPU Quick-Connect</label>
-                        <small>Connect to <a href="https://github.com/Crashcart/Ollama-intelgpu" target="_blank" rel="noopener" style="color:#0f0;">Crashcart/Ollama-intelgpu</a> running on this machine or another host (Intel Arc, Iris Xe, integrated graphics).</small>
-                        <div class="input-with-action" style="margin-top:6px;">
-                            <input type="text" id="intelgpu-ollama-url" placeholder="http://localhost:11434" value="http://localhost:11434" class="setting-input" style="flex:3;" />
-                            <button class="btn btn-small" id="intelgpu-use-btn">USE</button>
-                        </div>
-                        <small>Clicking USE sets this as the primary Ollama instance. Default port is 11434.</small>
-                    </div>
-
-                    <div class="settings-section-divider">── GEMINI ──</div>
-
-                    <div class="setting-group">
-                        <label>Gemini API Key</label>
-                        <div class="input-with-action">
-                            <input type="password" id="gemini-api-key" placeholder="Paste API key (leave blank to keep existing)" class="setting-input" autocomplete="off" />
-                            <button class="btn btn-small" id="save-gemini-btn">SAVE</button>
-                        </div>
-                        <small>Get a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:#0f0;">aistudio.google.com</a>. Stored in server memory only — re-enter after restart or set <code>GEMINI_API_KEY</code> in your <code>.env</code>.</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Gemini Model</label>
-                        <input type="text" id="gemini-model" placeholder="gemini-pro" class="setting-input" />
-                        <small>e.g. gemini-pro, gemini-1.5-pro, gemini-1.5-flash</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Gemini Status</label>
-                        <div id="gemini-status" class="status-box">Checking...</div>
-                    </div>
-                </div>
-
-                <!-- Target Tab -->
-                <div class="tab-content" id="tab-target">
-                    <div class="setting-group">
-                        <label>Target IP / Hostname</label>
-                        <input type="text" id="target-ip-input" placeholder="192.168.1.100" class="setting-input" />
-                        <small>IP address or hostname of target system</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Local IP</label>
-                        <input type="text" id="local-ip-input" placeholder="192.168.1.50" class="setting-input" />
-                        <small>Your local/attacker IP address</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Listening Port</label>
-                        <input type="number" id="listening-port-input" placeholder="4444" class="setting-input" min="1" max="65535" />
-                        <small>Port for reverse shell listeners</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Target Ping Check</label>
-                        <div class="input-with-action">
-                            <div id="target-status" class="status-box">Not checked</div>
-                            <button class="btn btn-small" id="ping-target">PING</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tools Tab -->
-                <div class="tab-content" id="tab-tools">
-                    <div class="setting-group">
-                        <label>Install Kali Packages</label>
-                        <div class="input-with-action">
-                            <input type="text" id="install-packages" placeholder="e.g. sqlmap gobuster john" class="setting-input" />
-                            <button class="btn btn-small" id="install-btn">INSTALL</button>
-                        </div>
-                        <div id="install-output" class="status-box" style="display:none;"></div>
-                        <small>Install packages via apt-get in the Kali container</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Container Actions</label>
-                        <div class="btn-row">
-                            <button class="btn btn-secondary" id="restart-container">🔄 RESTART CONTAINER</button>
-                            <button class="btn btn-danger" id="reset-container">💀 FACTORY RESET</button>
-                        </div>
-                        <small>Restart or reset the Kali container to clean state</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Container Info</label>
-                        <div id="container-info" class="status-box">Loading...</div>
-                    </div>
-                </div>
-
-                <!-- General Tab -->
-                <div class="tab-content" id="tab-general">
-                    <div class="setting-group">
-                        <label>Theme</label>
-                        <select id="theme-select" class="setting-input">
-                            <option value="default">Cyberpunk (Default)</option>
-                            <option value="matrix">Matrix Green</option>
-                            <option value="blood">Blood Red</option>
-                            <option value="frost">Frost Blue</option>
-                        </select>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Timestamps</label>
-                        <select id="timestamp-toggle" class="setting-input">
-                            <option value="true">Show timestamps</option>
-                            <option value="false">Hide timestamps</option>
-                        </select>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Sound Notifications</label>
-                        <select id="sound-toggle" class="setting-input">
-                            <option value="true">Enabled</option>
-                            <option value="false">Disabled</option>
-                        </select>
-                        <small>Audio alert on critical findings</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Keyboard Shortcuts</label>
-                        <div class="shortcuts-list">
-                            <div class="shortcut-row"><kbd>Ctrl+L</kbd> <span>Clear active stream</span></div>
-                            <div class="shortcut-row"><kbd>Ctrl+K</kbd> <span>Kill all processes</span></div>
-                            <div class="shortcut-row"><kbd>Ctrl+N</kbd> <span>Toggle notepad</span></div>
-                            <div class="shortcut-row"><kbd>Ctrl+,</kbd> <span>Open settings</span></div>
-                            <div class="shortcut-row"><kbd>↑ / ↓</kbd> <span>Command history</span></div>
-                            <div class="shortcut-row"><kbd>Escape</kbd> <span>Close modal / cancel</span></div>
-                            <div class="shortcut-row"><kbd>F11</kbd> <span>Toggle fullscreen</span></div>
-                            <div class="shortcut-row"><kbd>!</kbd> <span>Force shell mode (prefix)</span></div>
-                            <div class="shortcut-row"><kbd>?</kbd> <span>Force AI mode (prefix)</span></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Plugins Tab -->
-                <div class="tab-content" id="tab-plugins">
-                    <div class="setting-group">
-                        <label>LLM Model Selection</label>
-                        <select id="llm-model-selector" class="setting-input">
-                            <option value="phi4-mini:3.8b">Phi-4 Mini 3.8B (~2.5 GiB) ⭐</option>
-                            <option value="phi3:mini">Phi-3 Mini (~2.2 GiB) ⭐</option>
-                            <option value="gemma3:4b">Gemma 3 4B (~3 GiB) ⭐</option>
-                            <option value="qwen2.5:3b">Qwen 2.5 3B (~2 GiB)</option>
-                            <option value="llama3.2:3b">Llama 3.2 3B (~2 GiB)</option>
-                            <option value="tinyllama">TinyLlama (~637 MiB)</option>
-                        </select>
-                        <small>Choose the AI model for processing queries (optimised for low-end systems)</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Security Plugins</label>
-                        <div id="plugins-list" class="plugins-list">
-                            <p class="loading">Loading plugins...</p>
-                        </div>
-                        <small>Enable/disable plugins to enhance your pentesting analysis</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Plugin Info</label>
-                        <div class="plugin-info-box">
-                            <p><strong>CVE Plugin:</strong> Scans responses for CVE IDs and enriches with CVSS scores</p>
-                            <p><strong>Threat Intel Plugin:</strong> Extracts and analyzes IOCs (IPs, domains, hashes)</p>
-                            <p><strong>Report Plugin:</strong> Generates professional pentesting reports with findings</p>
-                            <p><strong>Export Plugin:</strong> Exports session data in JSON, CSV, or HTML format</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Proxy Tab -->
-                <div class="tab-content" id="tab-proxy">
-                    <div class="setting-group">
-                        <label>Enable Proxy</label>
-                        <select id="proxy-enabled" class="setting-input">
-                            <option value="false">Disabled</option>
-                            <option value="true">Enabled</option>
-                        </select>
-                        <small>Route traffic through an HTTP/SOCKS proxy</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Proxy Protocol</label>
-                        <select id="proxy-protocol" class="setting-input">
-                            <option value="http">HTTP</option>
-                            <option value="https">HTTPS</option>
-                            <option value="socks5">SOCKS5</option>
-                        </select>
-                        <small>Proxy type and protocol</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Proxy Host</label>
-                        <input type="text" id="proxy-host" placeholder="127.0.0.1 or proxy.example.com" class="setting-input" />
-                        <small>IP address or hostname of proxy server</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Proxy Port</label>
-                        <input type="number" id="proxy-port" placeholder="8080" class="setting-input" min="1" max="65535" />
-                        <small>Port number for proxy server</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Proxy Username</label>
-                        <input type="text" id="proxy-username" placeholder="(Optional)" class="setting-input" />
-                        <small>Username for proxy authentication (if required)</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Proxy Password</label>
-                        <input type="password" id="proxy-password" placeholder="(Optional)" class="setting-input" />
-                        <small>Password for proxy authentication (if required)</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Bypass Proxy For</label>
-                        <input type="text" id="proxy-bypass" placeholder="localhost,127.0.0.1,*.local" class="setting-input" />
-                        <small>Comma-separated list of hosts to bypass proxy (e.g., internal targets)</small>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Test Proxy</label>
-                        <div class="input-with-action">
-                            <div id="proxy-status" class="status-box">Not tested</div>
-                            <button class="btn btn-small" id="test-proxy">TEST</button>
-                        </div>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Proxy Configuration</label>
-                        <div class="info-box">
-                            <p><strong>HTTP/HTTPS:</strong> For web traffic and API requests</p>
-                            <p><strong>SOCKS5:</strong> For general-purpose proxy support (port forwarding, etc)</p>
-                            <p><strong>Common Proxies:</strong></p>
-                            <ul>
-                                <li>Burp Suite: localhost:8080</li>
-                                <li>mitmproxy: localhost:8080</li>
-                                <li>Squid: your-proxy-server:3128</li>
-                                <li>Corporate proxy: proxy.company.com:port</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="modal-actions">
-                    <button class="btn btn-primary" id="save-settings">SAVE SETTINGS</button>
-                    <button class="btn btn-secondary" id="reset-settings">RESET</button>
-                </div>
+          </div>
+          <div class="llm-log-summary" id="llm-log-summary"></div>
+          <div class="llm-log-stream" id="llm-log-stream">
+            <div style="color: var(--text-secondary); font-size: 11px; padding: 8px">
+              No LLM interactions logged yet. Send a chat message to see entries here.
             </div>
+          </div>
         </div>
+      </div>
 
-        <!-- Notepad Modal -->
-        <div class="modal" id="notepad-modal">
-            <div class="modal-content notepad-content">
-                <div class="settings-header">
-                    <h2>📝 SESSION NOTEPAD</h2>
-                    <button class="btn-small" id="close-notepad">×</button>
-                </div>
-                <textarea id="notepad-text" class="notepad-textarea" placeholder="Take notes during your engagement...&#10;&#10;Findings:&#10;- &#10;&#10;Credentials:&#10;- &#10;&#10;TODO:&#10;- "></textarea>
-                <div class="modal-actions">
-                    <button class="btn btn-primary" id="save-notepad">SAVE</button>
-                    <button class="btn btn-secondary" id="clear-notepad">CLEAR</button>
-                </div>
-            </div>
-        </div>
+      <!-- Modal for Settings -->
+      <div class="modal" id="settings-modal">
+        <div class="modal-content settings-content">
+          <div class="settings-header">
+            <h2>⚙️ SETTINGS</h2>
+            <button class="btn-small" id="close-settings">×</button>
+          </div>
 
-        <!-- CVE Lookup Modal -->
-        <div class="modal" id="cve-modal">
-            <div class="modal-content">
-                <div class="settings-header">
-                    <h2>🔍 CVE LOOKUP</h2>
-                    <button class="btn-small" id="close-cve">×</button>
-                </div>
-                <div class="input-with-action">
-                    <input type="text" id="cve-input" placeholder="CVE-2024-XXXXX" class="setting-input" />
-                    <button class="btn btn-primary" id="cve-search-btn">SEARCH</button>
-                </div>
-                <div id="cve-results" class="cve-results"></div>
+          <div class="settings-tabs">
+            <button class="tab-btn active" data-tab="ollama">AI / LLM</button>
+            <button class="tab-btn" data-tab="target">TARGET</button>
+            <button class="tab-btn" data-tab="tools">TOOLS</button>
+            <button class="tab-btn" data-tab="general">GENERAL</button>
+            <button class="tab-btn" data-tab="plugins">PLUGINS</button>
+            <button class="tab-btn" data-tab="proxy">PROXY</button>
+          </div>
+
+          <!-- AI / LLM Tab -->
+          <div class="tab-content active" id="tab-ollama">
+            <div class="settings-section-divider">── OLLAMA ──</div>
+            <div class="setting-group">
+              <label>AI Provider</label>
+              <select id="ai-provider" class="setting-input">
+                <option value="auto">Auto (Orchestrator — smart routing)</option>
+                <option value="ollama">Ollama (Local only)</option>
+                <option value="gemini">Gemini (Google)</option>
+              </select>
+              <small>Auto uses the orchestrator with fallback routing</small>
             </div>
+
+            <div class="setting-group">
+              <label>Routing Strategy</label>
+              <select id="ai-task-type" class="setting-input">
+                <option value="default">Default</option>
+                <option value="reasoning">Reasoning (Gemini → Ollama)</option>
+                <option value="speed">Speed (Ollama → Gemini)</option>
+                <option value="quality">Quality (Gemini → Ollama)</option>
+              </select>
+              <small>Controls which provider is tried first for each request type</small>
+            </div>
+
+            <div class="setting-group">
+              <label>Ollama Instances</label>
+              <div id="ollama-instances-list" class="instances-list">
+                <p class="loading">Loading instances...</p>
+              </div>
+              <div class="input-with-action" style="margin-top: 6px">
+                <input
+                  type="text"
+                  id="new-ollama-host"
+                  placeholder="localhost or 192.168.1.x"
+                  class="setting-input"
+                  style="flex: 3"
+                />
+                <input
+                  type="number"
+                  id="new-ollama-port"
+                  placeholder="11434"
+                  value="11434"
+                  min="1"
+                  max="65535"
+                  class="setting-input"
+                  style="flex: 1; min-width: 70px; max-width: 90px"
+                />
+                <button class="btn btn-small" id="add-ollama-instance-btn">ADD</button>
+              </div>
+              <small>Manage multiple Ollama servers. The first entry is the primary.</small>
+            </div>
+
+            <div class="setting-group">
+              <label>Active Model</label>
+              <div class="model-selector">
+                <select id="ollama-model" class="setting-input">
+                  <option value="dolphin-mixtral">dolphin-mixtral</option>
+                </select>
+                <button class="btn btn-small" id="refresh-models">🔄</button>
+              </div>
+              <small>Select LLM model for AI reasoning</small>
+            </div>
+
+            <div class="setting-group">
+              <label>Pull New Model</label>
+              <div class="input-with-action">
+                <input
+                  type="text"
+                  id="pull-model-name"
+                  placeholder="e.g. phi4-mini:3.8b, gemma3:4b, qwen2.5:3b"
+                  class="setting-input"
+                />
+                <button class="btn btn-small" id="pull-model-btn">PULL</button>
+              </div>
+              <div id="pull-progress" class="pull-progress"></div>
+              <small>Download a model from Ollama registry</small>
+            </div>
+
+            <div class="setting-group">
+              <label>Temperature</label>
+              <div class="slider-container">
+                <input type="range" id="ollama-temp" min="0" max="100" value="70" class="slider" />
+                <span id="temp-value">0.70</span>
+              </div>
+              <small>Higher = more creative, Lower = more deterministic</small>
+            </div>
+
+            <div class="setting-group">
+              <label>Custom System Prompt</label>
+              <textarea
+                id="system-prompt"
+                class="setting-input setting-textarea"
+                placeholder="Leave empty to use default pentesting prompt..."
+              ></textarea>
+              <small>Override the AI's system instructions</small>
+            </div>
+
+            <div class="setting-group">
+              <label>Network Discovery</label>
+              <div class="input-with-action">
+                <select id="network-scan-toggle" class="setting-input">
+                  <option value="false">Disabled (default)</option>
+                  <option value="true">Enabled</option>
+                </select>
+                <button class="btn btn-small" id="scan-ollama-btn">SCAN</button>
+              </div>
+              <div id="scan-results" class="scan-results" style="display: none"></div>
+              <small
+                >Scan the local /24 subnet for Ollama servers. Enable first, then click SCAN.</small
+              >
+            </div>
+
+            <div class="setting-group">
+              <label>Ollama Status</label>
+              <div id="ollama-status" class="status-box">Checking...</div>
+            </div>
+
+            <div class="settings-section-divider">── OLLAMA INTEL GPU ──</div>
+
+            <div class="setting-group">
+              <label>Intel GPU Quick-Connect</label>
+              <small
+                >Connect to
+                <a
+                  href="https://github.com/Crashcart/Ollama-intelgpu"
+                  target="_blank"
+                  rel="noopener"
+                  style="color: #0f0"
+                  >Crashcart/Ollama-intelgpu</a
+                >
+                running on this machine or another host (Intel Arc, Iris Xe, integrated
+                graphics).</small
+              >
+              <div class="input-with-action" style="margin-top: 6px">
+                <input
+                  type="text"
+                  id="intelgpu-ollama-url"
+                  placeholder="http://localhost:11434"
+                  value="http://localhost:11434"
+                  class="setting-input"
+                  style="flex: 3"
+                />
+                <button class="btn btn-small" id="intelgpu-use-btn">USE</button>
+              </div>
+              <small
+                >Clicking USE sets this as the primary Ollama instance. Default port is
+                11434.</small
+              >
+            </div>
+
+            <div class="settings-section-divider">── GEMINI ──</div>
+
+            <div class="setting-group">
+              <label>Gemini API Key</label>
+              <div class="input-with-action">
+                <input
+                  type="password"
+                  id="gemini-api-key"
+                  placeholder="Paste API key (leave blank to keep existing)"
+                  class="setting-input"
+                  autocomplete="off"
+                />
+                <button class="btn btn-small" id="save-gemini-btn">SAVE</button>
+              </div>
+              <small
+                >Get a key at
+                <a
+                  href="https://aistudio.google.com/apikey"
+                  target="_blank"
+                  rel="noopener"
+                  style="color: #0f0"
+                  >aistudio.google.com</a
+                >. Stored in server memory only — re-enter after restart or set
+                <code>GEMINI_API_KEY</code> in your <code>.env</code>.</small
+              >
+            </div>
+
+            <div class="setting-group">
+              <label>Gemini Model</label>
+              <input type="text" id="gemini-model" placeholder="gemini-pro" class="setting-input" />
+              <small>e.g. gemini-pro, gemini-1.5-pro, gemini-1.5-flash</small>
+            </div>
+
+            <div class="setting-group">
+              <label>Gemini Status</label>
+              <div id="gemini-status" class="status-box">Checking...</div>
+            </div>
+          </div>
+
+          <!-- Target Tab -->
+          <div class="tab-content" id="tab-target">
+            <div class="setting-group">
+              <label>Target IP / Hostname</label>
+              <input
+                type="text"
+                id="target-ip-input"
+                placeholder="192.168.1.100"
+                class="setting-input"
+              />
+              <small>IP address or hostname of target system</small>
+            </div>
+
+            <div class="setting-group">
+              <label>Local IP</label>
+              <input
+                type="text"
+                id="local-ip-input"
+                placeholder="192.168.1.50"
+                class="setting-input"
+              />
+              <small>Your local/attacker IP address</small>
+            </div>
+
+            <div class="setting-group">
+              <label>Listening Port</label>
+              <input
+                type="number"
+                id="listening-port-input"
+                placeholder="4444"
+                class="setting-input"
+                min="1"
+                max="65535"
+              />
+              <small>Port for reverse shell listeners</small>
+            </div>
+
+            <div class="setting-group">
+              <label>Target Ping Check</label>
+              <div class="input-with-action">
+                <div id="target-status" class="status-box">Not checked</div>
+                <button class="btn btn-small" id="ping-target">PING</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tools Tab -->
+          <div class="tab-content" id="tab-tools">
+            <div class="setting-group">
+              <label>Install Kali Packages</label>
+              <div class="input-with-action">
+                <input
+                  type="text"
+                  id="install-packages"
+                  placeholder="e.g. sqlmap gobuster john"
+                  class="setting-input"
+                />
+                <button class="btn btn-small" id="install-btn">INSTALL</button>
+              </div>
+              <div id="install-output" class="status-box" style="display: none"></div>
+              <small>Install packages via apt-get in the Kali container</small>
+            </div>
+
+            <div class="setting-group">
+              <label>Container Actions</label>
+              <div class="btn-row">
+                <button class="btn btn-secondary" id="restart-container">
+                  🔄 RESTART CONTAINER
+                </button>
+                <button class="btn btn-danger" id="reset-container">💀 FACTORY RESET</button>
+              </div>
+              <small>Restart or reset the Kali container to clean state</small>
+            </div>
+
+            <div class="setting-group">
+              <label>Container Info</label>
+              <div id="container-info" class="status-box">Loading...</div>
+            </div>
+          </div>
+
+          <!-- General Tab -->
+          <div class="tab-content" id="tab-general">
+            <div class="setting-group">
+              <label>Theme</label>
+              <select id="theme-select" class="setting-input">
+                <option value="default">Cyberpunk (Default)</option>
+                <option value="matrix">Matrix Green</option>
+                <option value="blood">Blood Red</option>
+                <option value="frost">Frost Blue</option>
+              </select>
+            </div>
+
+            <div class="setting-group">
+              <label>Timestamps</label>
+              <select id="timestamp-toggle" class="setting-input">
+                <option value="true">Show timestamps</option>
+                <option value="false">Hide timestamps</option>
+              </select>
+            </div>
+
+            <div class="setting-group">
+              <label>Sound Notifications</label>
+              <select id="sound-toggle" class="setting-input">
+                <option value="true">Enabled</option>
+                <option value="false">Disabled</option>
+              </select>
+              <small>Audio alert on critical findings</small>
+            </div>
+
+            <div class="setting-group">
+              <label>Keyboard Shortcuts</label>
+              <div class="shortcuts-list">
+                <div class="shortcut-row"><kbd>Ctrl+L</kbd> <span>Clear active stream</span></div>
+                <div class="shortcut-row"><kbd>Ctrl+K</kbd> <span>Kill all processes</span></div>
+                <div class="shortcut-row"><kbd>Ctrl+N</kbd> <span>Toggle notepad</span></div>
+                <div class="shortcut-row"><kbd>Ctrl+,</kbd> <span>Open settings</span></div>
+                <div class="shortcut-row"><kbd>↑ / ↓</kbd> <span>Command history</span></div>
+                <div class="shortcut-row"><kbd>Escape</kbd> <span>Close modal / cancel</span></div>
+                <div class="shortcut-row"><kbd>F11</kbd> <span>Toggle fullscreen</span></div>
+                <div class="shortcut-row"><kbd>!</kbd> <span>Force shell mode (prefix)</span></div>
+                <div class="shortcut-row"><kbd>?</kbd> <span>Force AI mode (prefix)</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Plugins Tab -->
+          <div class="tab-content" id="tab-plugins">
+            <div class="setting-group">
+              <label>LLM Model Selection</label>
+              <select id="llm-model-selector" class="setting-input">
+                <option value="phi4-mini:3.8b">Phi-4 Mini 3.8B (~2.5 GiB) ⭐</option>
+                <option value="phi3:mini">Phi-3 Mini (~2.2 GiB) ⭐</option>
+                <option value="gemma3:4b">Gemma 3 4B (~3 GiB) ⭐</option>
+                <option value="qwen2.5:3b">Qwen 2.5 3B (~2 GiB)</option>
+                <option value="llama3.2:3b">Llama 3.2 3B (~2 GiB)</option>
+                <option value="tinyllama">TinyLlama (~637 MiB)</option>
+              </select>
+              <small
+                >Choose the AI model for processing queries (optimised for low-end systems)</small
+              >
+            </div>
+
+            <div class="setting-group">
+              <label>Security Plugins</label>
+              <div id="plugins-list" class="plugins-list">
+                <p class="loading">Loading plugins...</p>
+              </div>
+              <small>Enable/disable plugins to enhance your pentesting analysis</small>
+            </div>
+
+            <div class="setting-group">
+              <label>Plugin Info</label>
+              <div class="plugin-info-box">
+                <p>
+                  <strong>CVE Plugin:</strong> Scans responses for CVE IDs and enriches with CVSS
+                  scores
+                </p>
+                <p>
+                  <strong>Threat Intel Plugin:</strong> Extracts and analyzes IOCs (IPs, domains,
+                  hashes)
+                </p>
+                <p>
+                  <strong>Report Plugin:</strong> Generates professional pentesting reports with
+                  findings
+                </p>
+                <p>
+                  <strong>Export Plugin:</strong> Exports session data in JSON, CSV, or HTML format
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Proxy Tab -->
+          <div class="tab-content" id="tab-proxy">
+            <div class="setting-group">
+              <label>Enable Proxy</label>
+              <select id="proxy-enabled" class="setting-input">
+                <option value="false">Disabled</option>
+                <option value="true">Enabled</option>
+              </select>
+              <small>Route traffic through an HTTP/SOCKS proxy</small>
+            </div>
+
+            <div class="setting-group">
+              <label>Proxy Protocol</label>
+              <select id="proxy-protocol" class="setting-input">
+                <option value="http">HTTP</option>
+                <option value="https">HTTPS</option>
+                <option value="socks5">SOCKS5</option>
+              </select>
+              <small>Proxy type and protocol</small>
+            </div>
+
+            <div class="setting-group">
+              <label>Proxy Host</label>
+              <input
+                type="text"
+                id="proxy-host"
+                placeholder="127.0.0.1 or proxy.example.com"
+                class="setting-input"
+              />
+              <small>IP address or hostname of proxy server</small>
+            </div>
+
+            <div class="setting-group">
+              <label>Proxy Port</label>
+              <input
+                type="number"
+                id="proxy-port"
+                placeholder="8080"
+                class="setting-input"
+                min="1"
+                max="65535"
+              />
+              <small>Port number for proxy server</small>
+            </div>
+
+            <div class="setting-group">
+              <label>Proxy Username</label>
+              <input
+                type="text"
+                id="proxy-username"
+                placeholder="(Optional)"
+                class="setting-input"
+              />
+              <small>Username for proxy authentication (if required)</small>
+            </div>
+
+            <div class="setting-group">
+              <label>Proxy Password</label>
+              <input
+                type="password"
+                id="proxy-password"
+                placeholder="(Optional)"
+                class="setting-input"
+              />
+              <small>Password for proxy authentication (if required)</small>
+            </div>
+
+            <div class="setting-group">
+              <label>Bypass Proxy For</label>
+              <input
+                type="text"
+                id="proxy-bypass"
+                placeholder="localhost,127.0.0.1,*.local"
+                class="setting-input"
+              />
+              <small>Comma-separated list of hosts to bypass proxy (e.g., internal targets)</small>
+            </div>
+
+            <div class="setting-group">
+              <label>Test Proxy</label>
+              <div class="input-with-action">
+                <div id="proxy-status" class="status-box">Not tested</div>
+                <button class="btn btn-small" id="test-proxy">TEST</button>
+              </div>
+            </div>
+
+            <div class="setting-group">
+              <label>Proxy Configuration</label>
+              <div class="info-box">
+                <p><strong>HTTP/HTTPS:</strong> For web traffic and API requests</p>
+                <p>
+                  <strong>SOCKS5:</strong> For general-purpose proxy support (port forwarding, etc)
+                </p>
+                <p><strong>Common Proxies:</strong></p>
+                <ul>
+                  <li>Burp Suite: localhost:8080</li>
+                  <li>mitmproxy: localhost:8080</li>
+                  <li>Squid: your-proxy-server:3128</li>
+                  <li>Corporate proxy: proxy.company.com:port</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button class="btn btn-primary" id="save-settings">SAVE SETTINGS</button>
+            <button class="btn btn-secondary" id="reset-settings">RESET</button>
+          </div>
         </div>
+      </div>
+
+      <!-- Notepad Modal -->
+      <div class="modal" id="notepad-modal">
+        <div class="modal-content notepad-content">
+          <div class="settings-header">
+            <h2>📝 SESSION NOTEPAD</h2>
+            <button class="btn-small" id="close-notepad">×</button>
+          </div>
+          <textarea
+            id="notepad-text"
+            class="notepad-textarea"
+            placeholder="Take notes during your engagement...&#10;&#10;Findings:&#10;- &#10;&#10;Credentials:&#10;- &#10;&#10;TODO:&#10;- "
+          ></textarea>
+          <div class="modal-actions">
+            <button class="btn btn-primary" id="save-notepad">SAVE</button>
+            <button class="btn btn-secondary" id="clear-notepad">CLEAR</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- CVE Lookup Modal -->
+      <div class="modal" id="cve-modal">
+        <div class="modal-content">
+          <div class="settings-header">
+            <h2>🔍 CVE LOOKUP</h2>
+            <button class="btn-small" id="close-cve">×</button>
+          </div>
+          <div class="input-with-action">
+            <input type="text" id="cve-input" placeholder="CVE-2024-XXXXX" class="setting-input" />
+            <button class="btn btn-primary" id="cve-search-btn">SEARCH</button>
+          </div>
+          <div id="cve-results" class="cve-results"></div>
+        </div>
+      </div>
     </div>
 
-        <!-- Hosts Modal -->
-        <div class="modal" id="hosts-modal">
-            <div class="modal-content settings-content">
-                <div class="settings-header">
-                    <h2>🖥️ SAVED HOSTS <span id="hosts-retention-note" style="font-size:0.7em;color:#888;">(3-day retention)</span></h2>
-                    <button class="btn-small" id="close-hosts">×</button>
-                </div>
-                <div id="hosts-list" style="overflow-y:auto;max-height:400px;margin-bottom:12px;"></div>
-                <div class="modal-actions">
-                    <button class="btn btn-secondary" id="refresh-hosts-btn">🔄 REFRESH</button>
-                </div>
-            </div>
+    <!-- Hosts Modal -->
+    <div class="modal" id="hosts-modal">
+      <div class="modal-content settings-content">
+        <div class="settings-header">
+          <h2>
+            🖥️ SAVED HOSTS
+            <span id="hosts-retention-note" style="font-size: 0.7em; color: #888"
+              >(3-day retention)</span
+            >
+          </h2>
+          <button class="btn-small" id="close-hosts">×</button>
         </div>
+        <div id="hosts-list" style="overflow-y: auto; max-height: 400px; margin-bottom: 12px"></div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" id="refresh-hosts-btn">🔄 REFRESH</button>
+        </div>
+      </div>
+    </div>
 
-        <script src="app.js"></script>
-</body>
+    <script src="app.js"></script>
+  </body>
 </html>

@@ -3,7 +3,7 @@
 **Date Created**: April 2, 2026  
 **Status**: ✅ COMPLETE & COMMITTED  
 **File**: `.github/agents/debug.agent.md`  
-**Commit**: ae411ef  
+**Commit**: ae411ef
 
 ## Task Completed
 
@@ -12,6 +12,7 @@ Created a specialized Debug agent for the Kali-AI-term project following agent-c
 ## What Was Delivered
 
 ### Debug Agent File
+
 - **Location**: `.github/agents/debug.agent.md`
 - **Size**: 175 lines
 - **Format**: YAML frontmatter + markdown body
@@ -23,6 +24,7 @@ Created a specialized Debug agent for the Kali-AI-term project following agent-c
 **Description**: "Use for: troubleshooting bugs, analyzing error logs, running tests, debugging Docker/Ollama issues, and fixing runtime problems in Kali-AI-term. Specializes in error trace analysis, test failure diagnosis, and root cause identification."
 
 **Tools Configured** (13 total):
+
 1. execute/runInTerminal - Run tests and diagnostic commands
 2. execute/awaitTerminal - Wait for long-running operations
 3. execute/getTerminalOutput - Capture command output
@@ -40,6 +42,7 @@ Created a specialized Debug agent for the Kali-AI-term project following agent-c
 ### Content Included
 
 **Sections**:
+
 1. Agent metadata and description
 2. Primary responsibilities (5 areas)
 3. When to use / when NOT to use
@@ -56,12 +59,14 @@ Created a specialized Debug agent for the Kali-AI-term project following agent-c
 ### Examples Provided
 
 **Debugging Patterns**:
+
 - Test failure diagnosis with Jest
 - Docker container troubleshooting
 - Ollama AI model debugging
 - Server error analysis
 
 **Example Prompts** (for users to try):
+
 ```
 @debug "This test is failing: [test name]. Fix it."
 @debug "The server won't start. Here are the error logs: [paste logs]"
@@ -80,11 +85,12 @@ Created a specialized Debug agent for the Kali-AI-term project following agent-c
 ✅ **Documentation**: 175 lines of comprehensive workflow guidance  
 ✅ **Project Context**: References actual Kali-AI-term components and tools  
 ✅ **Practical Examples**: Includes bash commands, workflows, and prompts  
-✅ **Git Integration**: File follows project conventions  
+✅ **Git Integration**: File follows project conventions
 
 ## Git Verification
 
 **Commit Command**:
+
 ```bash
 git commit -m "feat: Create Debug agent for troubleshooting and error diagnosis
 
@@ -98,7 +104,7 @@ git commit -m "feat: Create Debug agent for troubleshooting and error diagnosis
 **Commit Hash**: ae411ef  
 **Git Status**: Clean (nothing to commit, working tree clean)  
 **Branch**: main  
-**Ahead of Origin**: By 3 commits (including this one)  
+**Ahead of Origin**: By 3 commits (including this one)
 
 ## Verification Commands
 
@@ -119,6 +125,7 @@ git status
 ## Usage
 
 The Debug agent is now available in the Kali-AI-term VS Code workspace:
+
 - **Invoke**: Type `@debug` in chat
 - **Auto-detect**: Automatically loaded for debugging-related queries
 - **Scope**: Project-wide, all team members
@@ -127,24 +134,25 @@ The Debug agent is now available in the Kali-AI-term VS Code workspace:
 ## Related Work
 
 This Debug agent complements existing agents:
+
 - **Program Agent**: For implementing new features
 - **Debug Agent**: For troubleshooting and fixing bugs (NEW)
 - **Suggested Future**: Documentation, Security, Performance, Review agents
 
 ## Task Completion Confirmation
 
-| Item | Status |
-|------|--------|
-| Agent file created | ✅ Complete |
-| Agent specification valid | ✅ Valid |
-| File committed to git | ✅ Committed |
-| No uncommitted changes | ✅ Clean |
-| Documentation complete | ✅ Complete |
-| Examples provided | ✅ 6 examples |
-| Tool selection justified | ✅ Yes |
-| YAML syntax correct | ✅ Valid |
-| Compatible with agent-customization guidelines | ✅ Yes |
-| Ready for use | ✅ Yes |
+| Item                                           | Status        |
+| ---------------------------------------------- | ------------- |
+| Agent file created                             | ✅ Complete   |
+| Agent specification valid                      | ✅ Valid      |
+| File committed to git                          | ✅ Committed  |
+| No uncommitted changes                         | ✅ Clean      |
+| Documentation complete                         | ✅ Complete   |
+| Examples provided                              | ✅ 6 examples |
+| Tool selection justified                       | ✅ Yes        |
+| YAML syntax correct                            | ✅ Valid      |
+| Compatible with agent-customization guidelines | ✅ Yes        |
+| Ready for use                                  | ✅ Yes        |
 
 **Task Status**: COMPLETE AND VERIFIED ✅
 

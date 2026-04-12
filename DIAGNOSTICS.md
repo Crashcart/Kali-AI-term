@@ -3,6 +3,7 @@
 Three scripts are available to help diagnose installation and Docker issues:
 
 ## 1. Quick Diagnostic (Fastest)
+
 **For immediate issue identification**
 
 ```bash
@@ -10,6 +11,7 @@ bash diagnose-quick.sh
 ```
 
 **Output:**
+
 - ✓/✗ Docker daemon status
 - ✓/✗ Docker Compose availability
 - ✓/✗ Node.js installation
@@ -21,6 +23,7 @@ bash diagnose-quick.sh
 ---
 
 ## 2. Full Diagnostic (Comprehensive)
+
 **For detailed system analysis**
 
 ```bash
@@ -30,6 +33,7 @@ bash diagnose.sh
 **Creates:** `diagnostic-report-YYYY-MM-DD-HH-MM-SS.txt`
 
 **Collects:**
+
 - System information (OS, kernel, architecture)
 - Docker installation and daemon status
 - Docker socket location and permissions
@@ -50,6 +54,7 @@ bash diagnose.sh
 ---
 
 ## 3. Log Collection (For Support)
+
 **For sharing with developers**
 
 ```bash
@@ -59,6 +64,7 @@ bash collect-logs.sh
 **Creates:** `diagnostic-logs-YYYY-MM-DD-HH-MM-SS/` directory + archive
 
 **Collects:**
+
 - Docker daemon logs (200 lines)
 - Docker info, containers, images, networks, volumes
 - Container logs from all running/stopped containers
@@ -77,11 +83,13 @@ bash collect-logs.sh
 ## Quick Start Workflow
 
 ### Step 1: Check Docker Status
+
 ```bash
 bash diagnose-quick.sh
 ```
 
 If Docker daemon is not running:
+
 ```bash
 # Linux
 sudo systemctl start docker
@@ -94,15 +102,18 @@ sudo systemctl start docker
 ```
 
 ### Step 2: Run Full Diagnostic
+
 ```bash
 bash diagnose.sh
 ```
 
 Review the output for any issues. Look for:
+
 - ✗ marks (failures)
 - ⚠ marks (warnings)
 
 ### Step 3: Collect Logs for Support
+
 ```bash
 bash collect-logs.sh
 ```
@@ -114,6 +125,7 @@ Share the generated `.tar.gz` or `.zip` file.
 ## Common Issues & Solutions
 
 ### "Docker daemon NOT responding"
+
 ```bash
 # Start Docker (Linux with systemd)
 sudo systemctl start docker
@@ -124,13 +136,17 @@ sudo systemctl enable docker    # Auto-start on reboot
 ```
 
 ### "Docker socket NOT found"
+
 The socket should be at `/var/run/docker.sock`. If missing:
+
 - Docker daemon is not running
 - You may be running Docker in a non-standard location
 - Check if running in a container or VM
 
 ### "docker-compose command not found"
+
 Use `docker compose` (v2) instead, or install docker-compose:
+
 ```bash
 # Install docker-compose (Linux)
 sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
@@ -138,13 +154,17 @@ sudo chmod +x /usr/local/bin/docker-compose
 ```
 
 ### "node_modules missing"
+
 Run:
+
 ```bash
 npm install
 ```
 
 ### ".env missing or incomplete"
+
 The install script should create this. If missing:
+
 ```bash
 bash install.sh
 ```
@@ -154,6 +174,7 @@ bash install.sh
 ## Understanding the Output
 
 ### Diagnostic Report Symbols
+
 - ✓ = OK, working correctly
 - ✗ = Error, not working
 - ⚠ = Warning, might need attention
@@ -172,11 +193,13 @@ bash install.sh
 ## Sharing Logs with Support
 
 1. Run the collection script:
+
    ```bash
    bash collect-logs.sh
    ```
 
 2. Upload or share the archive:
+
    ```bash
    # The script creates:
    # diagnostic-logs-2024-04-01-10-30-45.tar.gz
@@ -194,6 +217,7 @@ bash install.sh
 ## Privacy & Security
 
 All diagnostic scripts automatically:
+
 - ✓ Mask passwords in .env files
 - ✓ Use sanitized copies of config files
 - ✓ Do not collect sensitive environment variables
