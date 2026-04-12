@@ -2,14 +2,49 @@
 
 > 🔒 **GOVERNANCE FILE** — Protected by Rule 10 in `copilot-instructions.md`. Follow full workflow when editing.
 
-**Last Updated**: 2026-04-11 21:19:00 UTC
+**Last Updated**: 2026-04-12 21:30:00 UTC
 **Document Purpose**: Centralized planning for multi-agent coordination, architectural decisions, and project context
 
 ---
 
 ## 🎯 Active Initiatives
 
-### Fix AI Streaming 404 — Model Parameter Dropped (current session)
+### Docker Deployment & CI/CD Configuration Fix (current session)
+
+**Status**: ✅ **Complete** — PR #114 ready for merge
+**Branch**: `claude/kali-hacker-bot-VkfAG`
+**Assigned To**: Claude (Main Agent)
+
+**Problem**: Deployment pipeline had multiple blockers:
+1. **Merge conflicts** (12+ files) preventing PR from being mergeable
+2. **ESLint 10 incompatibility** — project still using legacy `.eslintrc.json` format
+3. **Code formatting issues** — 72 files with Prettier violations
+4. **Docker configuration gaps** — Missing Ollama service integration
+
+**Root Causes**:
+1. Branch diverged significantly from main with 4 unrelated commits
+2. ESLint upgraded to v10.0.0 which requires `eslint.config.js` (not `.eslintrc.*`)
+3. Docker Compose configuration incomplete for multi-service setup
+4. Docker socket mount conflict in original Dockerfile design
+
+**Changes Made**:
+
+- `.github/workflows/` — Validated ESLint and Prettier configurations
+- `eslint.config.js` — Created ESLint 10 compatible flat config
+- `package.json` — Added `"type": "module"` for ES module support
+- `docker-compose.yml` — Complete service orchestration (app, ollama, kali)
+- `Dockerfile` — Ensured proper socket mounting (no `/var/run/docker.sock` directory creation)
+- All project files — Applied consistent Prettier formatting (72 files)
+
+**Decisions Log**:
+- [2026-04-12 21:19] Used ESLint 10 flat config format for forward compatibility
+- [2026-04-12 21:20] Resolved merge conflicts using `git merge main -X ours` for stability
+- [2026-04-12 21:25] Applied automatic Prettier formatting to entire codebase for consistency
+- [2026-04-12 21:30] All CI/CD checks now passing (lint, format, docker, tests)
+
+---
+
+### Fix AI Streaming 404 — Model Parameter Dropped (previous session)
 
 **Status**: ✅ **Complete** — PR ready for human review
 **Branch**: `copilot/fix-ai-error-streaming`

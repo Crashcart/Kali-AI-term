@@ -2,19 +2,22 @@
 
 > 🔒 **GOVERNANCE FILE** — Protected by Rule 10 in `copilot-instructions.md`. Follow full workflow when editing.
 
-**Last Updated**: 2026-04-11 21:19:00 UTC
-**Current Session**: Fix AI streaming 404 — model parameter dropped on /api/llm/\* paths
+**Last Updated**: 2026-04-12 21:30:00 UTC
+**Current Session**: Docker deployment & CI/CD configuration fix — resolve merge conflicts and ESLint 10 compatibility
 **Repository**: Kali-AI-term
 
 ---
 
 ## Current Session Tasks
 
-| ID  | Task Title                                                | Status           | Assigned | Priority    | Notes                                                        |
-| :-: | --------------------------------------------------------- | ---------------- | -------- | ----------- | ------------------------------------------------------------ |
-| M1  | Frontend: add `model` to non-auto request body            | ✅ **completed** | Copilot  | 🔴 CRITICAL | `processNaturalLanguage` in app.js was missing `model` field |
-| M2  | Backend: extract + forward `model` in `/api/llm/generate` | ✅ **completed** | Copilot  | 🔴 CRITICAL | multi-llm-api-routes.js now passes model to orchestrator     |
-| M3  | Backend: extract + forward `model` in `/api/llm/stream`   | ✅ **completed** | Copilot  | 🔴 CRITICAL | Same fix for the streaming endpoint                          |
+| ID  | Task Title                                                | Status           | Assigned | Priority    | Notes                                                            |
+| :-: | --------------------------------------------------------- | ---------------- | -------- | ----------- | ---------------------------------------------------------------- |
+| D1  | Resolve 12+ merge conflicts with main branch              | ✅ **completed** | Claude   | 🔴 CRITICAL | Used `git merge main -X ours` for stable resolution             |
+| D2  | Add ESLint 10 flat config (`eslint.config.js`)            | ✅ **completed** | Claude   | 🔴 CRITICAL | Legacy `.eslintrc.json` incompatible with ESLint 10.0.0          |
+| D3  | Add ES module support (`"type": "module"` in package.json)| ✅ **completed** | Claude   | 🔴 CRITICAL | Fixes ESLint loader warnings                                     |
+| D4  | Apply Prettier formatting to all files (72 files)        | ✅ **completed** | Claude   | 🟠 HIGH     | Automated `npm run format` to ensure consistency                 |
+| D5  | Validate docker-compose.yml for multi-service setup      | ✅ **completed** | Claude   | 🔴 CRITICAL | Added ollama + kali services; configurable ports                 |
+| D6  | Push all fixes to `claude/kali-hacker-bot-VkfAG` branch  | ✅ **completed** | Claude   | 🔴 CRITICAL | All 239 commits ready; PR #114 updated with resolved conflicts   |
 
 ## Previous Session Tasks
 
