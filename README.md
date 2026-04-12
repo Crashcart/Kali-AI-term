@@ -1,6 +1,6 @@
 # 🎯 Kali Hacker Bot
 
-Elite browser-based penetration testing terminal that bridges a local Ollama instance (for AI reasoning) with a Kali Linux Docker container (for live execution).
+Elite browser-based penetration testing terminal that bridges an external Ollama LLM service (for AI reasoning) with a Kali Linux Docker container (for live execution).
 
 ## Features
 
@@ -43,18 +43,17 @@ Elite browser-based penetration testing terminal that bridges a local Ollama ins
 ┌─────────────────────────────────────────────────────────┐
 │  Backend (Node.js/Express)                              │
 │  ├─ Docker Socket API (Kali Container Control)          │
-│  ├─ Ollama API (LLM Reasoning)                           │
+│  ├─ Ollama API (External LLM Reasoning)                  │
 │  ├─ Authentication & Session Management                 │
 │  └─ System Status Monitoring                            │
 └─────────────────────────────────────────────────────────┘
-           ↓
-┌─────────────────────────────────────────────────────────┐
-│  Docker Containers                                      │
-│  ├─ Kali Linux (Command Execution Environment)          │
-│  ├─ Ollama (LLM Service with Intel GPU Support)         │
-│  ├─ App (Node.js/Express Backend)                       │
-│  └─ Bridge Network (Inter-container communication)      │
-└─────────────────────────────────────────────────────────┘
+           ↓                        ↓
+┌──────────────────────┐    ┌──────────────────────────────┐
+│  Docker Containers   │    │  External Services           │
+│  ├─ Kali Linux       │    │  ├─ Ollama (separate repo)   │
+│  ├─ App (Backend)    │    │  │  (Intel GPU optimized)    │
+│  └─ Bridge Network   │    │  └─ Remote or local instance │
+└──────────────────────┘    └──────────────────────────────┘
 ```
 
 ## Technical Design Reference
@@ -180,62 +179,61 @@ By default, **`smollm2:135m`** is pre-configured (91 MB, ultra-light):
 
 #### Switching Models
 
+⚠️ **IMPORTANT**: Ollama is managed separately. Install from [Crashcart/Ollama-intelgpu](https://github.com/Crashcart/Ollama-intelgpu)
+
 1. **Via Web UI:**
    - Open Settings (⚙️) → OLLAMA tab
    - Click the refresh button (🔄) to see available models
    - Select a different model from the dropdown
    - Commands will use the selected model
 
-2. **Pull New Model from CLI:**
+2. **Pull New Model from Ollama CLI:**
 
    ```bash
-   docker exec kali-ai-term-ollama ollama pull mistral
-   docker exec kali-ai-term-ollama ollama pull llama3.2:1b
+   # Connect to your external Ollama instance
+   ollama pull mistral
+   ollama pull llama3.2:1b
    ```
 
 3. **List Installed Models:**
 
    ```bash
-   docker exec kali-ai-term-ollama ollama list
+   ollama list
    ```
 
 4. **Delete a Model:**
    ```bash
-   docker exec kali-ai-term-ollama ollama rm mistral
+   ollama rm mistral
    ```
 
-#### Performance Tuning
+#### External Ollama Service
 
-The Docker container is pre-configured with optimal settings for resource-constrained systems:
+Ollama runs as a separate service (not bundled with Kali bot). See [Crashcart/Ollama-intelgpu](https://github.com/Crashcart/Ollama-intelgpu) for:
 
-```env
-OLLAMA_NUM_PARALLEL=1              # Single request at a time (preserves VRAM)
-OLLAMA_MAX_LOADED_MODELS=1         # Only one model in VRAM
-OLLAMA_KEEP_ALIVE=-1               # Keep model loaded (avoids 5m reload delay)
-OLLAMA_FLASH_ATTENTION=1           # 2-3x faster inference
-OLLAMA_KV_CACHE_TYPE=q8_0          # 50% VRAM reduction, minimal quality loss
-```
-
-These settings are automatically applied in `docker-compose.yml`.
+- Intel GPU acceleration setup
+- Model management and performance tuning
+- Multi-instance configuration
+- Hardware requirements
 
 #### Troubleshooting Model Issues
 
 | Problem                            | Solution                                                                                                       |
 | ---------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| "Model not found" error            | Pull the model: `docker exec kali-ai-term-ollama ollama pull smollm2:135m`                                     |
-| Slow responses                     | Check model size vs available VRAM, or switch to smaller model                                                 |
-| Out of memory errors               | Reduce number of parallel requests or switch to smaller model                                                  |
-| Model takes 10+ seconds to respond | This is normal on first request (model loads into VRAM). Subsequent requests are faster due to `KEEP_ALIVE=-1` |
-| Ollama service won't start         | Run diagnostic: `bash diagnose-quick.sh`                                                                       |
+| "Model not found" error            | Pull the model in your external Ollama: `ollama pull smollm2:135m`                                             |
+| Can't connect to Ollama            | Check OLLAMA_URL in .env points to running Ollama instance; verify network connectivity                        |
+| Slow responses                     | Check model size vs available VRAM, or switch to smaller model in Ollama                                       |
+| Out of memory errors               | Configure Ollama settings in Crashcart/Ollama-intelgpu repo                                                    |
+| Ollama not running                 | Start Ollama service from Crashcart/Ollama-intelgpu; check OLLAMA_URL in .env                                  |
 
 ### Manual Installation
 
 **Prerequisites**
 
 - Docker & Docker Compose installed
-- Ports 31337 (Web UI) and 11434 (Ollama API) available
-- 512 MB free RAM minimum (for smollm2:135m)
-- 2+ GB free disk space for LLM models
+- Port 31337 (Web UI) available
+- Ollama installed separately (see [Crashcart/Ollama-intelgpu](https://github.com/Crashcart/Ollama-intelgpu))
+- 512 MB free RAM minimum (Kali bot; Ollama has separate requirements)
+- 2+ GB free disk space for LLM models (in Ollama service)
 
 ### Installation & Deployment
 

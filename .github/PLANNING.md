@@ -2,14 +2,46 @@
 
 > 🔒 **GOVERNANCE FILE** — Protected by Rule 10 in `copilot-instructions.md`. Follow full workflow when editing.
 
-**Last Updated**: 2026-04-12 21:30:00 UTC
+**Last Updated**: 2026-04-12 22:20:00 UTC
 **Document Purpose**: Centralized planning for multi-agent coordination, architectural decisions, and project context
 
 ---
 
 ## 🎯 Active Initiatives
 
-### Docker Deployment & CI/CD Configuration Fix (current session)
+### Decouple Ollama from Kali Bot (current session - continuation)
+
+**Status**: ✅ **Complete** — Ollama now external
+**Branch**: `claude/kali-hacker-bot-VkfAG`
+**Assigned To**: Claude (Main Agent)
+
+**Problem**: Ollama was bundled with Kali bot in docker-compose.yml, causing:
+1. Port allocation conflicts (11434 in use)
+2. Deployment complexity (managing multiple services)
+3. Architectural coupling (Ollama should be independent)
+
+**Root Cause**: Ollama was included in docker-compose.yml as internal service instead of external dependency.
+
+**Solution**: 
+- Remove Ollama from docker-compose.yml entirely
+- Simplify install.sh to only manage app + kali containers
+- Point to external Ollama via OLLAMA_URL env var (default: `http://host.docker.internal:11434`)
+- Users install Ollama separately from Crashcart/Ollama-intelgpu repo
+
+**Changes Made**:
+- `docker-compose.yml` — Removed ollama service, ollama-data volume, ollama dependency
+- `install.sh` — Removed Ollama startup logic, port conflict checks, retry loops
+- App container OLLAMA_URL — Changed from internal `http://ollama:11434` to external `http://host.docker.internal:11434`
+
+**Decisions Log**:
+- [2026-04-12 22:15] Ollama managed in separate Crashcart/Ollama-intelgpu repo
+- [2026-04-12 22:15] Kali bot connects via OLLAMA_URL env var (user-configurable)
+- [2026-04-12 22:15] Default points to host.docker.internal for Docker Desktop compatibility
+- [2026-04-12 22:20] Commit: 03fa078 — Ollama decoupling complete
+
+---
+
+### Docker Deployment & CI/CD Configuration Fix (previous session)
 
 **Status**: ✅ **Complete** — PR #114 ready for merge
 **Branch**: `claude/kali-hacker-bot-VkfAG`

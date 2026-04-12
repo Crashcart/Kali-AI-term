@@ -49,6 +49,7 @@
 | D8  | Add security env vars to docker-compose.yml                | ✅ **completed** | Claude   | 🔴 CRITICAL | ADMIN_PASSWORD & AUTH_SECRET with safe defaults                |
 | D9  | Complete full test suite run (145 tests)                   | ✅ **completed** | Claude   | 🔴 CRITICAL | All 145 tests passing; 10 test suites passed; 0 failures       |
 | D10 | Verify GitHub PR #114 checks all turn green                | ✅ **completed** | Claude   | 🔴 CRITICAL | All GitHub checks passing; fixed Docker tag, workflow paths, install script |
+| D11 | Remove Ollama from Kali bot (use external instance)        | ✅ **completed** | Claude   | 🔴 CRITICAL | Ollama now managed in separate Crashcart/Ollama-intelgpu repo  |
 
 ## Previous Session Tasks
 
