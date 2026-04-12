@@ -27,5 +27,4 @@ jobs:
 
     - name: Validate docker-compose.yml
       run: |
-        which docker-compose >/dev/null 2>&1 && docker-compose config > /dev/null 2>&1 || docker compose config > /dev/null 2>&1 || (echo "❌ Invalid docker-compose.yml" && exit 1)
-        echo "✓ docker-compose.yml is valid"
+        docker compose config > /dev/null 2>&1 && echo "✓ docker-compose.yml is valid" || (echo "❌ Invalid docker-compose.yml" && exit 1)
