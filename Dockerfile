@@ -1,7 +1,7 @@
-FROM node:18-alpine
+FROM node:20-alpine
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
+# Install dumb-init and curl for proper signal handling and health checks
+RUN apk add --no-cache dumb-init curl
 
 WORKDIR /app
 
@@ -13,10 +13,13 @@ RUN npm ci --only=production
 
 # Copy application code
 COPY server.js ./
+COPY db ./db
+COPY lib ./lib
+COPY plugins ./plugins
 COPY public ./public
 
-# Create directories for socket and data
-RUN mkdir -p /app/data /var/run/docker.sock
+# Create data directory
+RUN mkdir -p /app/data
 
 # Expose port
 EXPOSE 3000
