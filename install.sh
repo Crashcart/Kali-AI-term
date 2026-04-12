@@ -8,6 +8,17 @@ echo "    Kali Hacker Bot - Installation"
 echo "💉 ═══════════════════════════════════════════════════════════════════ 💉"
 echo ""
 
+# Clone/enter repo if needed
+if [ ! -f "install.sh" ] || [ ! -f "package.json" ]; then
+  echo "📦 Cloning Kali-AI-term repository..."
+  if [ -d "Kali-AI-term" ]; then
+    cd Kali-AI-term
+  else
+    git clone https://github.com/Crashcart/Kali-AI-term.git
+    cd Kali-AI-term
+  fi
+fi
+
 # Initialize logger using Node.js module
 log_cmd() {
   local level=$1
