@@ -106,23 +106,8 @@ else
     MISSING_DEPS=1
 fi
 
-# Check Ollama (optional - can be configured later in web UI)
-if check_command ollama; then
-    OLLAMA_VERSION=$(ollama --version 2>/dev/null || echo "unknown")
-    log_success "Ollama installed: $OLLAMA_VERSION"
-
-    # Check if Ollama is running
-    if timeout 2 bash -c 'echo > /dev/tcp/localhost/11434' 2>/dev/null; then
-        log_success "Ollama is running on port 11434"
-    else
-        log_warn "Ollama is not running on port 11434"
-        echo "    Run: ollama serve"
-    fi
-else
-    log_warn "Ollama not found (optional)"
-    echo "    Install from: https://ollama.ai/"
-    echo "    You can configure Ollama URL later in Settings → OLLAMA tab"
-fi
+# Note: Ollama is run separately, not bundled with Kali bot
+log_info "Note: Ollama must be run separately (see .env for OLLAMA_URL configuration)"
 
 # Check for missing critical dependencies
 if [ $MISSING_DEPS -eq 1 ]; then
