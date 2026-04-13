@@ -1,0 +1,11 @@
+# Auto-Deploy Configuration
+# Specify applications to auto-deploy when cluster is set up
+# Format: APP_NAME|IMAGE|REPLICAS|PORT
+#
+# Examples:
+#   web-server|nginx|3|80
+#   api-service|python:3.9|2|5000
+#   database|postgres|1|5432
+
+# Your applications to auto-deploy (one per line):
+web-server|nginx|3|80
