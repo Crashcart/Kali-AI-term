@@ -82,9 +82,19 @@ check_prerequisites() {
         exit 1
     fi
 
+    # If config file doesn't exist, download it from git
     if [ ! -f "$CONFIG_FILE" ]; then
-        log_error "Configuration file not found: $CONFIG_FILE"
-        exit 1
+        log_info "Config file not found, downloading from git..."
+
+        local config_url="https://raw.githubusercontent.com/Crashcart/Kali-AI-term/claude/docker-kubernetes-node-script-5YFM4/auto-deploy-config.txt"
+
+        if curl -fsSL "$config_url" -o "$CONFIG_FILE" 2>/dev/null; then
+            log_success "Config file downloaded: $CONFIG_FILE"
+        else
+            log_error "Could not download config file from: $config_url"
+            log_error "Please create auto-deploy-config.txt manually"
+            exit 1
+        fi
     fi
 
     log_success "Prerequisites check passed"
