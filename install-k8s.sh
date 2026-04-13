@@ -244,12 +244,13 @@ initialize_kubeadm() {
 
     case "$os" in
         ubuntu|debian)
-            apt-get update
-            apt-get install -y apt-transport-https ca-certificates curl
-            curl -fsSLo /etc/apt/keyrings/kubernetes-archive-keyring.gpg https://dl.k8s.io/apt/doc/apt-key.gpg
-            echo "deb [signed-by=/etc/apt/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | tee /etc/apt/sources.list.d/kubernetes.list
-            apt-get update
-            apt-get install -y kubeadm kubelet kubectl
+            apt-get update -qq
+            apt-get install -y -qq apt-transport-https ca-certificates curl gnupg
+            mkdir -p /etc/apt/keyrings
+            curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg 2>/dev/null || true
+            echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
+            apt-get update -qq
+            apt-get install -y -qq kubeadm kubelet kubectl --allow-downgrades --allow-change-held-packages
             ;;
         centos|rhel|fedora)
             cat <<EOF > /etc/yum.repos.d/kubernetes.repo
@@ -389,12 +390,13 @@ join_kubeadm() {
 
     case "$os" in
         ubuntu|debian)
-            apt-get update
-            apt-get install -y apt-transport-https ca-certificates curl
-            curl -fsSLo /etc/apt/keyrings/kubernetes-archive-keyring.gpg https://dl.k8s.io/apt/doc/apt-key.gpg
-            echo "deb [signed-by=/etc/apt/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | tee /etc/apt/sources.list.d/kubernetes.list
-            apt-get update
-            apt-get install -y kubeadm kubelet kubectl
+            apt-get update -qq
+            apt-get install -y -qq apt-transport-https ca-certificates curl gnupg
+            mkdir -p /etc/apt/keyrings
+            curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg 2>/dev/null || true
+            echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
+            apt-get update -qq
+            apt-get install -y -qq kubeadm kubelet kubectl --allow-downgrades --allow-change-held-packages
             ;;
         centos|rhel|fedora)
             cat <<EOF > /etc/yum.repos.d/kubernetes.repo
