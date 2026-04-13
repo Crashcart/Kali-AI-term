@@ -1,0 +1,41 @@
+{
+  "debug": false,
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "5",
+    "labels": "service=kubernetes"
+  },
+  "storage-driver": "overlay2",
+  "live-restore": true,
+  "max-concurrent-downloads": 5,
+  "max-concurrent-uploads": 5,
+  "insecure-registries": [],
+  "registry-mirrors": [],
+  "experimental": false,
+  "features": {
+    "buildkit": true
+  },
+  "userns-remap": "",
+  "bridge": "",
+  "ip": "0.0.0.0",
+  "ip-forward": true,
+  "ip-masq": true,
+  "iptables": true,
+  "ipv6": false,
+  "exec-opts": [
+    "native.cgroupdriver=systemd"
+  ],
+  "userland-proxy": true,
+  "userland-proxy-path": "/usr/libexec/docker-userland-proxy",
+  "default-ulimits": {
+    "nofile": {
+      "Name": "nofile",
+      "Hard": 65536,
+      "Soft": 65536
+    }
+  },
+  "seccomp-profile": "",
+  "selinux-enabled": false,
+  "storage-opts": []
+}

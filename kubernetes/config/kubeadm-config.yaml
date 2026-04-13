@@ -1,0 +1,88 @@
+# Kubeadm Cluster Configuration
+# This file is used when initializing a Kubernetes cluster with kubeadm
+# Generated: 2026-04-13
+
+---
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: InitConfiguration
+nodeRegistration:
+  criSocket: unix:///var/run/containerd/containerd.sock
+  taints: []                    # Control plane will not be tainted for pods
+
+---
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: ClusterConfiguration
+kubernetesVersion: stable
+controlPlaneEndpoint: "0.0.0.0:6443"
+
+# Cluster networking
+networking:
+  # Pod network CIDR - must match your CNI plugin configuration
+  podSubnet: "10.244.0.0/16"
+  # Service network CIDR - internal service addresses
+  serviceSubnet: "10.96.0.0/12"
+  # Kubernetes DNS domain name
+  dnsDomain: "cluster.local"
+
+# API server configuration
+apiServer:
+  # Enable audit logging
+  extraArgs:
+    audit-log-maxage: "30"
+    audit-log-maxbackup: "10"
+    audit-log-maxsize: "100"
+    # For Windows node support
+    feature-gates: "WindowsGMSA=true"
+
+# Controller manager configuration
+controllerManager:
+  extraArgs:
+    # For Windows node support
+    feature-gates: "WindowsGMSA=true"
+    node-cidr-mask-size: "24"
+
+# Scheduler configuration
+scheduler:
+  extraArgs:
+    # For Windows node support
+    feature-gates: "WindowsGMSA=true"
+
+# Etcd configuration (embedded)
+etcd:
+  local:
+    dataDir: "/var/lib/etcd"
+
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+# Server TLS bootstrap
+serverTLSBootstrap: true
+
+# Log configuration
+logging:
+  format: json
+  flushFrequency: 5s
+  verbosity: 2
+
+# Memory swap configuration
+memorySwap:
+  swapBehavior: NoSwap
+
+# Pod resource configuration
+podPidsLimit: 4096
+
+# Node status update frequency
+nodeStatusUpdateFrequency: 10s
+
+# Kubelet healthy volume mount point
+volumePluginDir: "/usr/libexec/kubernetes/kubelet-plugins/volume/exec/"
+
+# Enable privileged containers
+allowPrivilegedContainer: true
+
+# Host network configuration
+hostNetworkSources:
+  - "*"
+
+# Streaming configuration
+streamingConnectionIdleTimeout: 5m
