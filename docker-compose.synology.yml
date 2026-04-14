@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: kali-ai-term-app
+    ports:
+      - "0.0.0.0:31337:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - BIND_HOST=0.0.0.0
+      - OLLAMA_URL=http://ollama:11434
+      - DEFAULT_OLLAMA_MODEL=smollm2:135m
+      - KALI_CONTAINER=kali-ai-term-kali
+      - LOG_LEVEL=info
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - AUTH_SECRET=${AUTH_SECRET}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /volume1/docker/kali-ai-term/data:/app/data
+    depends_on:
+      - kali
+      - ollama
+    networks:
+      - kali-ai-term-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/system/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: kali-ai-term-ollama
+    ports:
+      - "0.0.0.0:11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_MAX_QUEUE=100
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_KEEP_ALIVE=-1
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KV_CACHE_TYPE=q8_0
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - kali-ai-term-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    entrypoint: /bin/sh
+    command: -c "ollama serve & sleep 5 && ollama pull smollm2:135m && wait"
+
+  kali:
+    image: kalilinux/kali-rolling:latest
+    container_name: kali-ai-term-kali
+    stdin_open: true
+    tty: true
+    networks:
+      - kali-ai-term-net
+    command: /bin/bash
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exit 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  ollama-data:
+    driver: local
+
+networks:
+  kali-ai-term-net:
+    driver: bridge
