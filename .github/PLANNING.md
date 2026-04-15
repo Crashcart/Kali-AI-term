@@ -2,12 +2,31 @@
 
 > 🔒 **GOVERNANCE FILE** — Protected by Rule 10 in `copilot-instructions.md`. Follow full workflow when editing.
 
-**Last Updated**: 2026-04-11 21:19:00 UTC
+**Last Updated**: 2026-04-15 UTC
 **Document Purpose**: Centralized planning for multi-agent coordination, architectural decisions, and project context
 
 ---
 
 ## 🎯 Active Initiatives
+
+### Show AI-Suggested Command I/O in Wire Stream (current session)
+
+**Status**: ✅ **Complete** — PR ready for human review
+**Branch**: `claude/show-command-io-8c3T4`
+**Assigned To**: Claude
+
+**Problem**: When `autoPilot` is enabled and `processNaturalLanguage()` completes, it calls `suggestNextCommand()` which asks the AI for the next tactical command. Currently that command is only written to `commandInput.placeholder` — it is never executed and never shown in the wire stream. The user cannot see what command the AI is suggesting or what the results would be.
+
+**Root Cause**: `suggestNextCommand()` (app.js line 1008) treats the AI's command as a passive suggestion (placeholder text only) rather than executing it and displaying the I/O.
+
+**Changes**:
+- `public/app.js` — `suggestNextCommand()`: after fetching AI-suggested command, print `🤖 AI suggests next step:` header + `$ <cmd>` (green) to wire stream, execute via `POST /api/docker/exec`, show output (grey), show completion/error status. Update placeholder to `Last AI cmd: ...`. Do NOT call `analyzeCommandOutput` to prevent infinite loops.
+
+**Decisions Log**:
+- [2026-04-15] No loop risk: `suggestNextCommand` is only called from `processNaturalLanguage`; new exec path inside it does not set `autoPilot` re-analysis
+- [2026-04-15] Follows same wire stream display pattern as `executeDockerCommand` and `startAutonomousAttack`
+
+---
 
 ### Fix AI Streaming 404 — Model Parameter Dropped (current session)
 

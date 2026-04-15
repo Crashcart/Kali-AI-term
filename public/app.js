@@ -1020,7 +1020,30 @@ Format: <one-liner command suggestion>`;
                 taskType: this.aiTaskType,
             });
 
-            this.commandInput.placeholder = `Suggested: ${response.response.slice(0, 60)}...`;
+            const suggestedCmd = response.response.trim();
+            if (!suggestedCmd) return;
+
+            // Show command I/O in wire stream so the user can see what the AI runs and its results
+            this.addWireMessage('\n🤖 AI suggests next step:', 'cyan');
+            this.addWireMessage(`$ ${suggestedCmd}`, 'green');
+
+            try {
+                const execResponse = await this.apiCall('POST', '/api/docker/exec', { command: suggestedCmd });
+                if (execResponse.success) {
+                    const cmdOutput = execResponse.output || '(no output)';
+                    if (cmdOutput) this.addWireMessage(cmdOutput, 'grey');
+                    if (execResponse.timedOut) {
+                        this.addWireMessage('⏱ AI command timed out', 'yellow');
+                    } else {
+                        this.addWireMessage('✓ AI command complete', 'green');
+                    }
+                    this.highlightOutput(cmdOutput);
+                }
+            } catch (execErr) {
+                this.addWireMessage(`❌ AI command failed: ${execErr.message}`, 'red');
+            }
+
+            this.commandInput.placeholder = `Last AI cmd: ${suggestedCmd.slice(0, 60)}`;
         } catch (err) { }
     }
 

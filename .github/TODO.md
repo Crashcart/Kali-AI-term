@@ -2,13 +2,19 @@
 
 > 🔒 **GOVERNANCE FILE** — Protected by Rule 10 in `copilot-instructions.md`. Follow full workflow when editing.
 
-**Last Updated**: 2026-04-11 21:19:00 UTC
-**Current Session**: Fix AI streaming 404 — model parameter dropped on /api/llm/* paths
+**Last Updated**: 2026-04-15 UTC
+**Current Session**: Show AI-suggested command I/O in wire stream
 **Repository**: Kali-AI-term
 
 ---
 
 ## Current Session Tasks
+
+| ID | Task Title | Status | Assigned | Priority | Notes |
+|:--:|-----------|--------|----------|----------|-------|
+| S1 | Modify `suggestNextCommand()` to execute AI command and show I/O | ✅ **completed** | Claude | 🟠 HIGH | Wire stream now shows `$ cmd` + output when autoPilot suggests a command |
+
+## Previous Session Tasks
 
 | ID | Task Title | Status | Assigned | Priority | Notes |
 |:--:|-----------|--------|----------|----------|-------|
