@@ -72,9 +72,33 @@ Key topics covered:
 
 ## Quick Start
 
+### Installation Tiers
+
+Kali-AI-term uses a 4-tier release pipeline for stability and testing:
+
+| Tier | Stability | Use Case | Installation |
+|------|-----------|----------|--------------|
+| **main** | Production ⭐ | Stable release (recommended for most users) | `bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/install.sh)` |
+| **test** | Release Candidate | Final validation before production | `bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/test/install-test.sh)` |
+| **beta** | Stable Features | Tested features, ready for broader testing | `bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/beta/install-beta.sh)` |
+| **alpha** | Experimental | Early features, experimental code for testing | `bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/alpha/install-alpha.sh)` |
+
+**Promotion Pipeline**: `feature/* → alpha → beta → test → main`
+
+- **Alpha**: Bleeding-edge features, frequent updates, experimental code
+- **Beta**: Stable features tested in alpha, ready for broader testing
+- **Test**: Release candidate, final validation before production release
+- **Main**: Production release, thoroughly tested and validated
+
 ### Easy Install (Recommended)
 
-**One-command installation with automatic setup:**
+**One-command installation from production (main) branch:**
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/install.sh)
+```
+
+Or clone and run locally:
 
 ```bash
 git clone https://github.com/Crashcart/Kali-AI-term.git
@@ -82,7 +106,7 @@ cd Kali-AI-term
 ./install.sh
 ```
 
-The script will:
+The install script will:
 
 - ✓ Check all prerequisites (Docker, Node.js, Ollama)
 - ✓ Prompt for an admin password during interactive installs
@@ -95,9 +119,11 @@ The script will:
 
 Then open `http://localhost:31337` and start pentesting!
 
+**Testing new features?** See the [Installation Tiers](#installation-tiers) table above for alpha/beta/test branch installers.
+
 ### Update (Pull Latest Images)
 
-**One-command update to pull the latest images and restart services:**
+**One-command update from the main (production) branch:**
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/update.sh)
@@ -117,6 +143,17 @@ The script will:
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Crashcart/Kali-AI-term/main/uninstall.sh)
 ```
+
+The uninstall script will:
+
+- ✓ Stop and remove all Kali-AI-term Docker containers
+- ✓ Remove Docker volumes to free disk space
+- ✓ Prune Docker cache to clean up old images and configurations
+- ✓ Delete `.env` and configuration files
+- ✓ Remove dependencies (node_modules)
+- ✓ Delete data directory and logs
+
+After uninstall, you can reinstall from any tier branch using the [Installation Tiers](#installation-tiers) table above.
 
 The script will:
 
