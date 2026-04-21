@@ -27,10 +27,15 @@ REMOVED_ITEMS=""
 
 echo ""
 echo "✓ Removing containers..."
-docker_down=$(docker compose down 2>&1 || docker-compose down 2>&1 || echo "")
+docker_down=$(docker compose down -v 2>&1 || docker-compose down -v 2>&1 || echo "")
 docker_exit=$?
-echo "  ✓ Containers removed"
-log_cmd "SUCCESS" "Docker containers stopped"
+echo "  ✓ Containers and volumes removed"
+log_cmd "SUCCESS" "Docker containers and volumes stopped"
+
+# Clean up Docker cache to remove any old images/configs
+echo "✓ Pruning Docker cache..."
+docker system prune -af 2>/dev/null || echo "  ⚠ Docker prune skipped"
+log_cmd "SUCCESS" "Docker cache pruned"
 
 echo "✓ Removing configuration..."
 if [ -f .env ]; then
