@@ -5,4 +5,8 @@ module.exports = {
   testMatch: ['**/tests/**/*.test.js'],
   verbose: true,
   testTimeout: 10000,
+  // Several suites mutate shared global state (the SQLite singleton via
+  // process.env.DB_PATH, the plugin manager, the file manager). Running them
+  // across parallel workers caused intermittent failures, so execute serially.
+  maxWorkers: 1,
 };

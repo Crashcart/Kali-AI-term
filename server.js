@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const net = require('net');
 const os = require('os');
+const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const Docker = require('dockerode');
 const axios = require('axios');
@@ -15,9 +16,19 @@ const expressStaticGzip = require('express-static-gzip');
 const reportPlugin = require('./plugins/report-plugin');
 const db = require('./db/init');
 const { createLogger } = require('./lib/install-logger');
+const SandboxDetector = require('./lib/sandbox-detector');
+const SandboxConfig = require('./lib/sandbox-config');
+const SandboxManager = require('./lib/sandbox-manager');
+const createSandboxRoutes = require('./lib/sandbox-api-routes');
+const LLMOrchestrator = require('./lib/llm-orchestrator');
+const OllamaProvider = require('./lib/ollama-provider');
+const GeminiProvider = require('./lib/gemini-provider');
+const createMultiLLMRoutes = require('./lib/multi-llm-api-routes');
 
 // Initialize logger
 const logger = createLogger('app');
+// `appLogger` is the canonical name used throughout the request handlers.
+const appLogger = logger;
 logger.trackSystemInfo();
 logger.trackEnvironment();
 logger.info('Application starting...');
@@ -66,6 +77,31 @@ const limiter = rateLimit({
   legacyHeaders: false,
 });
 app.use(limiter);
+
+// Strict rate limiter for authentication to slow down password brute-forcing.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: { error: 'Too many login attempts. Please try again later.' },
+});
+
+/**
+ * Constant-time string comparison to mitigate timing attacks on secrets
+ * (passwords, auth tokens). Falls back to a safe length-independent compare.
+ */
+function safeCompare(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const bufA = Buffer.from(a, 'utf8');
+  const bufB = Buffer.from(b, 'utf8');
+  // timingSafeEqual requires equal-length buffers; hash to a fixed length first
+  // so length differences don't short-circuit (and don't leak length via timing).
+  const hashA = crypto.createHash('sha256').update(bufA).digest();
+  const hashB = crypto.createHash('sha256').update(bufB).digest();
+  return crypto.timingSafeEqual(hashA, hashB);
+}
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
@@ -571,7 +607,7 @@ function createLoginErrorReport(req, details = {}) {
   }
 }
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', loginLimiter, (req, res) => {
   const { password } = req.body;
   const expectedPassword = process.env.ADMIN_PASSWORD || 'kalibot';
 
@@ -584,7 +620,7 @@ app.post('/api/auth/login', (req, res) => {
     });
   }
 
-  if (password !== expectedPassword) {
+  if (!safeCompare(password, expectedPassword)) {
     const reportId = createLoginErrorReport(req, { reason: 'password-mismatch' });
     return res.status(401).json({
       error: 'Unauthorized',
@@ -634,13 +670,16 @@ function authenticate(req, res, next) {
   try {
     const decoded = Buffer.from(token, 'base64').toString();
     const colonIdx = decoded.indexOf(':');
+    if (colonIdx === -1) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
     const sessionId = decoded.substring(0, colonIdx);
     const secret = decoded.substring(colonIdx + 1);
 
     // Get session from database
     const session = db.getSession(sessionId);
 
-    if (!session || secret !== AUTH_SECRET) {
+    if (!session || !safeCompare(secret, AUTH_SECRET)) {
       return res.status(401).json({ error: 'Invalid token' });
     }
 
@@ -662,8 +701,13 @@ app.post('/api/docker/exec', authenticate, async (req, res) => {
   const { command } = req.body;
   let { timeout = 30000 } = req.body;
 
-  if (!command) {
+  if (typeof command !== 'string' || command.trim().length === 0) {
     return res.status(400).json({ error: 'Command required' });
+  }
+
+  // Cap command length to avoid abusive payloads.
+  if (command.length > 100000) {
+    return res.status(413).json({ error: 'Command too long (max 100000 characters)' });
   }
 
   // Validate timeout: must be a positive integer, capped at 5 minutes
@@ -671,6 +715,11 @@ app.post('/api/docker/exec', authenticate, async (req, res) => {
   if (!Number.isFinite(timeout) || timeout < 1000 || timeout > 300000) {
     timeout = 30000;
   }
+
+  // Guard so a stream can only ever produce a single HTTP response.
+  // Without this, an 'error' firing after 'end' (or vice-versa) would throw
+  // "Cannot set headers after they are sent" and crash the process.
+  let responded = false;
 
   try {
     const container = docker.getContainer(KALI_CONTAINER);
@@ -703,17 +752,25 @@ app.post('/api/docker/exec', authenticate, async (req, res) => {
     stream.on('end', () => {
       clearTimeout(timer);
       activeProcesses.delete(execId);
+      if (responded) return;
+      responded = true;
 
       const durationSeconds = Math.round((Date.now() - startTime) / 1000);
 
       // Store command in database
-      db.addCommand(req.sessionId, command, durationSeconds, output, '', !timedOut);
+      try {
+        db.addCommand(req.sessionId, command, durationSeconds, output, '', !timedOut);
+      } catch (dbErr) {
+        appLogger.error('Failed to persist command history', { error: dbErr.message });
+      }
 
       // Auto-save discovered hosts if this looks like an nmap command
       if (/^\s*nmap\b/i.test(command) && output.includes('Nmap scan report')) {
         try {
           db.parseAndSaveNmapOutput(output);
-        } catch (_) {}
+        } catch (parseErr) {
+          appLogger.warn('Failed to auto-parse nmap output', { error: parseErr.message });
+        }
       }
 
       res.json({
@@ -728,11 +785,17 @@ app.post('/api/docker/exec', authenticate, async (req, res) => {
     stream.on('error', (err) => {
       clearTimeout(timer);
       activeProcesses.delete(execId);
-      res.status(500).json({ error: err.message });
+      appLogger.error('Docker exec stream error', { error: err.message });
+      if (responded) return;
+      responded = true;
+      res.status(500).json({ error: 'Command stream failed', details: err.message });
     });
   } catch (err) {
-    console.error('Docker exec error:', err);
-    res.status(500).json({ error: 'Command execution failed', details: err.message });
+    appLogger.error('Docker exec error', { error: err.message });
+    if (!responded) {
+      responded = true;
+      res.status(500).json({ error: 'Command execution failed', details: err.message });
+    }
   }
 });
 
@@ -1228,53 +1291,72 @@ app.post('/api/proxy/test', authenticate, async (req, res) => {
     return res.json({ success: true, message: 'Proxy is disabled', status: 'disabled' });
   }
 
+  // Validate that the proxy host/port are sane before attempting a connection.
+  const proxyPort = Number(PROXY_CONFIG.port);
+  if (!PROXY_CONFIG.host || !Number.isInteger(proxyPort) || proxyPort < 1 || proxyPort > 65535) {
+    return res.status(400).json({
+      success: false,
+      status: 'failed',
+      message: 'Proxy host or port is not configured correctly',
+    });
+  }
+
+  const agentOpts = { host: PROXY_CONFIG.host, port: proxyPort };
+  const testUrl = 'http://httpbin.org/delay/1';
+  const startTime = Date.now();
+
   try {
-    // Create axios instance with proxy config
-    const httpAgent =
-      PROXY_CONFIG.protocol === 'socks5'
-        ? { host: PROXY_CONFIG.host, port: PROXY_CONFIG.port }
-        : { host: PROXY_CONFIG.host, port: PROXY_CONFIG.port };
+    await axios.get(testUrl, {
+      timeout: 10000,
+      httpAgent:
+        PROXY_CONFIG.protocol === 'http' ? new (require('http').Agent)(agentOpts) : undefined,
+      httpsAgent:
+        PROXY_CONFIG.protocol === 'https' ? new (require('https').Agent)(agentOpts) : undefined,
+    });
 
-    // Test by connecting to httpbin.org echo service
-    const testUrl = 'http://httpbin.org/delay/1';
-    const startTime = Date.now();
-
-    const response = await axios
-      .get(testUrl, {
-        timeout: 10000,
-        httpAgent:
-          PROXY_CONFIG.protocol === 'http' ? new (require('http').Agent)(httpAgent) : undefined,
-        httpsAgent:
-          PROXY_CONFIG.protocol === 'https' ? new (require('https').Agent)(httpAgent) : undefined,
-      })
-      .catch((err) => {
-        // If httpbin fails, just verify connectivity to proxy host
-        return new Promise((resolve) => {
-          const socket = require('net')
-            .createConnection(PROXY_CONFIG.port, PROXY_CONFIG.host, () => {
-              socket.destroy();
-              resolve({ data: { status: 'connected' } });
-            })
-            .on('error', () => {
-              throw new Error('Cannot reach proxy server');
-            });
-        });
-      });
-
-    const duration = Date.now() - startTime;
-    res.json({
+    return res.json({
       success: true,
       status: 'working',
       message: 'Proxy is reachable and responding',
-      latency: duration,
+      latency: Date.now() - startTime,
     });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      status: 'failed',
-      error: err.message,
-      message: 'Cannot reach proxy server or test URL',
-    });
+  } catch (httpErr) {
+    appLogger.warn(`Proxy HTTP test failed, falling back to raw socket check: ${httpErr.message}`);
+
+    // Fall back to a raw TCP connectivity check against the proxy host.
+    try {
+      await new Promise((resolve, reject) => {
+        const socket = net.createConnection(proxyPort, PROXY_CONFIG.host);
+        const timer = setTimeout(() => {
+          socket.destroy();
+          reject(new Error('Connection to proxy server timed out'));
+        }, 8000);
+
+        socket.once('connect', () => {
+          clearTimeout(timer);
+          socket.destroy();
+          resolve();
+        });
+        socket.once('error', (sockErr) => {
+          clearTimeout(timer);
+          reject(new Error(`Cannot reach proxy server: ${sockErr.message}`));
+        });
+      });
+
+      return res.json({
+        success: true,
+        status: 'connected',
+        message: 'Proxy host is reachable (raw TCP connectivity verified)',
+        latency: Date.now() - startTime,
+      });
+    } catch (sockErr) {
+      return res.status(502).json({
+        success: false,
+        status: 'failed',
+        error: sockErr.message,
+        message: 'Cannot reach proxy server or test URL',
+      });
+    }
   }
 });
 
@@ -1516,7 +1598,6 @@ app.post('/api/ollama/stream', authenticate, async (req, res) => {
         .filter((u) => u !== OLLAMA_URL),
     ];
     let lastErr;
-    let connected = false;
     for (const url of urlsToTry) {
       try {
         const response = await axios.post(
@@ -1533,7 +1614,6 @@ app.post('/api/ollama/stream', authenticate, async (req, res) => {
           }
         );
 
-        connected = true;
         let tokenCount = 0;
         response.data.on('data', (chunk) => {
           try {
@@ -1841,7 +1921,18 @@ app.post('/api/reports/generate', authenticate, (req, res) => {
     const history = db.getCommandHistory(req.sessionId, 100);
 
     // Collect findings from database
-    const findings = db.getFindingsWithCVEs(req.sessionId);
+    let findings = db.getFindingsWithCVEs(req.sessionId);
+
+    // Honour the includeCVEs flag — when disabled, strip CVE enrichment data.
+    if (includeCVEs === false) {
+      findings = findings.map((f) => {
+        const { cves, cve, cveDetails, ...rest } = f;
+        void cves;
+        void cve;
+        void cveDetails;
+        return rest;
+      });
+    }
     const sessionNotes = db.getSessionNotes(req.sessionId);
 
     // Calculate session duration

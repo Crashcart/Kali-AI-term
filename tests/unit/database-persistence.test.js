@@ -10,17 +10,20 @@ const fs = require('fs');
 const testDbPath = path.join(__dirname, '../../data/test-kalibot.db');
 
 describe('Database Persistence', () => {
-  let testDb;
-
   beforeAll(() => {
     process.env.DB_PATH = testDbPath;
-    testDb = db.initializeDatabase();
+    db.initializeDatabase();
   });
 
   afterAll(() => {
     db.closeDatabase();
-    if (fs.existsSync(testDbPath)) {
-      fs.unlinkSync(testDbPath);
+    // SQLite in WAL mode leaves -wal/-shm sidecar files; remove them too so
+    // a stale schema can't leak into a subsequent run.
+    for (const suffix of ['', '-wal', '-shm', '-journal']) {
+      const f = testDbPath + suffix;
+      if (fs.existsSync(f)) {
+        fs.unlinkSync(f);
+      }
     }
   });
 
