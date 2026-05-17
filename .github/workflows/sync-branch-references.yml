@@ -51,9 +51,7 @@ jobs:
           git config user.name "🤖 GitHub Actions"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add README.md install.sh uninstall.sh
-          git commit -m "chore: sync branch references from test to main
-
-Updated documentation and scripts to reference main branch instead of test"
+          git commit -m $'chore: sync branch references from test to main\n\nUpdated documentation and scripts to reference main branch instead of test'
 
       - name: Push sync branch and create PR
         if: steps.changes.outputs.has_changes == 'true'
@@ -66,18 +64,7 @@ Updated documentation and scripts to reference main branch instead of test"
             --base main \
             --head $SYNC_BRANCH \
             --title "chore: sync branch references to main" \
-            --body "Automated PR to update branch references
-
-This PR updates all references from test branch to main branch in:
-- README.md
-- install.sh
-- uninstall.sh
-
-**Action Required:** Review and approve to merge.
-
----
-Created by: Sync Branch References workflow
-Triggered by: Push to main branch" \
+            --body $'Automated PR to update branch references\n\nThis PR updates all references from test branch to main branch in:\n- README.md\n- install.sh\n- uninstall.sh\n\n**Action Required:** Review and approve to merge.\n\n---\nCreated by: Sync Branch References workflow\nTriggered by: Push to main branch' \
             --label "automated" \
             --label "documentation"
 
